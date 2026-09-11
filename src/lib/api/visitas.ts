@@ -1,0 +1,50 @@
+import type { PaginatedMeta, StatusVisita, Visita } from '../../types/api';
+import { apiClient } from './client';
+
+export interface VisitasFiltros {
+  data_inicio?: string;
+  data_fim?: string;
+  usuario_uuid?: string;
+  ponto_venda_uuid?: string;
+  status?: StatusVisita;
+  page?: number;
+}
+
+export interface VisitasListResponse {
+  visitas: Visita[];
+  meta: PaginatedMeta;
+}
+
+export async function listarVisitas(filtros: VisitasFiltros = {}): Promise<VisitasListResponse> {
+  const { data } = await apiClient.get<VisitasListResponse>('/visitas', { params: filtros });
+  return data;
+}
+
+export async function buscarVisita(uuid: string): Promise<{ visita: Visita }> {
+  const { data } = await apiClient.get<{ visita: Visita }>(`/visitas/${uuid}`);
+  return data;
+}
+
+// Intervenção administrativa (exige permissão visitas.intervir) — ver
+// docs/15-INTERVENCAO-ADMINISTRATIVA-VISITA.md. As três exigem `motivo`.
+
+export async function cancelarVisita(uuid: string, motivo: string): Promise<{ visita: Visita }> {
+  const { data } = await apiClient.post<{ visita: Visita }>(`/visitas/${uuid}/cancelar`, { motivo });
+  return data;
+}
+
+export async function forcarCheckoutVisita(
+  uuid: string,
+  payload: { motivo: string; fim_data: string },
+): Promise<{ visita: Visita }> {
+  const { data } = await apiClient.post<{ visita: Visita }>(`/visitas/${uuid}/forcar-checkout`, payload);
+  return data;
+}
+
+export async function corrigirHorariosVisita(
+  uuid: string,
+  payload: { motivo: string; inicio_data?: string; fim_data?: string },
+): Promise<{ visita: Visita }> {
+  const { data } = await apiClient.patch<{ visita: Visita }>(`/visitas/${uuid}/horarios`, payload);
+  return data;
+}
