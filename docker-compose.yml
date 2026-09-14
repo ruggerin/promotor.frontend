@@ -17,8 +17,11 @@ services:
       args:
         VITE_API_URL: ${VITE_API_URL}
     image: pdv-app-admin
+    container_name: tradeteste_admin
     restart: unless-stopped
     # A VPS já tem outras aplicações rodando em portas variadas — troque ADMIN_PORT no seu
     # admin/.env se 8080 colidir com alguma delas. Dentro do container sempre é 80 (Nginx).
+    # Só em 127.0.0.1: quem serve pra fora é o Nginx do host (com TLS), igual ao restante das
+    # apps desta VPS — o container não precisa (nem deve) ficar acessível direto de fora.
     ports:
-      - "${ADMIN_PORT:-8080}:80"
+      - "127.0.0.1:${ADMIN_PORT:-8080}:80"
