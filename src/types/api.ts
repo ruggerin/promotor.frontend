@@ -158,6 +158,12 @@ export interface Usuario {
   user_type: UserType;
   ativo: boolean;
   avatar_url: string | null;
+  // Foto de verdade enviada pelo próprio usuário (self-service, hoje só pelo app mobile — ver
+  // docs/05-APP-MOBILE-UX.md). Distinto de avatar_url (texto livre, nunca usado hoje). Rota
+  // autenticada (`GET /api/usuarios/{uuid}/foto`) — nunca uma URL pública direta, por isso
+  // precisa passar pelo axios (com o Authorization já injetado), não um <img src> comum. Ver
+  // components/UsuarioAvatar.tsx.
+  foto_url: string | null;
   empresa?: Empresa;
   // Só tem valor pra user_type GESTOR — ADMIN sempre tem acesso total, PROMOTOR/SUPERADMIN
   // não usam perfil.
@@ -321,6 +327,12 @@ export type GranularidadeResposta = 'LINHA' | 'PRODUTO';
 export interface TipoRegistro {
   id: string;
   descricao: string;
+  // Slug do Material Design Icons, sem o prefixo "mdi-" (ver components/MdiIcon.tsx e
+  // App\Support\IconeTipoRegistro no backend) — mesmo valor usado pelo mobile.
+  icone: string | null;
+  // Sequência de exibição — admin e mobile listam por ela (ver TipoRegistroController::index).
+  // Não é editável direto no form: só muda via botões "mover" na listagem.
+  ordem: number;
   exige_foto: boolean;
   permite_vincular_catalogo: boolean;
   // Ação obrigatória — aparece na aba Ações da visita em vez de só uma opção do Registro geral.
@@ -335,6 +347,8 @@ export interface TipoRegistro {
   // Marca a coluna "Ruptura" da grade de coleta (Fase 2) — sempre a primeira, marcar um produto
   // exclui ele das demais colunas da mesma linha. Ver docs/16-GRANULARIDADE-CHECKLIST-AUDITORIA.md §9.
   eh_ruptura: boolean;
+  // Dispara evento de alerta no Painel de Atividades — ver docs/19-PAINEL-ATIVIDADES.md.
+  eh_alerta: boolean;
   campos: CampoTipoRegistro[];
   empresa?: Empresa;
   ativo: boolean;
@@ -417,7 +431,7 @@ export interface CampanhaAuditoria {
 
 export interface VisitaRegistro {
   id: string;
-  tipo_registro: { id: string; descricao: string };
+  tipo_registro: { id: string; descricao: string; icone: string | null };
   produto_auditoria: { id: string; descricao: string } | null;
   // Vínculo opcional a um recorte mais amplo do catálogo — no máximo um destes três vem
   // preenchido, conforme `tipo_vinculo` (mesmo padrão de CampanhaItem).
@@ -430,8 +444,32 @@ export interface VisitaRegistro {
   // Valores dos campos customizados do tipo_registro (ex.: { quantidade: "5", valor: "199.90" }).
   valores_campos: Record<string, string> | null;
   imagem_url: string | null;
+  // Resolução de alerta (Painel de Atividades) — só relevante quando tipo_registro.eh_alerta é
+  // true. Ver docs/19-PAINEL-ATIVIDADES.md.
+  alerta_resolvido_em: string | null;
+  resolvido_por: { id: string; nome: string } | null;
   created_at: string;
   updated_at: string;
+}
+
+// Feed do Painel de Atividades — mistura Visita (check-in/checkout) e VisitaRegistro-alerta
+// num shape comum, discriminado por tipo_evento. Ver docs/19-PAINEL-ATIVIDADES.md.
+export type TipoEventoAtividade = 'VISITA_INICIADA' | 'VISITA_FINALIZADA' | 'ALERTA';
+
+export interface AtividadeEvento {
+  tipo_evento: TipoEventoAtividade;
+  ocorrido_em: string;
+  visita: { id: string };
+  ponto_venda: { id: string; fantasia: string } | null;
+  usuario: { id: string; nome: string; foto_url: string | null } | null;
+  // Só em VISITA_INICIADA.
+  localizacao?: { latitude: number; longitude: number; distancia_metros: number | null };
+  // Só em VISITA_FINALIZADA — registros com foto coletados na visita, pro mosaico do card
+  // (mesmo shape de VisitaRegistro, pra galeria mostrar a informação junto da imagem).
+  resumo?: { registros: number; rupturas: number };
+  imagens?: VisitaRegistro[];
+  // Só em ALERTA.
+  registro?: VisitaRegistro;
 }
 
 export interface Visita {

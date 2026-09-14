@@ -35,6 +35,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import axios from 'axios';
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { UsuarioAvatar } from '../../components/UsuarioAvatar';
 import { adicionarPromotorPontoVenda, listarPontosVenda, removerPromotorPontoVenda } from '../../lib/api/pontosVenda';
 import {
   atualizarUsuario,
@@ -105,6 +106,19 @@ function descricaoEvento(evento: EventoHistorico): string {
   }
 }
 
+// Formato aceito pelos <TextField type="date"> abaixo (yyyy-mm-dd) e pelo filtro
+// ?data_inicio=/?data_fim= do backend — sempre a data local do navegador, nunca UTC.
+function dataIsoLocal(data: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${data.getFullYear()}-${pad(data.getMonth() + 1)}-${pad(data.getDate())}`;
+}
+
+function diasAtras(dias: number): string {
+  const data = new Date();
+  data.setDate(data.getDate() - dias);
+  return dataIsoLocal(data);
+}
+
 // Página de detalhe — mesmo padrão de Empresas/Pontos de Venda: reúne o que a lista não tinha
 // espaço pra mostrar (lojas do promotor, gestão do dispositivo vinculado), ver
 // docs/03-ADMIN-WEB.md#6-usuários.
@@ -122,8 +136,11 @@ export function UsuarioDetailPage() {
   const [dialogBuscaAvancadaAberto, setDialogBuscaAvancadaAberto] = useState(false);
   const [paginaHistorico, setPaginaHistorico] = useState(1);
   const [abaHistorico, setAbaHistorico] = useState<'atividade' | 'localizacao'>('atividade');
-  const [dataInicioHistorico, setDataInicioHistorico] = useState('');
-  const [dataFimHistorico, setDataFimHistorico] = useState('');
+  // Default: últimos 7 dias — sem isso a lista de atividade carregava tudo desde sempre, o que
+  // costuma ser a maioria dos casos raramente úteis (alguém quase sempre quer "o que aconteceu
+  // recentemente"). "Limpar período" abaixo continua dando acesso ao histórico completo.
+  const [dataInicioHistorico, setDataInicioHistorico] = useState(() => diasAtras(7));
+  const [dataFimHistorico, setDataFimHistorico] = useState(() => dataIsoLocal(new Date()));
 
   const usuarioQuery = useQuery({
     queryKey: ['usuarios', publicId],
@@ -286,6 +303,7 @@ export function UsuarioDetailPage() {
       </Button>
 
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3, flexWrap: 'wrap' }}>
+        <UsuarioAvatar nome={usuario.nome} fotoUrl={usuario.foto_url} size={56} />
         <Typography variant="h4" component="h1">
           {usuario.nome}
         </Typography>

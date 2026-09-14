@@ -38,6 +38,7 @@ export interface CampoTipoRegistroPayload {
 
 export interface TipoRegistroPayload {
   descricao: string;
+  icone?: string | null;
   exige_foto?: boolean;
   permite_vincular_catalogo?: boolean;
   acao_obrigatoria?: boolean;
@@ -68,4 +69,12 @@ export async function atualizarTipoRegistro(
 
 export async function desativarTipoRegistro(uuid: string): Promise<void> {
   await apiClient.delete(`/tipos-registro/${uuid}`);
+}
+
+// Sequência de exibição (admin e mobile, ver TipoRegistroController::mover) — troca a `ordem`
+// deste tipo com a do vizinho na direção pedida; sem vizinho (já é o primeiro/último), não faz
+// nada, não é erro.
+export async function moverTipoRegistro(uuid: string, direcao: 'cima' | 'baixo'): Promise<{ tipo_registro: TipoRegistro }> {
+  const { data } = await apiClient.post<{ tipo_registro: TipoRegistro }>(`/tipos-registro/${uuid}/mover`, { direcao });
+  return data;
 }

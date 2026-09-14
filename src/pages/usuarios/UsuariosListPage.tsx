@@ -27,6 +27,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import axios from 'axios';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { UsuarioAvatar } from '../../components/UsuarioAvatar';
 import { listarEmpresasSuperadmin } from '../../lib/api/empresas';
 import { atualizarUsuario, desativarUsuario, listarUsuarios } from '../../lib/api/usuarios';
 import { useAuth } from '../../lib/auth/AuthContext';
@@ -147,7 +148,7 @@ export function UsuariosListPage() {
 
   const perPage = usuariosQuery.data?.meta.per_page ?? 15;
   // SUPERADMIN ganha a coluna Empresa a mais (Ações ele também tem, só com menos ícones).
-  const totalColunas = isSuperadmin ? 8 : 7;
+  const totalColunas = isSuperadmin ? 9 : 8;
 
   return (
     <Box>
@@ -225,6 +226,7 @@ export function UsuariosListPage() {
         <Table>
           <TableHead>
             <TableRow>
+              <TableCell padding="checkbox" />
               {isSuperadmin && <TableCell>Empresa</TableCell>}
               <TableCell>Nome</TableCell>
               <TableCell>E-mail</TableCell>
@@ -267,6 +269,9 @@ export function UsuariosListPage() {
                 sx={{ cursor: 'pointer' }}
                 onClick={() => navigate(`/usuarios/${usuario.id}`)}
               >
+                <TableCell padding="checkbox">
+                  <UsuarioAvatar nome={usuario.nome} fotoUrl={usuario.foto_url} />
+                </TableCell>
                 {isSuperadmin && <TableCell>{usuario.empresa?.nome_fantasia ?? '—'}</TableCell>}
                 <TableCell>{usuario.nome}</TableCell>
                 <TableCell>{usuario.email}</TableCell>

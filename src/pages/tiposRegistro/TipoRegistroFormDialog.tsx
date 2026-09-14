@@ -13,6 +13,7 @@ import {
   Divider,
   FormControlLabel,
   IconButton,
+  Link,
   MenuItem,
   Switch,
   TextField,
@@ -23,6 +24,7 @@ import axios from 'axios';
 import { useEffect, useState } from 'react';
 import { Controller, useFieldArray, useForm, useWatch, type Control } from 'react-hook-form';
 import { z } from 'zod';
+import { MdiIcon } from '../../components/MdiIcon';
 import { listarCampanhas } from '../../lib/api/campanhas';
 import { listarSecoes } from '../../lib/api/secoes';
 import { atualizarTipoRegistro, criarTipoRegistro } from '../../lib/api/tiposRegistro';
@@ -72,6 +74,9 @@ const excecaoGranularidadeSchema = z.object({
 const schema = z
   .object({
     descricao: z.string().min(1, 'Obrigatório').max(255),
+    // Slug do Material Design Icons — validação de formato fica a cargo do backend (aceita com
+    // ou sem prefixo "mdi-"/"mdi:", normaliza); aqui só garante que não veio vazio disfarçado.
+    icone: z.string().nullable(),
     exige_foto: z.boolean(),
     permite_vincular_catalogo: z.boolean(),
     ativo: z.boolean(),
@@ -81,6 +86,7 @@ const schema = z
     granularidade_padrao: z.enum(['LINHA', 'PRODUTO']).nullable(),
     excecoes_granularidade: z.array(excecaoGranularidadeSchema),
     eh_ruptura: z.boolean(),
+    eh_alerta: z.boolean(),
     campos: z.array(campoSchema),
   })
   .refine((data) => !data.acao_obrigatoria || data.escopo_acao !== null, {
@@ -96,6 +102,7 @@ type FormData = z.infer<typeof schema>;
 
 const DEFAULT_VALUES: FormData = {
   descricao: '',
+  icone: null,
   exige_foto: false,
   permite_vincular_catalogo: false,
   ativo: true,
@@ -105,6 +112,7 @@ const DEFAULT_VALUES: FormData = {
   granularidade_padrao: null,
   excecoes_granularidade: [],
   eh_ruptura: false,
+  eh_alerta: false,
   campos: [],
 };
 
@@ -148,6 +156,7 @@ export function TipoRegistroFormDialog({ open, tipo, onClose }: TipoRegistroForm
         tipo
           ? {
               descricao: tipo.descricao,
+              icone: tipo.icone,
               exige_foto: tipo.exige_foto,
               permite_vincular_catalogo: tipo.permite_vincular_catalogo,
               ativo: tipo.ativo,
@@ -160,6 +169,7 @@ export function TipoRegistroFormDialog({ open, tipo, onClose }: TipoRegistroForm
                 granularidade: e.granularidade,
               })),
               eh_ruptura: tipo.eh_ruptura,
+              eh_alerta: tipo.eh_alerta,
               campos: tipo.campos.map((c) => ({
                 chave: c.chave,
                 rotulo: c.rotulo,
@@ -177,6 +187,7 @@ export function TipoRegistroFormDialog({ open, tipo, onClose }: TipoRegistroForm
     mutationFn: async (data: FormData) => {
       const payload = {
         descricao: data.descricao,
+        icone: data.icone,
         exige_foto: data.exige_foto,
         permite_vincular_catalogo: data.permite_vincular_catalogo,
         acao_obrigatoria: data.acao_obrigatoria,
@@ -185,6 +196,7 @@ export function TipoRegistroFormDialog({ open, tipo, onClose }: TipoRegistroForm
         granularidade_padrao: data.granularidade_padrao,
         excecoes_granularidade: data.excecoes_granularidade,
         eh_ruptura: data.eh_ruptura,
+        eh_alerta: data.eh_alerta,
         campos: data.campos.map((c) => ({
           chave: c.chave,
           rotulo: c.rotulo,
@@ -254,6 +266,36 @@ export function TipoRegistroFormDialog({ open, tipo, onClose }: TipoRegistroForm
               />
             )}
           />
+
+          <Controller
+            name="icone"
+            control={control}
+            render={({ field, fieldState }) => (
+              <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-start' }}>
+                <TextField
+                  {...field}
+                  value={field.value ?? ''}
+                  onChange={(e) => field.onChange(e.target.value || null)}
+                  label="Ícone"
+                  placeholder="Ex.: camera, alert, arrow-right"
+                  fullWidth
+                  margin="normal"
+                  error={!!fieldState.error}
+                  helperText={fieldState.error?.message ?? 'Código do Material Design Icons, com ou sem o prefixo "mdi-".'}
+                />
+                <Box sx={{ display: 'flex', alignItems: 'center', height: 56, mt: 2 }}>
+                  <MdiIcon icone={field.value} size={32} />
+                </Box>
+              </Box>
+            )}
+          />
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: -1, mb: 1 }}>
+            Aparece no admin e no app do promotor.{' '}
+            <Link href="https://pictogrammers.com/library/mdi/" target="_blank" rel="noreferrer">
+              Ver códigos disponíveis
+            </Link>
+            .
+          </Typography>
 
           <Controller
             name="exige_foto"
@@ -375,6 +417,23 @@ export function TipoRegistroFormDialog({ open, tipo, onClose }: TipoRegistroForm
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: -1 }}>
             Sempre a primeira coluna da grade (Fase 2) — marcar um produto em ruptura tira ele das
             demais colunas da mesma linha. Toda empresa já nasce com o tipo "Ruptura" marcado.
+          </Typography>
+
+          <Controller
+            name="eh_alerta"
+            control={control}
+            render={({ field }) => (
+              <FormControlLabel
+                sx={{ display: 'block', mt: 1 }}
+                control={<Switch checked={field.value} onChange={(e) => field.onChange(e.target.checked)} />}
+                label="Gera alerta no Painel de Atividades"
+              />
+            )}
+          />
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: -1 }}>
+            Todo registro deste tipo aparece destacado na timeline de Atividades (ver menu
+            "Atividades"), pra pedir ação imediata — ex.: Ruptura, Avaria, Vencimento próximo,
+            Ação da concorrência.
           </Typography>
 
           <Divider sx={{ my: 2 }} />

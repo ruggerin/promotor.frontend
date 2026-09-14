@@ -1,4 +1,5 @@
 import AssignmentIcon from '@mui/icons-material/Assignment';
+import BoltIcon from '@mui/icons-material/Bolt';
 import BusinessIcon from '@mui/icons-material/Business';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import CampaignIcon from '@mui/icons-material/Campaign';
@@ -7,6 +8,7 @@ import DescriptionIcon from '@mui/icons-material/Description';
 import EventNoteIcon from '@mui/icons-material/EventNote';
 import FlagIcon from '@mui/icons-material/Flag';
 import LabelIcon from '@mui/icons-material/Label';
+import ListAltIcon from '@mui/icons-material/ListAlt';
 import LogoutIcon from '@mui/icons-material/Logout';
 import PaidIcon from '@mui/icons-material/Paid';
 import PeopleIcon from '@mui/icons-material/People';
@@ -29,6 +31,7 @@ import {
 } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 import { NavLink, Outlet } from 'react-router-dom';
+import { UsuarioAvatar } from '../UsuarioAvatar';
 import { listarOrdensServico } from '../../lib/api/ordensServico';
 import { useAuth } from '../../lib/auth/AuthContext';
 
@@ -56,7 +59,8 @@ export function AppLayout() {
           <Typography variant="h6" noWrap component="div">
             PDV Admin
           </Typography>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            {usuario && <UsuarioAvatar nome={usuario.nome} fotoUrl={usuario.foto_url} size={32} />}
             <Typography variant="body2">
               {usuario?.nome} · {usuario?.empresa?.nome_fantasia ?? usuario?.user_type}
             </Typography>
@@ -88,6 +92,17 @@ export function AppLayout() {
             </ListItemIcon>
             <ListItemText primary="Pontos de Venda" />
           </ListItemButton>
+          {/* Timeline de supervisão (check-in/checkout/alertas) — pensada pra substituir o
+              grupo de WhatsApp do gestor, ver docs/19-PAINEL-ATIVIDADES.md. PROMOTOR não vê:
+              o backend também bloqueia (403), o gate aqui é só a UX de esconder o link. */}
+          {(usuario?.user_type === 'ADMIN' || usuario?.user_type === 'GESTOR') && (
+            <ListItemButton component={NavLink} to="/atividades">
+              <ListItemIcon>
+                <BoltIcon />
+              </ListItemIcon>
+              <ListItemText primary="Atividades" />
+            </ListItemButton>
+          )}
         </List>
         <List subheader={<ListSubheader>Gestão</ListSubheader>}>
           <ListItemButton component={NavLink} to="/catalogo">
@@ -95,6 +110,12 @@ export function AppLayout() {
               <CategoryIcon />
             </ListItemIcon>
             <ListItemText primary="Catálogo" />
+          </ListItemButton>
+          <ListItemButton component={NavLink} to="/tipos-registro">
+            <ListItemIcon>
+              <ListAltIcon />
+            </ListItemIcon>
+            <ListItemText primary="Tipos de Registro" />
           </ListItemButton>
           <ListItemButton component={NavLink} to="/campanhas">
             <ListItemIcon>

@@ -8,9 +8,8 @@ import { MarcasTab } from './MarcasTab';
 import { NiveisExibicaoTab } from './NiveisExibicaoTab';
 import { ProdutosTab } from './ProdutosTab';
 import { SecoesTab } from './SecoesTab';
-import { TiposRegistroTab } from './TiposRegistroTab';
 
-const ABAS = ['departamentos', 'secoes', 'marcas', 'produtos', 'niveis', 'tipos-registro'] as const;
+const ABAS = ['departamentos', 'secoes', 'marcas', 'produtos', 'niveis'] as const;
 type Aba = (typeof ABAS)[number];
 
 export function CatalogoPage() {
@@ -54,7 +53,6 @@ export function CatalogoPage() {
         <Tab label="Marcas" value="marcas" />
         <Tab label="Produtos" value="produtos" />
         <Tab label="Níveis de Exibição" value="niveis" />
-        <Tab label="Tipos de Registro" value="tipos-registro" />
       </Tabs>
 
       {aba === 'departamentos' && <DepartamentosTab empresaUuid={filtroEmpresaUuid} isSuperadmin={isSuperadmin} />}
@@ -62,7 +60,6 @@ export function CatalogoPage() {
       {aba === 'marcas' && <MarcasTab empresaUuid={filtroEmpresaUuid} isSuperadmin={isSuperadmin} />}
       {aba === 'produtos' && <ProdutosTab empresaUuid={filtroEmpresaUuid} isSuperadmin={isSuperadmin} />}
       {aba === 'niveis' && <NiveisExibicaoTab empresaUuid={filtroEmpresaUuid} isSuperadmin={isSuperadmin} />}
-      {aba === 'tipos-registro' && <TiposRegistroTab empresaUuid={filtroEmpresaUuid} isSuperadmin={isSuperadmin} />}
     </Box>
   );
 }

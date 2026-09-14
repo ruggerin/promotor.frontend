@@ -5,6 +5,10 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { App } from './App';
 import { AuthProvider } from './lib/auth/AuthContext';
+// Ícone de TipoRegistro (ver components/MdiIcon.tsx) — o mesmo slug do Material Design Icons
+// (pictogrammers.com/library/mdi) que o mobile usa via @expo/vector-icons/MaterialCommunityIcons.
+// Carregado uma vez, globalmente (fonte + classes .mdi/.mdi-{slug}).
+import '@mdi/font/css/materialdesignicons.min.css';
 
 const queryClient = new QueryClient({
   defaultOptions: {

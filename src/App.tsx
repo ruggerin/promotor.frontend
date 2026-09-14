@@ -3,6 +3,7 @@ import { AppLayout } from './components/layout/AppLayout';
 import { RequireAuth } from './lib/auth/RequireAuth';
 import { LoginPage } from './pages/LoginPage';
 import { AgendasVisitaListPage } from './pages/agendasVisita/AgendasVisitaListPage';
+import { AtividadesPage } from './pages/atividades/AtividadesPage';
 import { CampanhaDetailPage } from './pages/campanhas/CampanhaDetailPage';
 import { CampanhasListPage } from './pages/campanhas/CampanhasListPage';
 import { CatalogoPage } from './pages/catalogo/CatalogoPage';
@@ -17,6 +18,7 @@ import { ParametrosListPage } from './pages/parametros/ParametrosListPage';
 import { PerfisListPage } from './pages/perfis/PerfisListPage';
 import { PontoVendaDetailPage } from './pages/pontosVenda/PontoVendaDetailPage';
 import { PontosVendaListPage } from './pages/pontosVenda/PontosVendaListPage';
+import { TiposRegistroListPage } from './pages/tiposRegistro/TiposRegistroListPage';
 import { TiposVisitaListPage } from './pages/tiposVisita/TiposVisitaListPage';
 import { UsuarioDetailPage } from './pages/usuarios/UsuarioDetailPage';
 import { UsuariosListPage } from './pages/usuarios/UsuariosListPage';
@@ -34,8 +36,10 @@ export function App() {
           <Route path="/visitas" element={<VisitasListPage />} />
           <Route path="/visitas/:publicId" element={<VisitaDetailPage />} />
           <Route path="/pontos-venda" element={<PontosVendaListPage />} />
+          <Route path="/atividades" element={<AtividadesPage />} />
           <Route path="/pontos-venda/:publicId" element={<PontoVendaDetailPage />} />
           <Route path="/catalogo" element={<CatalogoPage />} />
+          <Route path="/tipos-registro" element={<TiposRegistroListPage />} />
           <Route path="/campanhas" element={<CampanhasListPage />} />
           <Route path="/campanhas/:publicId" element={<CampanhaDetailPage />} />
           <Route path="/contratos" element={<ContratosListPage />} />
