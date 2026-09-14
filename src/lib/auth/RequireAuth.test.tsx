@@ -42,6 +42,7 @@ describe('RequireAuth', () => {
         user_type: 'ADMIN',
         ativo: true,
         avatar_url: null,
+        foto_url: null,
         created_at: '',
         updated_at: '',
       },

@@ -1,0 +1,16 @@
+# Tudo que a imagem não precisa (ou que o próprio build recria) — mantém o contexto de build
+# pequeno e garante que nada de dev/local vaza pra dentro da imagem.
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+
+node_modules/
+dist/
+
+.fleet
+.idea
+.nova
+.vscode
+.zed

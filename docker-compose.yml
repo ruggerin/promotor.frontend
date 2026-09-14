@@ -1,0 +1,24 @@
+# Sobe só o admin (SPA estático servido por Nginx), pensado pra rodar numa VPS que já tem
+# outras aplicações — por isso a porta do host é configurável.
+#
+# Uso:
+#   docker compose up -d --build
+#
+# Variáveis lidas de admin/.env (Compose carrega automaticamente o .env ao lado deste arquivo
+# pra resolver os ${...} abaixo). VITE_API_URL é embutida no bundle em TEMPO DE BUILD (ver
+# Dockerfile) — trocar essa URL exige rodar "docker compose up -d --build" de novo, um simples
+# restart do container não pega o valor novo.
+
+services:
+  admin:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL}
+    image: pdv-app-admin
+    restart: unless-stopped
+    # A VPS já tem outras aplicações rodando em portas variadas — troque ADMIN_PORT no seu
+    # admin/.env se 8080 colidir com alguma delas. Dentro do container sempre é 80 (Nginx).
+    ports:
+      - "${ADMIN_PORT:-8080}:80"

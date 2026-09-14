@@ -515,7 +515,7 @@ export function PontoVendaDetailPage() {
                     <TableCell>
                       {visita.fim_data ? new Date(visita.fim_data).toLocaleString('pt-BR') : '—'}
                       {visita.checkout_tipo === 'ADMIN' && (
-                        <Typography variant="caption" color="text.secondary" display="block">
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
                           forçado pelo admin
                         </Typography>
                       )}

@@ -17,6 +17,7 @@ const usuarioMock = {
   user_type: 'ADMIN' as const,
   ativo: true,
   avatar_url: null,
+  foto_url: null,
   created_at: '',
   updated_at: '',
 };

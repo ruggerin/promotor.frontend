@@ -245,7 +245,7 @@ export function OrdensServicoListPage() {
                   <TableCell>
                     {ORIGEM_LABELS[os.origem]}
                     {os.origem === 'CONTRATO' && os.contrato && (
-                      <Typography variant="caption" color="text.secondary" display="block">
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
                         {os.contrato.tipo === 'COMODATO' ? 'Comodato' : 'Ponto extra'}
                       </Typography>
                     )}
@@ -264,7 +264,7 @@ export function OrdensServicoListPage() {
                   <TableCell>
                     {formatarDataHora(os.prazo_inicio)} – {formatarDataHora(os.prazo_fim)}
                     {os.status === 'REAGENDAMENTO_SOLICITADO' && os.prazo_inicio_proposto && os.prazo_fim_proposto && (
-                      <Typography variant="caption" color="warning.main" display="block">
+                      <Typography variant="caption" color="warning.main" sx={{ display: 'block' }}>
                         Proposto: {formatarDataHora(os.prazo_inicio_proposto)} – {formatarDataHora(os.prazo_fim_proposto)}
                       </Typography>
                     )}
@@ -273,7 +273,7 @@ export function OrdensServicoListPage() {
                   <TableCell>
                     <Chip label={status.label} color={status.color} size="small" />
                     {os.status === 'PENDENTE' && !!os.motivo_rejeicao && (
-                      <Typography variant="caption" color="error.main" display="block" sx={{ mt: 0.5 }}>
+                      <Typography variant="caption" color="error.main" sx={{ display: 'block', mt: 0.5 }}>
                         Rejeitado: {os.motivo_rejeicao}
                       </Typography>
                     )}
