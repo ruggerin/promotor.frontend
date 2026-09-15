@@ -27,8 +27,9 @@ import {
   type SxProps,
   type Theme,
 } from '@mui/material';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import InfiniteScroll from 'react-infinite-scroll-component';
 import { Link as RouterLink } from 'react-router-dom';
 import { MdiIcon } from '../../components/MdiIcon';
 import { UsuarioAvatar } from '../../components/UsuarioAvatar';
@@ -44,6 +45,18 @@ function hojeISO(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+// Um registro pode ter várias fotos agora (ver docs/21-EVIDENCIA-EM-FOTOS.md) — mosaico e
+// galeria trabalham em cima de 1 entrada por FOTO, não por registro, carregando de volta o
+// registro dono pra continuar mostrando tipo/vínculo/observação junto da imagem.
+interface FotoComRegistro {
+  registro: VisitaRegistro;
+  imagem: { id: string; url: string };
+}
+
+function achatarFotos(registros: VisitaRegistro[]): FotoComRegistro[] {
+  return registros.flatMap((registro) => registro.imagens.map((imagem) => ({ registro, imagem })));
+}
+
 // Timeline única (check-in/checkout/alertas), estilo feed de rede social — avatar + conteúdo do
 // evento (mosaico de fotos, mapinha do check-in) + link pro detalhe — pensada pra substituir o
 // grupo de WhatsApp que o gestor usa hoje. Ver docs/19-PAINEL-ATIVIDADES.md.
@@ -55,10 +68,10 @@ export function AtividadesPage() {
   const [pontoVendaUuid, setPontoVendaUuid] = useState<string | null>(null);
   const [tipoRegistroUuid, setTipoRegistroUuid] = useState<string | null>(null);
   const [apenasPendentes, setApenasPendentes] = useState(false);
-  // Galeria aberta ao clicar numa foto — compartilhada entre todos os cards, guarda os registros
-  // (com foto) daquele evento específico + o índice atual (pra navegar prev/próxima e mostrar a
-  // informação do registro junto da imagem).
-  const [galeria, setGaleria] = useState<{ registros: VisitaRegistro[]; indice: number } | null>(null);
+  // Galeria aberta ao clicar numa foto — compartilhada entre todos os cards, guarda as fotos
+  // (achatadas — ver achatarFotos) daquele evento específico + o índice atual (pra navegar
+  // prev/próxima e mostrar a informação do registro junto da imagem).
+  const [galeria, setGaleria] = useState<{ fotos: FotoComRegistro[]; indice: number } | null>(null);
 
   const usuariosQuery = useQuery({
     queryKey: ['usuarios', 'promotores'],
@@ -90,11 +103,19 @@ export function AtividadesPage() {
     pendentes: apenasPendentes || undefined,
   };
 
-  const eventosQuery = useQuery({
+  const eventosQuery = useInfiniteQuery({
     queryKey: ['atividades', filtros],
-    queryFn: () => listarAtividades(filtros),
-    refetchInterval: pollingMs,
+    queryFn: ({ pageParam }) => listarAtividades({ ...filtros, page: pageParam }),
+    initialPageParam: 1,
+    getNextPageParam: (paginaAtual) =>
+      paginaAtual.meta.current_page < paginaAtual.meta.last_page ? paginaAtual.meta.current_page + 1 : undefined,
+    // Só atualiza sozinho enquanto o usuário ainda está só na primeira página — depois que ele
+    // rola e carrega mais, o polling recarregaria TODAS as páginas já carregadas a cada
+    // intervalo, o oposto de "não sobrecarregar o backend". Passa a depender só do botão de
+    // recarregar manual a partir daí.
+    refetchInterval: (query) => ((query.state.data?.pages.length ?? 1) <= 1 ? pollingMs : false),
   });
+  const eventos = useMemo(() => eventosQuery.data?.pages.flatMap((pagina) => pagina.eventos) ?? [], [eventosQuery.data]);
 
   const resolverMutation = useMutation({
     mutationFn: ({ visitaUuid, registroUuid }: { visitaUuid: string; registroUuid: string }) =>
@@ -184,30 +205,43 @@ export function AtividadesPage() {
           problema de conexão.
         </Typography>
       )}
-      {eventosQuery.data?.length === 0 && (
+      {!eventosQuery.isLoading && eventos.length === 0 && (
         <Typography color="text.secondary">Nada por aqui ainda pros filtros escolhidos.</Typography>
       )}
 
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        {eventosQuery.data?.map((evento, indice) => (
-          <EventoCard
-            // Chave composta — o feed não tem um id próprio, é montado a partir de duas
-            // fontes diferentes (Visita e VisitaRegistro).
-            key={`${evento.tipo_evento}-${evento.visita.id}-${evento.ocorrido_em}-${indice}`}
-            evento={evento}
-            requerResolucao={requerResolucao}
-            resolvendo={resolverMutation.isPending}
-            onResolver={(visitaUuid, registroUuid) => resolverMutation.mutate({ visitaUuid, registroUuid })}
-            onAbrirImagem={(registros, indiceImagem) => setGaleria({ registros, indice: indiceImagem })}
-          />
-        ))}
-      </Box>
+      <InfiniteScroll
+        dataLength={eventos.length}
+        next={() => void eventosQuery.fetchNextPage()}
+        hasMore={eventosQuery.hasNextPage}
+        scrollThreshold="200px"
+        loader={
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+            <CircularProgress size={24} />
+          </Box>
+        }
+        style={{ overflow: 'visible' }}
+      >
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {eventos.map((evento, indice) => (
+            <EventoCard
+              // Chave composta — o feed não tem um id próprio, é montado a partir de duas
+              // fontes diferentes (Visita e VisitaRegistro).
+              key={`${evento.tipo_evento}-${evento.visita.id}-${evento.ocorrido_em}-${indice}`}
+              evento={evento}
+              requerResolucao={requerResolucao}
+              resolvendo={resolverMutation.isPending}
+              onResolver={(visitaUuid, registroUuid) => resolverMutation.mutate({ visitaUuid, registroUuid })}
+              onAbrirImagem={(fotos, indiceImagem) => setGaleria({ fotos, indice: indiceImagem })}
+            />
+          ))}
+        </Box>
+      </InfiniteScroll>
 
       {galeria && (
         <GaleriaDialog
-          registros={galeria.registros}
+          fotos={galeria.fotos}
           indice={galeria.indice}
-          onNavegar={(novoIndice) => setGaleria({ registros: galeria.registros, indice: novoIndice })}
+          onNavegar={(novoIndice) => setGaleria({ fotos: galeria.fotos, indice: novoIndice })}
           onClose={() => setGaleria(null)}
         />
       )}
@@ -231,15 +265,15 @@ function EventoCard({
   requerResolucao: boolean;
   resolvendo: boolean;
   onResolver: (visitaUuid: string, registroUuid: string) => void;
-  onAbrirImagem: (registros: VisitaRegistro[], indice: number) => void;
+  onAbrirImagem: (fotos: FotoComRegistro[], indice: number) => void;
 }) {
   const hora = new Date(evento.ocorrido_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
   const nome = evento.usuario?.nome ?? 'Alguém';
   const registro = evento.tipo_evento === 'ALERTA' ? evento.registro : undefined;
   const resolvido = !!registro?.alerta_resolvido_em;
 
-  const imagensAlerta = registro?.imagem_url ? [registro] : [];
-  const imagensFinalizada = evento.imagens ?? [];
+  const fotosAlerta = registro ? achatarFotos([registro]) : [];
+  const fotosFinalizada = achatarFotos(evento.imagens ?? []);
 
   return (
     <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'hidden' }}>
@@ -279,8 +313,8 @@ function EventoCard({
         </Typography>
       )}
 
-      {evento.tipo_evento === 'ALERTA' && imagensAlerta.length > 0 && (
-        <MosaicoImagens registros={imagensAlerta} onAbrir={(i) => onAbrirImagem(imagensAlerta, i)} />
+      {evento.tipo_evento === 'ALERTA' && fotosAlerta.length > 0 && (
+        <MosaicoImagens fotos={fotosAlerta} onAbrir={(i) => onAbrirImagem(fotosAlerta, i)} />
       )}
 
       {evento.tipo_evento === 'VISITA_INICIADA' && evento.localizacao && (
@@ -291,8 +325,8 @@ function EventoCard({
         />
       )}
 
-      {evento.tipo_evento === 'VISITA_FINALIZADA' && imagensFinalizada.length > 0 && (
-        <MosaicoImagens registros={imagensFinalizada} onAbrir={(i) => onAbrirImagem(imagensFinalizada, i)} />
+      {evento.tipo_evento === 'VISITA_FINALIZADA' && fotosFinalizada.length > 0 && (
+        <MosaicoImagens fotos={fotosFinalizada} onAbrir={(i) => onAbrirImagem(fotosFinalizada, i)} />
       )}
 
       {/* Rodapé — ação contextual à esquerda, link pro detalhe da visita sempre à direita. */}
@@ -350,18 +384,15 @@ function EventoCard({
 // Grade de fotos estilo post de rede social: 1 foto ocupa a largura toda, 2+ vira grade 2
 // colunas, e a partir da 5ª um "+N" cobre a última miniatura visível em vez de esticar a grade.
 function MosaicoImagens({
-  registros,
+  fotos,
   onAbrir,
 }: {
-  registros: VisitaRegistro[];
+  fotos: FotoComRegistro[];
   onAbrir: (indice: number) => void;
 }) {
   const MAX_VISIVEIS = 4;
-  // O array já vem filtrado pra quem tem foto (ver EventoCard), mas o tipo de VisitaRegistro
-  // não garante isso — narrowing defensivo pra não passar `null` pro <img src>.
-  const comFoto = registros.filter((r): r is VisitaRegistro & { imagem_url: string } => !!r.imagem_url);
-  const visiveis = comFoto.slice(0, MAX_VISIVEIS);
-  const restante = comFoto.length - visiveis.length;
+  const visiveis = fotos.slice(0, MAX_VISIVEIS);
+  const restante = fotos.length - visiveis.length;
 
   return (
     <Box
@@ -376,15 +407,15 @@ function MosaicoImagens({
         pb: 2,
       }}
     >
-      {visiveis.map((registro, indice) => (
+      {visiveis.map((foto, indice) => (
         <Box
-          key={registro.id}
+          key={foto.imagem.id}
           sx={{ position: 'relative', cursor: 'pointer', borderRadius: 1, overflow: 'hidden' }}
           onClick={() => onAbrir(indice)}
         >
           <AutenticatedImage
-            url={registro.imagem_url}
-            alt={registro.tipo_registro.descricao}
+            url={foto.imagem.url}
+            alt={foto.registro.tipo_registro.descricao}
             sx={{ width: '100%', aspectRatio: '1 / 1', objectFit: 'cover', display: 'block' }}
           />
           {indice === MAX_VISIVEIS - 1 && restante > 0 && (
@@ -587,18 +618,19 @@ function AutenticatedImage({
 // (tipo, vínculo, observação, campos customizados, quando) — mesmo conjunto de campos que
 // RegistroCard mostra em VisitaDetailPage.tsx, só reorganizado pro formato de lightbox.
 function GaleriaDialog({
-  registros,
+  fotos,
   indice,
   onNavegar,
   onClose,
 }: {
-  registros: VisitaRegistro[];
+  fotos: FotoComRegistro[];
   indice: number;
   onNavegar: (indice: number) => void;
   onClose: () => void;
 }) {
-  const registro = registros[indice];
-  if (!registro?.imagem_url) return null;
+  const foto = fotos[indice];
+  if (!foto) return null;
+  const registro = foto.registro;
 
   const vinculo =
     registro.produto_auditoria?.descricao ??
@@ -622,12 +654,12 @@ function GaleriaDialog({
           </IconButton>
         )}
         <AutenticatedImage
-          key={registro.id}
-          url={registro.imagem_url}
+          key={foto.imagem.id}
+          url={foto.imagem.url}
           alt={registro.tipo_registro.descricao}
           sx={{ maxWidth: '100%', maxHeight: '65vh', objectFit: 'contain' }}
         />
-        {indice < registros.length - 1 && (
+        {indice < fotos.length - 1 && (
           <IconButton
             onClick={() => onNavegar(indice + 1)}
             sx={{ position: 'absolute', right: 4, color: '#fff', zIndex: 1 }}
@@ -665,7 +697,7 @@ function GaleriaDialog({
         )}
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
           {new Date(registro.created_at).toLocaleString('pt-BR')}
-          {registros.length > 1 && ` · ${indice + 1} de ${registros.length}`}
+          {fotos.length > 1 && ` · ${indice + 1} de ${fotos.length}`}
         </Typography>
       </Box>
     </Dialog>

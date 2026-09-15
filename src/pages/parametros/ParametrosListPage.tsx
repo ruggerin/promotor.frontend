@@ -4,6 +4,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import EditIcon from '@mui/icons-material/Edit';
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   Chip,
@@ -16,13 +17,16 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TextField,
   Tooltip,
   Typography,
 } from '@mui/material';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import { useState } from 'react';
+import { listarEmpresasSuperadmin } from '../../lib/api/empresas';
 import { atualizarParametro, desativarParametro, listarParametros } from '../../lib/api/parametros';
+import { useAuth } from '../../lib/auth/AuthContext';
 import type { Parametro } from '../../types/api';
 import { ParametroFormDialog } from './ParametroFormDialog';
 
@@ -30,15 +34,31 @@ import { ParametroFormDialog } from './ParametroFormDialog';
 // PerfisListPage.tsx). Configuração chave/valor por empresa (ex.: CHECKIN_RAIO_METROS), ver
 // docs/03-ADMIN-WEB.md#6-parâmetros.
 export function ParametrosListPage() {
+  const { usuario } = useAuth();
+  // Suporte: SUPERADMIN não pertence a empresa nenhuma (BelongsToEmpresa não filtra pra ele) —
+  // sem escolher uma empresa ele veria o parâmetro de todo mundo misturado. A API também
+  // bloqueia SUPERADMIN de criar/editar/desativar (permissao:parametros.gerenciar não está no
+  // allowlist dele, ver App\Http\Middleware\EnsurePermissao), mesmo padrão de
+  // TiposRegistroListPage/CatalogoPage.
+  const isSuperadmin = usuario?.user_type === 'SUPERADMIN';
+  const [empresaUuid, setEmpresaUuid] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const [dialogAberto, setDialogAberto] = useState(false);
   const [parametroEmEdicao, setParametroEmEdicao] = useState<Parametro | null>(null);
   const [erro, setErro] = useState<string | null>(null);
 
-  const parametrosQuery = useQuery({
-    queryKey: ['parametros'],
-    queryFn: listarParametros,
+  const empresasQuery = useQuery({
+    queryKey: ['empresas', 'superadmin'],
+    queryFn: listarEmpresasSuperadmin,
+    enabled: isSuperadmin,
   });
+
+  const parametrosQuery = useQuery({
+    queryKey: ['parametros', { empresaUuid }],
+    queryFn: () => listarParametros({ empresa_uuid: empresaUuid ?? undefined }),
+  });
+
+  const totalColunas = isSuperadmin ? 6 : 5;
 
   const reativarMutation = useMutation({
     mutationFn: (parametro: Parametro) => atualizarParametro(parametro.id, { ativo: true }),
@@ -91,17 +111,31 @@ export function ParametrosListPage() {
         <Typography variant="h4" component="h1">
           Parâmetros
         </Typography>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => {
-            setParametroEmEdicao(null);
-            setDialogAberto(true);
-          }}
-        >
-          Novo parâmetro
-        </Button>
+        {!isSuperadmin && (
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => {
+              setParametroEmEdicao(null);
+              setDialogAberto(true);
+            }}
+          >
+            Novo parâmetro
+          </Button>
+        )}
       </Box>
+
+      {isSuperadmin && (
+        <Autocomplete
+          size="small"
+          sx={{ width: 280, mb: 2 }}
+          options={empresasQuery.data?.empresas ?? []}
+          getOptionLabel={(option) => option.nome_fantasia}
+          loading={empresasQuery.isLoading}
+          onChange={(_, value) => setEmpresaUuid(value?.id ?? null)}
+          renderInput={(params) => <TextField {...params} label="Empresa" placeholder="Todas as empresas" />}
+        />
+      )}
 
       {erro && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setErro(null)}>
@@ -113,6 +147,7 @@ export function ParametrosListPage() {
         <Table>
           <TableHead>
             <TableRow>
+              {isSuperadmin && <TableCell>Empresa</TableCell>}
               <TableCell>Chave</TableCell>
               <TableCell>Valor</TableCell>
               <TableCell>Descrição</TableCell>
@@ -123,14 +158,14 @@ export function ParametrosListPage() {
           <TableBody>
             {parametrosQuery.isLoading && (
               <TableRow>
-                <TableCell colSpan={5} align="center">
+                <TableCell colSpan={totalColunas} align="center">
                   <CircularProgress size={24} />
                 </TableCell>
               </TableRow>
             )}
             {parametrosQuery.isError && (
               <TableRow>
-                <TableCell colSpan={5} align="center">
+                <TableCell colSpan={totalColunas} align="center">
                   <Typography color="error" variant="body2">
                     Não foi possível carregar a lista — você pode não ter permissão para isto, ou
                     houve um problema de conexão.
@@ -140,13 +175,14 @@ export function ParametrosListPage() {
             )}
             {parametrosQuery.data?.parametros.length === 0 && !parametrosQuery.isError && (
               <TableRow>
-                <TableCell colSpan={5} align="center">
+                <TableCell colSpan={totalColunas} align="center">
                   Nenhum parâmetro cadastrado.
                 </TableCell>
               </TableRow>
             )}
             {parametrosQuery.data?.parametros.map((parametro) => (
               <TableRow key={parametro.id} hover>
+                {isSuperadmin && <TableCell>{parametro.empresa?.nome_fantasia ?? '—'}</TableCell>}
                 <TableCell>
                   <Typography component="code" sx={{ fontFamily: 'monospace' }}>
                     {parametro.chave}
@@ -162,22 +198,28 @@ export function ParametrosListPage() {
                   />
                 </TableCell>
                 <TableCell align="right">
-                  <Tooltip title="Editar">
-                    <IconButton
-                      size="small"
-                      onClick={() => {
-                        setParametroEmEdicao(parametro);
-                        setDialogAberto(true);
-                      }}
-                    >
-                      <EditIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title={parametro.ativo ? 'Desativar' : 'Reativar'}>
-                    <IconButton size="small" onClick={() => alternarStatus(parametro)}>
-                      {parametro.ativo ? <BlockIcon fontSize="small" /> : <CheckCircleIcon fontSize="small" />}
-                    </IconButton>
-                  </Tooltip>
+                  {isSuperadmin ? (
+                    '—'
+                  ) : (
+                    <>
+                      <Tooltip title="Editar">
+                        <IconButton
+                          size="small"
+                          onClick={() => {
+                            setParametroEmEdicao(parametro);
+                            setDialogAberto(true);
+                          }}
+                        >
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title={parametro.ativo ? 'Desativar' : 'Reativar'}>
+                        <IconButton size="small" onClick={() => alternarStatus(parametro)}>
+                          {parametro.ativo ? <BlockIcon fontSize="small" /> : <CheckCircleIcon fontSize="small" />}
+                        </IconButton>
+                      </Tooltip>
+                    </>
+                  )}
                 </TableCell>
               </TableRow>
             ))}
@@ -185,7 +227,9 @@ export function ParametrosListPage() {
         </Table>
       </TableContainer>
 
-      <ParametroFormDialog open={dialogAberto} parametro={parametroEmEdicao} onClose={() => setDialogAberto(false)} />
+      {!isSuperadmin && (
+        <ParametroFormDialog open={dialogAberto} parametro={parametroEmEdicao} onClose={() => setDialogAberto(false)} />
+      )}
     </Box>
   );
 }

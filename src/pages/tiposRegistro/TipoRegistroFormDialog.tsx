@@ -22,7 +22,7 @@ import {
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import axios from 'axios';
 import { useEffect, useState } from 'react';
-import { Controller, useFieldArray, useForm, useWatch, type Control } from 'react-hook-form';
+import { Controller, useFieldArray, useForm, useWatch, type Control, type UseFormSetValue } from 'react-hook-form';
 import { z } from 'zod';
 import { MdiIcon } from '../../components/MdiIcon';
 import { listarCampanhas } from '../../lib/api/campanhas';
@@ -50,6 +50,8 @@ const TIPOS_CAMPO: { value: TipoCampoRegistro; label: string }[] = [
   { value: 'NUMERO', label: 'Número' },
   { value: 'MOEDA', label: 'Valor (R$)' },
   { value: 'MULTIPLA_ESCOLHA', label: 'Múltipla escolha' },
+  { value: 'BOOLEANO', label: 'Sim/Não' },
+  { value: 'DATA', label: 'Data' },
 ];
 
 const campoSchema = z.object({
@@ -59,11 +61,16 @@ const campoSchema = z.object({
     .max(50)
     .regex(/^[a-z0-9_]+$/, 'Só minúsculas, números e underscore (ex.: quantidade).'),
   rotulo: z.string().min(1, 'Obrigatório').max(255),
-  tipo_campo: z.enum(['NUMERO', 'TEXTO', 'MOEDA', 'MULTIPLA_ESCOLHA']),
+  tipo_campo: z.enum(['NUMERO', 'TEXTO', 'MOEDA', 'MULTIPLA_ESCOLHA', 'BOOLEANO', 'DATA']),
   // Opções de MULTIPLA_ESCOLHA como texto separado por vírgula — convertido pra array só no
   // envio (payload.campos[].opcoes), mais simples que uma mini-lista editável dentro do array.
   opcoesTexto: z.string(),
   obrigatorio: z.boolean(),
+  // Campo condicional (docs/20-FORMULARIO-DINAMICO-CAMPANHA.md decisão 7) — `depende_de_chave`
+  // referencia a `chave` de outro campo deste MESMO array (não um uuid, o campo pai pode ser
+  // novo, ainda sem id). `null` = sempre aparece, sem condição.
+  depende_de_chave: z.string().nullable(),
+  depende_de_valor: z.string().nullable(),
 });
 
 const excecaoGranularidadeSchema = z.object({
@@ -96,6 +103,19 @@ const schema = z
   .refine((data) => data.escopo_acao !== 'CAMPANHA' || !!data.campanha_auditoria_uuid, {
     message: 'Escolha a campanha.',
     path: ['campanha_auditoria_uuid'],
+  })
+  // Campo condicional (decisão 7) — só pode depender de um campo ANTERIOR neste mesmo array
+  // (a cadeia sempre desce), mesma regra que o backend valida em StoreTipoRegistroRequest.
+  .refine(
+    (data) =>
+      data.campos.every(
+        (c, i) => !c.depende_de_chave || data.campos.slice(0, i).some((anterior) => anterior.chave === c.depende_de_chave),
+      ),
+    { message: 'Um campo condicional só pode depender de um campo anterior no formulário.', path: ['campos'] },
+  )
+  .refine((data) => data.campos.every((c) => !c.depende_de_chave || !!c.depende_de_valor), {
+    message: 'Escolha o valor que libera a pergunta condicional.',
+    path: ['campos'],
   });
 
 type FormData = z.infer<typeof schema>;
@@ -117,7 +137,15 @@ const DEFAULT_VALUES: FormData = {
 };
 
 function campoVazio(): FormData['campos'][number] {
-  return { chave: '', rotulo: '', tipo_campo: 'TEXTO', opcoesTexto: '', obrigatorio: false };
+  return {
+    chave: '',
+    rotulo: '',
+    tipo_campo: 'TEXTO',
+    opcoesTexto: '',
+    obrigatorio: false,
+    depende_de_chave: null,
+    depende_de_valor: null,
+  };
 }
 
 function excecaoVazia(): FormData['excecoes_granularidade'][number] {
@@ -139,7 +167,8 @@ export function TipoRegistroFormDialog({ open, tipo, onClose }: TipoRegistroForm
     control,
     handleSubmit,
     reset,
-    formState: { isSubmitting },
+    setValue,
+    formState: { isSubmitting, errors },
   } = useForm<FormData>({ resolver: zodResolver(schema), defaultValues: DEFAULT_VALUES });
 
   const { fields, append, remove } = useFieldArray({ control, name: 'campos' });
@@ -176,6 +205,8 @@ export function TipoRegistroFormDialog({ open, tipo, onClose }: TipoRegistroForm
                 tipo_campo: c.tipo_campo,
                 opcoesTexto: c.opcoes?.join(', ') ?? '',
                 obrigatorio: c.obrigatorio,
+                depende_de_chave: c.depende_de_chave,
+                depende_de_valor: c.depende_de_valor,
               })),
             }
           : DEFAULT_VALUES,
@@ -209,6 +240,8 @@ export function TipoRegistroFormDialog({ open, tipo, onClose }: TipoRegistroForm
                   .map((o) => o.trim())
                   .filter(Boolean)
               : undefined,
+          depende_de_chave: c.depende_de_chave,
+          depende_de_valor: c.depende_de_chave ? c.depende_de_valor : null,
         })),
       };
 
@@ -509,6 +542,7 @@ export function TipoRegistroFormDialog({ open, tipo, onClose }: TipoRegistroForm
                   />
                 </Box>
                 <FieldTipoCampoWatcher control={control} indice={indice} />
+                <CampoCondicionalFields control={control} indice={indice} setValue={setValue} />
               </Box>
               <IconButton size="small" onClick={() => remove(indice)} sx={{ mt: 0.5 }}>
                 <DeleteIcon fontSize="small" />
@@ -519,6 +553,11 @@ export function TipoRegistroFormDialog({ open, tipo, onClose }: TipoRegistroForm
           <Button startIcon={<AddIcon />} onClick={() => append(campoVazio())} sx={{ mt: 1 }}>
             Adicionar campo
           </Button>
+          {errors.campos?.message && (
+            <Alert severity="error" sx={{ mt: 2 }}>
+              {errors.campos.message}
+            </Alert>
+          )}
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={onClose}>Cancelar</Button>
@@ -694,6 +733,132 @@ function FieldTipoCampoWatcher({ control, indice }: { control: Control<FormData>
         />
       )}
     />
+  );
+}
+
+// Campo condicional (docs/20-FORMULARIO-DINAMICO-CAMPANHA.md decisão 7) — "Só aparece se" (a
+// chave de um campo ANTERIOR neste mesmo array) + "for igual a" (o valor que libera). O segundo
+// campo muda de formato conforme o tipo do campo pai escolhido: select Sim/Não pro BOOLEANO,
+// select das opções cadastradas pro MULTIPLA_ESCOLHA, texto livre pros demais tipos. Isolado
+// num componente próprio (mesmo raciocínio de FieldTipoCampoWatcher) pra usar `watch` só aqui.
+function CampoCondicionalFields({
+  control,
+  indice,
+  setValue,
+}: {
+  control: Control<FormData>;
+  indice: number;
+  setValue: UseFormSetValue<FormData>;
+}) {
+  const todosCampos = useWatch({ control, name: 'campos' });
+  const dependeDeChave = useWatch({ control, name: `campos.${indice}.depende_de_chave` });
+
+  const candidatos = todosCampos.slice(0, indice).filter((c) => c.chave.trim() !== '');
+  if (candidatos.length === 0) return null;
+
+  const campoPai = candidatos.find((c) => c.chave === dependeDeChave);
+  const opcoesPai = campoPai?.opcoesTexto
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean);
+
+  return (
+    <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', mt: 1 }}>
+      <Controller
+        name={`campos.${indice}.depende_de_chave`}
+        control={control}
+        render={({ field }) => (
+          <TextField
+            {...field}
+            value={field.value ?? ''}
+            onChange={(e) => {
+              field.onChange(e.target.value || null);
+              setValue(`campos.${indice}.depende_de_valor`, null);
+            }}
+            select
+            label="Só aparece se"
+            size="small"
+            sx={{ minWidth: 200 }}
+          >
+            <MenuItem value="">Sempre (sem condição)</MenuItem>
+            {candidatos.map((c) => (
+              <MenuItem key={c.chave} value={c.chave}>
+                {c.rotulo || c.chave}
+              </MenuItem>
+            ))}
+          </TextField>
+        )}
+      />
+
+      {campoPai && campoPai.tipo_campo === 'BOOLEANO' && (
+        <Controller
+          name={`campos.${indice}.depende_de_valor`}
+          control={control}
+          render={({ field, fieldState }) => (
+            <TextField
+              {...field}
+              value={field.value ?? ''}
+              onChange={(e) => field.onChange(e.target.value)}
+              select
+              label="for igual a"
+              size="small"
+              sx={{ minWidth: 140 }}
+              error={!!fieldState.error}
+              helperText={fieldState.error?.message}
+            >
+              <MenuItem value="1">Sim</MenuItem>
+              <MenuItem value="0">Não</MenuItem>
+            </TextField>
+          )}
+        />
+      )}
+
+      {campoPai && campoPai.tipo_campo === 'MULTIPLA_ESCOLHA' && (
+        <Controller
+          name={`campos.${indice}.depende_de_valor`}
+          control={control}
+          render={({ field, fieldState }) => (
+            <TextField
+              {...field}
+              value={field.value ?? ''}
+              onChange={(e) => field.onChange(e.target.value)}
+              select
+              label="for igual a"
+              size="small"
+              sx={{ minWidth: 160 }}
+              error={!!fieldState.error}
+              helperText={fieldState.error?.message}
+            >
+              {(opcoesPai ?? []).map((op) => (
+                <MenuItem key={op} value={op}>
+                  {op}
+                </MenuItem>
+              ))}
+            </TextField>
+          )}
+        />
+      )}
+
+      {campoPai && campoPai.tipo_campo !== 'BOOLEANO' && campoPai.tipo_campo !== 'MULTIPLA_ESCOLHA' && (
+        <Controller
+          name={`campos.${indice}.depende_de_valor`}
+          control={control}
+          render={({ field, fieldState }) => (
+            <TextField
+              {...field}
+              value={field.value ?? ''}
+              onChange={(e) => field.onChange(e.target.value || null)}
+              label="for igual a"
+              placeholder={campoPai.tipo_campo === 'DATA' ? 'dd/mm/aaaa' : undefined}
+              size="small"
+              sx={{ minWidth: 160 }}
+              error={!!fieldState.error}
+              helperText={fieldState.error?.message}
+            />
+          )}
+        />
+      )}
+    </Box>
   );
 }
 

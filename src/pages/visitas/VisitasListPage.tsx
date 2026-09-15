@@ -1,27 +1,17 @@
+import { Autocomplete, Box, Chip, MenuItem, Paper, TextField, Typography } from '@mui/material';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { createColumnHelper } from '@tanstack/react-table';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  Autocomplete,
-  Box,
-  Chip,
-  CircularProgress,
-  MenuItem,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TablePagination,
-  TableRow,
-  TextField,
-  Typography,
-} from '@mui/material';
+import { DataTable } from '../../components/DataTable';
 import { listarPontosVenda } from '../../lib/api/pontosVenda';
 import { listarUsuarios } from '../../lib/api/usuarios';
 import { listarVisitas } from '../../lib/api/visitas';
-import type { StatusVisita } from '../../types/api';
+import type { StatusVisita, Visita } from '../../types/api';
+
+function hojeISO(): string {
+  return new Date().toISOString().slice(0, 10);
+}
 
 const STATUS_COLORS: Record<StatusVisita, 'warning' | 'success' | 'default'> = {
   ABERTA: 'warning',
@@ -35,13 +25,17 @@ const STATUS_LABELS: Record<StatusVisita, string> = {
   CANCELADA: 'Cancelada',
 };
 
+const coluna = createColumnHelper<Visita>();
+
 export function VisitasListPage() {
   const navigate = useNavigate();
   // MUI TablePagination é 0-indexed, a API é 1-indexed — a conversão acontece na hora de
   // montar a query.
   const [page, setPage] = useState(0);
-  const [dataInicio, setDataInicio] = useState('');
-  const [dataFim, setDataFim] = useState('');
+  // Padrão "hoje" nas duas pontas — sem isso a tela carrega com TODA visita já feita, ficando
+  // cheia demais pra ser útil de cara (mesmo raciocínio do Painel de Atividades).
+  const [dataInicio, setDataInicio] = useState(hojeISO());
+  const [dataFim, setDataFim] = useState(hojeISO());
   const [usuarioUuid, setUsuarioUuid] = useState<string | null>(null);
   const [pontoVendaUuid, setPontoVendaUuid] = useState<string | null>(null);
   const [status, setStatus] = useState<StatusVisita | ''>('');
@@ -74,6 +68,44 @@ export function VisitasListPage() {
   });
 
   const perPage = visitasQuery.data?.meta.per_page ?? 15;
+
+  // Ordena só as linhas já carregadas nesta página (ver DataTable) — a paginação em si continua
+  // vindo do backend, sem endpoint de sort próprio ainda.
+  const colunas = useMemo(
+    () => [
+      coluna.accessor((visita) => visita.ponto_venda?.fantasia ?? '', {
+        id: 'ponto_venda',
+        header: 'Ponto de venda',
+      }),
+      coluna.accessor((visita) => visita.usuario?.nome ?? '', {
+        id: 'usuario',
+        header: 'Promotor',
+      }),
+      coluna.accessor((visita) => new Date(visita.inicio_data).getTime(), {
+        id: 'inicio',
+        header: 'Início',
+        cell: (info) => new Date(info.row.original.inicio_data).toLocaleString('pt-BR'),
+      }),
+      coluna.accessor((visita) => (visita.fim_data ? new Date(visita.fim_data).getTime() : 0), {
+        id: 'fim',
+        header: 'Fim',
+        cell: (info) => {
+          const fimData = info.row.original.fim_data;
+          return fimData ? new Date(fimData).toLocaleString('pt-BR') : '—';
+        },
+      }),
+      coluna.accessor('status', {
+        header: 'Status',
+        cell: (info) => <Chip label={info.getValue()} color={STATUS_COLORS[info.getValue()]} size="small" />,
+      }),
+      coluna.accessor('inicio_distancia_metros', {
+        header: 'Distância check-in',
+        cell: (info) => `${Math.round(info.getValue())}m`,
+        meta: { align: 'right' },
+      }),
+    ],
+    [],
+  );
 
   return (
     <Box>
@@ -148,85 +180,19 @@ export function VisitasListPage() {
         </TextField>
       </Paper>
 
-      <TableContainer component={Paper}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>Ponto de venda</TableCell>
-              <TableCell>Promotor</TableCell>
-              <TableCell>Início</TableCell>
-              <TableCell>Fim</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell align="right">Distância check-in</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {visitasQuery.isLoading && (
-              <TableRow>
-                <TableCell colSpan={6} align="center">
-                  <CircularProgress size={24} />
-                </TableCell>
-              </TableRow>
-            )}
-            {visitasQuery.isError && (
-              <TableRow>
-                <TableCell colSpan={6} align="center">
-                  <Typography color="error" variant="body2">
-                    Não foi possível carregar a lista — você pode não ter permissão para isto, ou
-                    houve um problema de conexão.
-                  </Typography>
-                </TableCell>
-              </TableRow>
-            )}
-            {visitasQuery.data?.visitas.length === 0 && !visitasQuery.isError && (
-              <TableRow>
-                <TableCell colSpan={6} align="center">
-                  Nenhuma visita encontrada.
-                </TableCell>
-              </TableRow>
-            )}
-            {visitasQuery.data?.visitas.map((visita) => (
-              <TableRow
-                key={visita.id}
-                hover
-                tabIndex={0}
-                role="button"
-                sx={{ cursor: 'pointer' }}
-                onClick={() => navigate(`/visitas/${visita.id}`)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    navigate(`/visitas/${visita.id}`);
-                  }
-                }}
-              >
-                <TableCell>{visita.ponto_venda?.fantasia}</TableCell>
-                <TableCell>{visita.usuario?.nome}</TableCell>
-                <TableCell>{new Date(visita.inicio_data).toLocaleString('pt-BR')}</TableCell>
-                <TableCell>
-                  {visita.fim_data ? new Date(visita.fim_data).toLocaleString('pt-BR') : '—'}
-                </TableCell>
-                <TableCell>
-                  <Chip label={visita.status} color={STATUS_COLORS[visita.status]} size="small" />
-                </TableCell>
-                <TableCell align="right">{Math.round(visita.inicio_distancia_metros)}m</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-        <TablePagination
-          component="div"
-          count={visitasQuery.data?.meta.total ?? 0}
-          page={page}
-          onPageChange={(_, newPage) => setPage(newPage)}
-          rowsPerPage={perPage}
-          rowsPerPageOptions={[perPage]}
-          onRowsPerPageChange={() => {
-            // A API não aceita per_page customizado ainda — só existe pra satisfazer o
-            // componente controlado do MUI.
-          }}
-        />
-      </TableContainer>
+      <DataTable
+        columns={colunas}
+        data={visitasQuery.data?.visitas ?? []}
+        getRowId={(visita) => visita.id}
+        isLoading={visitasQuery.isLoading}
+        isError={visitasQuery.isError}
+        emptyMessage="Nenhuma visita encontrada."
+        onRowClick={(visita) => navigate(`/visitas/${visita.id}`)}
+        page={page}
+        onPageChange={setPage}
+        rowsPerPage={perPage}
+        totalRows={visitasQuery.data?.meta.total ?? 0}
+      />
     </Box>
   );
 }

@@ -1,4 +1,4 @@
-import type { AtividadeEvento, VisitaRegistro } from '../../types/api';
+import type { AtividadeEvento, PaginatedMeta, VisitaRegistro } from '../../types/api';
 import { apiClient } from './client';
 
 export interface AtividadesFiltros {
@@ -8,11 +8,17 @@ export interface AtividadesFiltros {
   ponto_venda_uuid?: string;
   tipo_registro_uuid?: string;
   pendentes?: boolean;
+  page?: number;
 }
 
-export async function listarAtividades(filtros: AtividadesFiltros = {}): Promise<AtividadeEvento[]> {
-  const { data } = await apiClient.get<{ eventos: AtividadeEvento[] }>('/atividades', { params: filtros });
-  return data.eventos;
+export interface AtividadesListResponse {
+  eventos: AtividadeEvento[];
+  meta: PaginatedMeta;
+}
+
+export async function listarAtividades(filtros: AtividadesFiltros = {}): Promise<AtividadesListResponse> {
+  const { data } = await apiClient.get<AtividadesListResponse>('/atividades', { params: filtros });
+  return data;
 }
 
 export async function resolverAlerta(visitaUuid: string, registroUuid: string): Promise<{ registro: VisitaRegistro }> {

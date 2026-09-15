@@ -34,6 +34,10 @@ export interface CampoTipoRegistroPayload {
   tipo_campo: TipoCampoRegistro;
   opcoes?: string[] | null;
   obrigatorio?: boolean;
+  // Campo condicional — `depende_de_chave` referencia a `chave` de outro campo deste MESMO
+  // array (ver docs/20-FORMULARIO-DINAMICO-CAMPANHA.md decisão 7).
+  depende_de_chave?: string | null;
+  depende_de_valor?: string | null;
 }
 
 export interface TipoRegistroPayload {

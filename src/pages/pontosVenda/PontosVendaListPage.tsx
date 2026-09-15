@@ -10,24 +10,18 @@ import {
   Button,
   Checkbox,
   Chip,
-  CircularProgress,
   IconButton,
   MenuItem,
   Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TablePagination,
-  TableRow,
   TextField,
   Tooltip,
   Typography,
 } from '@mui/material';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { createColumnHelper } from '@tanstack/react-table';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { DataTable } from '../../components/DataTable';
 import {
   adicionarPromotorPontoVenda,
   atualizarPontoVenda,
@@ -39,6 +33,8 @@ import { listarUsuarios } from '../../lib/api/usuarios';
 import type { PontoVenda } from '../../types/api';
 import { AtribuirPromotorDialog } from './AtribuirPromotorDialog';
 import { PontoVendaFormDialog } from './PontoVendaFormDialog';
+
+const coluna = createColumnHelper<PontoVenda>();
 
 export function PontosVendaListPage() {
   const navigate = useNavigate();
@@ -163,6 +159,97 @@ export function PontosVendaListPage() {
 
   const perPage = pdvQuery.data?.meta.per_page ?? 15;
 
+  // Ordena só as linhas já carregadas nesta página (ver DataTable) — a paginação/busca em si
+  // continuam vindo do backend. Sem useMemo de propósito: as colunas fecham sobre `selecionados`/
+  // mutations, que mudam a cada render de qualquer forma — memoizar aqui só arriscaria um closure
+  // desatualizado sem ganhar nada.
+  const colunas = [
+      coluna.display({
+        id: 'selecao',
+        meta: { padding: 'checkbox' },
+        header: () => (
+          <Checkbox
+            checked={todosSelecionadosNestaPagina}
+            indeterminate={!todosSelecionadosNestaPagina && pdvs.some((pdv) => selecionados.has(pdv.id))}
+            onChange={alternarSelecaoTodos}
+          />
+        ),
+        cell: (info) => (
+          <Box onClick={(e) => e.stopPropagation()}>
+            <Checkbox
+              checked={selecionados.has(info.row.original.id)}
+              onChange={() => alternarSelecao(info.row.original)}
+            />
+          </Box>
+        ),
+      }),
+      coluna.accessor('fantasia', { header: 'Fantasia' }),
+      coluna.accessor('razao_social', { header: 'Razão social' }),
+      coluna.accessor('cidade', { header: 'Cidade' }),
+      coluna.accessor((pdv) => pdv.bairro ?? '—', { id: 'bairro', header: 'Bairro' }),
+      coluna.accessor((pdv) => pdv.telefone ?? '—', { id: 'telefone', header: 'Telefone' }),
+      coluna.display({
+        id: 'promotores',
+        header: 'Promotores',
+        cell: (info) => {
+          const pdv = info.row.original;
+          if (pdv.promotores.length === 0) {
+            return (
+              <Typography variant="body2" color="text.secondary">
+                —
+              </Typography>
+            );
+          }
+          return (
+            <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }} onClick={(e) => e.stopPropagation()}>
+              {pdv.promotores.map((p) => (
+                <Chip
+                  key={p.id}
+                  label={p.nome}
+                  size="small"
+                  onDelete={() => removerPromotorMutation.mutate({ pdv, promotorUuid: p.id })}
+                />
+              ))}
+            </Box>
+          );
+        },
+      }),
+      coluna.accessor('ativo', {
+        header: 'Status',
+        cell: (info) => (
+          <Chip label={info.getValue() ? 'Ativo' : 'Inativo'} color={info.getValue() ? 'success' : 'default'} size="small" />
+        ),
+      }),
+      coluna.display({
+        id: 'acoes',
+        header: 'Ações',
+        meta: { align: 'right' },
+        cell: (info) => {
+          const pdv = info.row.original;
+          return (
+            <Box onClick={(e) => e.stopPropagation()}>
+              <Tooltip title="Editar">
+                <IconButton
+                  size="small"
+                  onClick={() => {
+                    setPdvEmEdicao(pdv);
+                    setDialogAberto(true);
+                  }}
+                >
+                  <EditIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title={pdv.ativo ? 'Desativar' : 'Reativar'}>
+                <IconButton size="small" onClick={() => alternarStatus(pdv)}>
+                  {pdv.ativo ? <BlockIcon fontSize="small" /> : <CheckCircleIcon fontSize="small" />}
+                </IconButton>
+              </Tooltip>
+            </Box>
+          );
+        },
+      }),
+  ];
+
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
@@ -238,123 +325,20 @@ export function PontosVendaListPage() {
         )}
       </Paper>
 
-      <TableContainer component={Paper}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell padding="checkbox">
-                <Checkbox
-                  checked={todosSelecionadosNestaPagina}
-                  indeterminate={!todosSelecionadosNestaPagina && pdvs.some((pdv) => selecionados.has(pdv.id))}
-                  onChange={alternarSelecaoTodos}
-                />
-              </TableCell>
-              <TableCell>Fantasia</TableCell>
-              <TableCell>Razão social</TableCell>
-              <TableCell>Cidade</TableCell>
-              <TableCell>Bairro</TableCell>
-              <TableCell>Telefone</TableCell>
-              <TableCell>Promotores</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell align="right">Ações</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {pdvQuery.isLoading && (
-              <TableRow>
-                <TableCell colSpan={9} align="center">
-                  <CircularProgress size={24} />
-                </TableCell>
-              </TableRow>
-            )}
-            {pdvQuery.isError && (
-              <TableRow>
-                <TableCell colSpan={9} align="center">
-                  <Typography color="error" variant="body2">
-                    Não foi possível carregar a lista — você pode não ter permissão para isto, ou
-                    houve um problema de conexão.
-                  </Typography>
-                </TableCell>
-              </TableRow>
-            )}
-            {pdvs.length === 0 && !pdvQuery.isLoading && !pdvQuery.isError && (
-              <TableRow>
-                <TableCell colSpan={9} align="center">
-                  Nenhum ponto de venda encontrado.
-                </TableCell>
-              </TableRow>
-            )}
-            {pdvs.map((pdv) => (
-              <TableRow
-                key={pdv.id}
-                hover
-                selected={selecionados.has(pdv.id)}
-                sx={{ cursor: 'pointer' }}
-                onClick={() => navigate(`/pontos-venda/${pdv.id}`)}
-              >
-                <TableCell padding="checkbox" onClick={(e) => e.stopPropagation()}>
-                  <Checkbox checked={selecionados.has(pdv.id)} onChange={() => alternarSelecao(pdv)} />
-                </TableCell>
-                <TableCell>{pdv.fantasia}</TableCell>
-                <TableCell>{pdv.razao_social}</TableCell>
-                <TableCell>{pdv.cidade}</TableCell>
-                <TableCell>{pdv.bairro ?? '—'}</TableCell>
-                <TableCell>{pdv.telefone ?? '—'}</TableCell>
-                <TableCell onClick={(e) => e.stopPropagation()}>
-                  {pdv.promotores.length === 0 ? (
-                    <Typography variant="body2" color="text.secondary">
-                      —
-                    </Typography>
-                  ) : (
-                    <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                      {pdv.promotores.map((p) => (
-                        <Chip
-                          key={p.id}
-                          label={p.nome}
-                          size="small"
-                          onDelete={() => removerPromotorMutation.mutate({ pdv, promotorUuid: p.id })}
-                        />
-                      ))}
-                    </Box>
-                  )}
-                </TableCell>
-                <TableCell>
-                  <Chip label={pdv.ativo ? 'Ativo' : 'Inativo'} color={pdv.ativo ? 'success' : 'default'} size="small" />
-                </TableCell>
-                <TableCell align="right" onClick={(e) => e.stopPropagation()}>
-                  <Tooltip title="Editar">
-                    <IconButton
-                      size="small"
-                      onClick={() => {
-                        setPdvEmEdicao(pdv);
-                        setDialogAberto(true);
-                      }}
-                    >
-                      <EditIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title={pdv.ativo ? 'Desativar' : 'Reativar'}>
-                    <IconButton size="small" onClick={() => alternarStatus(pdv)}>
-                      {pdv.ativo ? <BlockIcon fontSize="small" /> : <CheckCircleIcon fontSize="small" />}
-                    </IconButton>
-                  </Tooltip>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-        <TablePagination
-          component="div"
-          count={pdvQuery.data?.meta.total ?? 0}
-          page={page}
-          onPageChange={(_, newPage) => setPage(newPage)}
-          rowsPerPage={perPage}
-          rowsPerPageOptions={[perPage]}
-          onRowsPerPageChange={() => {
-            // A API não aceita per_page customizado ainda.
-          }}
-        />
-      </TableContainer>
+      <DataTable
+        columns={colunas}
+        data={pdvs}
+        getRowId={(pdv) => pdv.id}
+        isLoading={pdvQuery.isLoading}
+        isError={pdvQuery.isError}
+        emptyMessage="Nenhum ponto de venda encontrado."
+        onRowClick={(pdv) => navigate(`/pontos-venda/${pdv.id}`)}
+        isRowSelected={(pdv) => selecionados.has(pdv.id)}
+        page={page}
+        onPageChange={setPage}
+        rowsPerPage={perPage}
+        totalRows={pdvQuery.data?.meta.total ?? 0}
+      />
 
       <PontoVendaFormDialog
         open={dialogAberto}
