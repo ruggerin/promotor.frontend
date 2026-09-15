@@ -1,6 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
+import LibraryAddIcon from '@mui/icons-material/LibraryAdd';
 import {
   Alert,
   Autocomplete,
@@ -15,6 +16,10 @@ import {
   FormControlLabel,
   IconButton,
   Link,
+  List,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
   MenuItem,
   Switch,
   TextField,
@@ -22,7 +27,7 @@ import {
 } from '@mui/material';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import axios from 'axios';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Controller, useFieldArray, useForm, useWatch, type Control, type UseFormSetValue } from 'react-hook-form';
 import { z } from 'zod';
 import { MdiIcon } from '../../components/MdiIcon';
@@ -31,8 +36,8 @@ import { listarDepartamentos } from '../../lib/api/departamentos';
 import { listarMarcas } from '../../lib/api/marcas';
 import { listarProdutos } from '../../lib/api/produtos';
 import { listarSecoes } from '../../lib/api/secoes';
-import { atualizarTipoRegistro, criarTipoRegistro } from '../../lib/api/tiposRegistro';
-import type { GranularidadeResposta, TipoCampoRegistro, TipoRegistro } from '../../types/api';
+import { atualizarTipoRegistro, criarTipoRegistro, listarTiposRegistro } from '../../lib/api/tiposRegistro';
+import type { CampoTipoRegistro, GranularidadeResposta, TipoCampoRegistro, TipoRegistro } from '../../types/api';
 
 const TIPOS_VINCULO_SORTIMENTO: { value: 'SECAO' | 'DEPARTAMENTO' | 'MARCA'; label: string }[] = [
   { value: 'SECAO', label: 'Seção' },
@@ -225,6 +230,33 @@ function campoVazio(): FormData['campos'][number] {
 
 function excecaoVazia(): FormData['excecoes_granularidade'][number] {
   return { secao_uuid: '', granularidade: 'PRODUTO' };
+}
+
+/**
+ * Traz um campo já cadastrado em OUTRO tipo de registro pra dentro deste formulário — cópia
+ * pontual (mesmo raciocínio de "Duplicar", decisão 6 de docs/20-FORMULARIO-DINAMICO-CAMPANHA.md:
+ * clonar, não um modelo vivo/sincronizado entre os dois tipos daqui em diante).
+ * `depende_de_chave` nunca é trazido: ele referencia a chave de um campo ANTERIOR no array de
+ * ORIGEM, que pode nem existir neste formulário (ou existir em outra ordem) — importar sem o
+ * vínculo é a única opção sempre segura; o usuário reconstrói a condição aqui se quiser.
+ */
+function mapearCampoParaImportar(campo: CampoTipoRegistro): FormData['campos'][number] {
+  return {
+    chave: campo.chave,
+    rotulo: campo.rotulo,
+    tipo_campo: campo.tipo_campo,
+    opcoesTexto: campo.opcoes?.join(', ') ?? '',
+    obrigatorio: campo.obrigatorio,
+    depende_de_chave: null,
+    depende_de_valor: null,
+    sortimento_origem: campo.sortimento_origem,
+    sortimento_tipo_vinculo: campo.sortimento_tipo_vinculo,
+    sortimento_secao_uuid: campo.sortimento_secao?.id ?? null,
+    sortimento_departamento_uuid: campo.sortimento_departamento?.id ?? null,
+    sortimento_marca_uuid: campo.sortimento_marca?.id ?? null,
+    sortimento_produtos: campo.sortimento_produtos.map((p) => ({ uuid: p.id, descricao: p.descricao })),
+    confirmar_ruptura_ausentes: campo.confirmar_ruptura_ausentes,
+  };
 }
 
 interface CampanhaContexto {
@@ -691,9 +723,12 @@ export function TipoRegistroFormDialog({ open, tipo, onClose, campanhaContexto =
             </Box>
           ))}
 
-          <Button startIcon={<AddIcon />} onClick={() => append(campoVazio())} sx={{ mt: 1 }}>
-            Adicionar campo
-          </Button>
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 1 }}>
+            <Button startIcon={<AddIcon />} onClick={() => append(campoVazio())}>
+              Adicionar campo
+            </Button>
+            <ImportarCamposButton control={control} append={append} tipoAtualId={tipo?.id ?? null} />
+          </Box>
           {errors.campos?.message && (
             <Alert severity="error" sx={{ mt: 2 }}>
               {errors.campos.message}
@@ -708,6 +743,132 @@ export function TipoRegistroFormDialog({ open, tipo, onClose, campanhaContexto =
         </DialogActions>
       </Box>
     </Dialog>
+  );
+}
+
+// "Importar campos de outro tipo" — reaproveita campos já cadastrados noutro TipoRegistro sem
+// reconfigurar tudo de novo (ver mapearCampoParaImportar). Não é um modelo vivo/sincronizado
+// (mesma decisão 6 de docs/20-FORMULARIO-DINAMICO-CAMPANHA.md que rejeitou isso pra "Duplicar")
+// — é só um atalho que preenche o array `campos` deste formulário a partir de outro; o usuário
+// ainda ajusta/remove o que quiser antes de salvar.
+function ImportarCamposButton({
+  control,
+  append,
+  tipoAtualId,
+}: {
+  control: Control<FormData>;
+  append: (campo: FormData['campos'][number]) => void;
+  tipoAtualId: string | null;
+}) {
+  const [aberto, setAberto] = useState(false);
+  const [tipoOrigemId, setTipoOrigemId] = useState<string | null>(null);
+  const [selecionadas, setSelecionadas] = useState<Set<string>>(new Set());
+  const [aviso, setAviso] = useState<string | null>(null);
+
+  const camposAtuais = useWatch({ control, name: 'campos' });
+  const chavesAtuais = useMemo(() => new Set(camposAtuais.map((c) => c.chave)), [camposAtuais]);
+
+  const tiposQuery = useQuery({
+    queryKey: ['tipos-registro', 'importar-campos'],
+    queryFn: () => listarTiposRegistro(),
+    enabled: aberto,
+  });
+
+  // Nunca a si mesmo (editar um tipo importando dele mesmo não faz sentido) e só quem tem campo.
+  const tiposComCampos = (tiposQuery.data?.tipos_registro ?? []).filter(
+    (t) => t.id !== tipoAtualId && t.campos.length > 0,
+  );
+  const tipoOrigem = tiposComCampos.find((t) => t.id === tipoOrigemId) ?? null;
+
+  function abrir() {
+    setTipoOrigemId(null);
+    setSelecionadas(new Set());
+    setAviso(null);
+    setAberto(true);
+  }
+
+  function alternar(chave: string) {
+    setSelecionadas((atual) => {
+      const novo = new Set(atual);
+      if (novo.has(chave)) novo.delete(chave);
+      else novo.add(chave);
+      return novo;
+    });
+  }
+
+  function confirmar() {
+    if (!tipoOrigem) return;
+    let ignorados = 0;
+    for (const campo of tipoOrigem.campos) {
+      if (!selecionadas.has(campo.chave)) continue;
+      // Chave duplicada quebraria a validação de unicidade do formulário atual — em vez de
+      // deixar o usuário descobrir isso só depois de salvar, já ignora aqui e avisa.
+      if (chavesAtuais.has(campo.chave)) {
+        ignorados += 1;
+        continue;
+      }
+      append(mapearCampoParaImportar(campo));
+    }
+    setAberto(false);
+    setAviso(ignorados > 0 ? `${ignorados} campo(s) ignorado(s) por já existir uma chave igual neste formulário.` : null);
+  }
+
+  return (
+    <>
+      <Button startIcon={<LibraryAddIcon />} onClick={abrir}>
+        Importar campos de outro tipo
+      </Button>
+      {aviso && (
+        <Alert severity="warning" sx={{ width: '100%', mt: 1 }} onClose={() => setAviso(null)}>
+          {aviso}
+        </Alert>
+      )}
+
+      <Dialog open={aberto} onClose={() => setAberto(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Importar campos de outro tipo</DialogTitle>
+        <DialogContent>
+          <Autocomplete
+            options={tiposComCampos}
+            getOptionLabel={(t) => t.descricao}
+            getOptionKey={(t) => t.id}
+            isOptionEqualToValue={(a, b) => a.id === b.id}
+            loading={tiposQuery.isLoading}
+            value={tipoOrigem}
+            onChange={(_, valor) => {
+              setTipoOrigemId(valor?.id ?? null);
+              setSelecionadas(new Set());
+            }}
+            renderInput={(params) => <TextField {...params} label="Tipo de origem" size="small" margin="normal" />}
+            noOptionsText="Nenhum outro tipo com campos cadastrados"
+          />
+
+          {tipoOrigem && (
+            <List dense sx={{ mt: 1 }}>
+              {tipoOrigem.campos.map((campo) => {
+                const jaExiste = chavesAtuais.has(campo.chave);
+                return (
+                  <ListItemButton key={campo.id} onClick={() => !jaExiste && alternar(campo.chave)} disabled={jaExiste}>
+                    <ListItemIcon sx={{ minWidth: 36 }}>
+                      <Checkbox edge="start" checked={selecionadas.has(campo.chave)} tabIndex={-1} disableRipple />
+                    </ListItemIcon>
+                    <ListItemText
+                      primary={campo.rotulo}
+                      secondary={jaExiste ? `${campo.chave} — já existe neste formulário` : campo.chave}
+                    />
+                  </ListItemButton>
+                );
+              })}
+            </List>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setAberto(false)}>Cancelar</Button>
+          <Button variant="contained" disabled={selecionadas.size === 0} onClick={confirmar}>
+            Importar {selecionadas.size > 0 ? `(${selecionadas.size})` : ''}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </>
   );
 }
 
