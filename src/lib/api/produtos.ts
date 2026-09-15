@@ -8,7 +8,7 @@ export interface ProdutosListResponse {
 
 export async function listarProdutos(
   // empresa_uuid só tem efeito pra quem chama como SUPERADMIN — ver docs/02-API-BACKEND.md.
-  params: { ativo?: boolean; departamento_uuid?: string; secao_uuid?: string; empresa_uuid?: string } = {},
+  params: { ativo?: boolean; departamento_uuid?: string; secao_uuid?: string; empresa_uuid?: string; busca?: string } = {},
 ): Promise<ProdutosListResponse> {
   const { data } = await apiClient.get<ProdutosListResponse>('/produtos-auditoria', {
     params: {
@@ -16,6 +16,7 @@ export async function listarProdutos(
       departamento_uuid: params.departamento_uuid,
       secao_uuid: params.secao_uuid,
       empresa_uuid: params.empresa_uuid,
+      busca: params.busca || undefined,
     },
   });
   return data;

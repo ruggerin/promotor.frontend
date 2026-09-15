@@ -77,19 +77,15 @@ function mensagemDeErro(err: unknown): string {
  * A rota de imagem exige Authorization: Bearer — uma <img src> comum não manda esse header,
  * então baixamos via Axios (que já injeta o token pelo interceptor) e criamos uma blob URL.
  */
-function RegistroImagem({ registro }: { registro: VisitaRegistro }) {
+function ImagemBlob({ url, alt }: { url: string; alt: string }) {
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!registro.imagem_url) {
-      return;
-    }
-
     let objectUrl: string | null = null;
     let cancelado = false;
 
     apiClient
-      .get<Blob>(registro.imagem_url, { responseType: 'blob' })
+      .get<Blob>(url, { responseType: 'blob' })
       .then((response) => {
         if (cancelado) {
           return;
@@ -107,23 +103,28 @@ function RegistroImagem({ registro }: { registro: VisitaRegistro }) {
         URL.revokeObjectURL(objectUrl);
       }
     };
-  }, [registro.imagem_url]);
-
-  if (!registro.imagem_url) {
-    return null;
-  }
+  }, [url]);
 
   if (!blobUrl) {
     return <Skeleton variant="rectangular" width={160} height={160} sx={{ borderRadius: 1 }} />;
   }
 
+  return <Box component="img" src={blobUrl} alt={alt} sx={{ width: 160, height: 160, objectFit: 'cover', borderRadius: 1 }} />;
+}
+
+// Um registro pode ter várias fotos agora — ver docs/21-EVIDENCIA-EM-FOTOS.md. Mostra todas numa
+// fileira que quebra linha (flex-wrap) em vez de assumir só 1 imagem por registro.
+function RegistroImagens({ registro }: { registro: VisitaRegistro }) {
+  if (registro.imagens.length === 0) {
+    return null;
+  }
+
   return (
-    <Box
-      component="img"
-      src={blobUrl}
-      alt={registro.produto_auditoria?.descricao ?? 'Registro de visita'}
-      sx={{ width: 160, height: 160, objectFit: 'cover', borderRadius: 1 }}
-    />
+    <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', p: 1 }}>
+      {registro.imagens.map((imagem) => (
+        <ImagemBlob key={imagem.id} url={imagem.url} alt={registro.produto_auditoria?.descricao ?? 'Registro de visita'} />
+      ))}
+    </Box>
   );
 }
 
@@ -347,7 +348,7 @@ export function VisitaDetailPage() {
         {visita.registros?.map((registro) => (
           <Grid key={registro.id} size={{ xs: 12, sm: 6, md: 4 }}>
             <Card variant="outlined">
-              {registro.imagem_url && <RegistroImagem registro={registro} />}
+              <RegistroImagens registro={registro} />
               <CardContent>
                 <Chip label={registro.tipo_registro.descricao} size="small" sx={{ mb: 1 }} />
                 {registro.ruptura && (

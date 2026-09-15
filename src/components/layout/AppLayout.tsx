@@ -7,6 +7,7 @@ import CategoryIcon from '@mui/icons-material/Category';
 import DescriptionIcon from '@mui/icons-material/Description';
 import EventNoteIcon from '@mui/icons-material/EventNote';
 import FlagIcon from '@mui/icons-material/Flag';
+import GridViewIcon from '@mui/icons-material/GridView';
 import LabelIcon from '@mui/icons-material/Label';
 import ListAltIcon from '@mui/icons-material/ListAlt';
 import LogoutIcon from '@mui/icons-material/Logout';
@@ -116,6 +117,12 @@ export function AppLayout() {
               <ListAltIcon />
             </ListItemIcon>
             <ListItemText primary="Tipos de Registro" />
+          </ListItemButton>
+          <ListItemButton component={NavLink} to="/planogramas">
+            <ListItemIcon>
+              <GridViewIcon />
+            </ListItemIcon>
+            <ListItemText primary="Planogramas" />
           </ListItemButton>
           <ListItemButton component={NavLink} to="/campanhas">
             <ListItemIcon>

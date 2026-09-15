@@ -5,8 +5,13 @@ export interface ParametrosListResponse {
   parametros: Parametro[];
 }
 
-export async function listarParametros(): Promise<ParametrosListResponse> {
-  const { data } = await apiClient.get<ParametrosListResponse>('/parametros');
+export interface ListarParametrosFiltros {
+  // Suporte SUPERADMIN — ver docs/02-API-BACKEND.md#multi-tenancy-e-isolamento-de-dados.
+  empresa_uuid?: string;
+}
+
+export async function listarParametros(filtros: ListarParametrosFiltros = {}): Promise<ParametrosListResponse> {
+  const { data } = await apiClient.get<ParametrosListResponse>('/parametros', { params: filtros });
   return data;
 }
 

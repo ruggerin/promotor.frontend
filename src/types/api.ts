@@ -33,7 +33,7 @@ export type AutonomiaPromotor = 'DESABILITADO' | 'AUTONOMO' | 'REQUER_APROVACAO'
 export type StatusFatura = 'PENDENTE' | 'PAGA' | 'CANCELADA';
 export type TipoEventoHistorico = 'LOGIN' | 'VISITA_INICIO' | 'VISITA_FIM' | 'REGISTRO';
 export type TipoContrato = 'COMODATO' | 'PONTO_EXTRA';
-export type TipoCampoRegistro = 'NUMERO' | 'TEXTO' | 'MOEDA' | 'MULTIPLA_ESCOLHA';
+export type TipoCampoRegistro = 'NUMERO' | 'TEXTO' | 'MOEDA' | 'MULTIPLA_ESCOLHA' | 'BOOLEANO' | 'DATA';
 // visitas.tipo (PROGRAMADA/NAO_PROGRAMADA) foi removido — agendamento agora vive inteiro em
 // OrdemServico, ver docs/07-ORDEM-DE-SERVICO.md e docs/10-AGENDA-VISITA.md. CONTRATO = gerada
 // automaticamente por um comodato/ponto extra vencendo, ver GerarOrdensServicoPorContrato.
@@ -121,6 +121,8 @@ export interface Parametro {
   valor: string;
   descricao: string | null;
   ativo: boolean;
+  // Só vem preenchido pra quem pede como SUPERADMIN — ver docs/02-API-BACKEND.md.
+  empresa?: Empresa;
   created_at: string;
   updated_at: string;
 }
@@ -316,6 +318,11 @@ export interface CampoTipoRegistro {
   opcoes: string[] | null;
   obrigatorio: boolean;
   ordem: number;
+  // Campo condicional (docs/20-FORMULARIO-DINAMICO-CAMPANHA.md decisão 7) — `depende_de_chave` é
+  // a `chave` de outro campo do mesmo tipo_registro (não um uuid), só aparece/é obrigatório
+  // quando esse campo pai tiver o valor `depende_de_valor`.
+  depende_de_chave: string | null;
+  depende_de_valor: string | null;
 }
 
 // Substitui o antigo enum fixo TipoRegistroVisita (FOTO/RUPTURA/OBSERVACAO) — lista
@@ -443,7 +450,9 @@ export interface VisitaRegistro {
   observacao: string | null;
   // Valores dos campos customizados do tipo_registro (ex.: { quantidade: "5", valor: "199.90" }).
   valores_campos: Record<string, string> | null;
-  imagem_url: string | null;
+  // N:N — mesma foto pode evidenciar vários registros, um registro pode ter várias fotos. Ver
+  // docs/21-EVIDENCIA-EM-FOTOS.md. Substitui o antigo imagem_url (string única).
+  imagens: { id: string; url: string }[];
   // Resolução de alerta (Painel de Atividades) — só relevante quando tipo_registro.eh_alerta é
   // true. Ver docs/19-PAINEL-ATIVIDADES.md.
   alerta_resolvido_em: string | null;
@@ -640,4 +649,32 @@ export interface PaginatedMeta {
   last_page: number;
   per_page: number;
   total: number;
+}
+
+// Referência visual de layout de prateleira/expositor — ver docs/22-PLANOGRAMA.md.
+export interface PlanogramaBloco {
+  id: string;
+  posicao_inicio: number;
+  largura: number;
+  produto_auditoria: { id: string; descricao: string; imagem_url: string | null } | null;
+}
+
+export interface PlanogramaPrateleira {
+  id: string;
+  ordem: number;
+  descricao: string | null;
+  quantidade_blocos: number;
+  blocos: PlanogramaBloco[];
+}
+
+export interface Planograma {
+  id: string;
+  descricao: string;
+  foto_capa_url: string | null;
+  ativo: boolean;
+  prateleiras: PlanogramaPrateleira[];
+  // Só vem preenchido pra quem pede como SUPERADMIN.
+  empresa?: Empresa;
+  created_at: string;
+  updated_at: string;
 }

@@ -16,6 +16,8 @@ import { ObjetivosVisitaListPage } from './pages/objetivosVisita/ObjetivosVisita
 import { OrdensServicoListPage } from './pages/ordensServico/OrdensServicoListPage';
 import { ParametrosListPage } from './pages/parametros/ParametrosListPage';
 import { PerfisListPage } from './pages/perfis/PerfisListPage';
+import { PlanogramaEditorPage } from './pages/planogramas/PlanogramaEditorPage';
+import { PlanogramasListPage } from './pages/planogramas/PlanogramasListPage';
 import { PontoVendaDetailPage } from './pages/pontosVenda/PontoVendaDetailPage';
 import { PontosVendaListPage } from './pages/pontosVenda/PontosVendaListPage';
 import { TiposRegistroListPage } from './pages/tiposRegistro/TiposRegistroListPage';
@@ -40,6 +42,8 @@ export function App() {
           <Route path="/pontos-venda/:publicId" element={<PontoVendaDetailPage />} />
           <Route path="/catalogo" element={<CatalogoPage />} />
           <Route path="/tipos-registro" element={<TiposRegistroListPage />} />
+          <Route path="/planogramas" element={<PlanogramasListPage />} />
+          <Route path="/planogramas/:publicId" element={<PlanogramaEditorPage />} />
           <Route path="/campanhas" element={<CampanhasListPage />} />
           <Route path="/campanhas/:publicId" element={<CampanhaDetailPage />} />
           <Route path="/contratos" element={<ContratosListPage />} />
