@@ -3,6 +3,7 @@ import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import BlockIcon from '@mui/icons-material/Block';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import EditIcon from '@mui/icons-material/Edit';
 import {
   Alert,
@@ -27,7 +28,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { MdiIcon } from '../../components/MdiIcon';
 import { listarEmpresasSuperadmin } from '../../lib/api/empresas';
-import { atualizarTipoRegistro, desativarTipoRegistro, listarTiposRegistro, moverTipoRegistro } from '../../lib/api/tiposRegistro';
+import {
+  atualizarTipoRegistro,
+  desativarTipoRegistro,
+  duplicarTipoRegistro,
+  listarTiposRegistro,
+  moverTipoRegistro,
+} from '../../lib/api/tiposRegistro';
 import { useAuth } from '../../lib/auth/AuthContext';
 import type { TipoRegistro } from '../../types/api';
 import { TipoRegistroFormDialog } from './TipoRegistroFormDialog';
@@ -89,6 +96,17 @@ export function TiposRegistroListPage() {
       void queryClient.invalidateQueries({ queryKey: ['tipos-registro'] });
     },
     onError: () => setErro('Não foi possível mover o tipo.'),
+  });
+
+  // Duplicar (decisão 6 de docs/20-FORMULARIO-DINAMICO-CAMPANHA.md) — clona um tipo existente
+  // como ponto de partida de um formulário novo, ver TipoRegistroController::duplicar.
+  const duplicarMutation = useMutation({
+    mutationFn: (t: TipoRegistro) => duplicarTipoRegistro(t.id),
+    onSuccess: () => {
+      setErro(null);
+      void queryClient.invalidateQueries({ queryKey: ['tipos-registro'] });
+    },
+    onError: () => setErro('Não foi possível duplicar o tipo.'),
   });
 
   function alternarStatus(t: TipoRegistro) {
@@ -253,6 +271,13 @@ export function TiposRegistroListPage() {
                         <IconButton size="small" onClick={() => alternarStatus(t)}>
                           {t.ativo ? <BlockIcon fontSize="small" /> : <CheckCircleIcon fontSize="small" />}
                         </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Duplicar (ponto de partida pra um formulário novo)">
+                        <span>
+                          <IconButton size="small" disabled={duplicarMutation.isPending} onClick={() => duplicarMutation.mutate(t)}>
+                            <ContentCopyIcon fontSize="small" />
+                          </IconButton>
+                        </span>
                       </Tooltip>
                     </>
                   )}

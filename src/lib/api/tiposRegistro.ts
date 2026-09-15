@@ -2,6 +2,8 @@ import type {
   EscopoAcaoTipoRegistro,
   GranularidadeResposta,
   PaginatedMeta,
+  SortimentoOrigemCampo,
+  SortimentoTipoVinculo,
   TipoCampoRegistro,
   TipoRegistro,
 } from '../../types/api';
@@ -16,6 +18,9 @@ export interface TiposRegistroListParams {
   ativo?: boolean;
   // Só tem efeito pra quem chama como SUPERADMIN — ver docs/02-API-BACKEND.md.
   empresa_uuid?: string;
+  // "Formulário desta campanha" (Fase 3 de docs/20-FORMULARIO-DINAMICO-CAMPANHA.md §3) — lista
+  // só os tipos vinculados a essa campanha, usado pela seção própria na tela de Campanha.
+  campanha_auditoria_uuid?: string;
 }
 
 export async function listarTiposRegistro(params: TiposRegistroListParams = {}): Promise<TiposRegistroListResponse> {
@@ -23,6 +28,7 @@ export async function listarTiposRegistro(params: TiposRegistroListParams = {}):
     params: {
       ativo: params.ativo === undefined ? undefined : params.ativo ? 1 : 0,
       empresa_uuid: params.empresa_uuid,
+      campanha_auditoria_uuid: params.campanha_auditoria_uuid,
     },
   });
   return data;
@@ -38,6 +44,14 @@ export interface CampoTipoRegistroPayload {
   // array (ver docs/20-FORMULARIO-DINAMICO-CAMPANHA.md decisão 7).
   depende_de_chave?: string | null;
   depende_de_valor?: string | null;
+  // Campo SORTIMENTO (decisão 3) — só faz sentido quando tipo_campo = SORTIMENTO.
+  sortimento_origem?: SortimentoOrigemCampo | null;
+  sortimento_tipo_vinculo?: SortimentoTipoVinculo | null;
+  sortimento_secao_uuid?: string | null;
+  sortimento_departamento_uuid?: string | null;
+  sortimento_marca_uuid?: string | null;
+  sortimento_produtos_uuids?: string[];
+  confirmar_ruptura_ausentes?: boolean;
 }
 
 export interface TipoRegistroPayload {
@@ -53,6 +67,10 @@ export interface TipoRegistroPayload {
   // TipoRegistroController::sincronizarExcecoesGranularidade).
   excecoes_granularidade?: { secao_uuid: string; granularidade: GranularidadeResposta }[];
   eh_ruptura?: boolean;
+  eh_alerta?: boolean;
+  // Fase 3 de docs/20-FORMULARIO-DINAMICO-CAMPANHA.md (decisões 5 e 8).
+  usa_pontuacao?: boolean;
+  disponivel_registro_livre?: boolean;
   // Lista completa — sempre substitui os campos existentes por inteiro (ver
   // TipoRegistroController::sincronizarCampos).
   campos?: CampoTipoRegistroPayload[];
@@ -80,5 +98,13 @@ export async function desativarTipoRegistro(uuid: string): Promise<void> {
 // nada, não é erro.
 export async function moverTipoRegistro(uuid: string, direcao: 'cima' | 'baixo'): Promise<{ tipo_registro: TipoRegistro }> {
   const { data } = await apiClient.post<{ tipo_registro: TipoRegistro }>(`/tipos-registro/${uuid}/mover`, { direcao });
+  return data;
+}
+
+// Duplicar (decisão 6 de docs/20-FORMULARIO-DINAMICO-CAMPANHA.md) — clona um tipo existente
+// (com todos os campos) como ponto de partida de um formulário novo; a cópia nasce solta (sem
+// ação obrigatória/campanha), independente do original depois.
+export async function duplicarTipoRegistro(uuid: string): Promise<{ tipo_registro: TipoRegistro }> {
+  const { data } = await apiClient.post<{ tipo_registro: TipoRegistro }>(`/tipos-registro/${uuid}/duplicar`);
   return data;
 }

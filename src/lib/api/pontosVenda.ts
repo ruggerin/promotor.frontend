@@ -53,6 +53,9 @@ export interface PontoVendaPayload {
   cep?: string | null;
   telefone?: string | null;
   email?: string | null;
+  rede_loja_uuid?: string | null;
+  ramo_atividade_uuid?: string | null;
+  numero_checkouts?: number | null;
   ativo?: boolean;
 }
 
@@ -113,5 +116,21 @@ export async function removerPromotorPontoVenda(
   const { data } = await apiClient.delete<{ ponto_venda: PontoVenda }>(
     `/pontos-venda/${pontoVendaUuid}/promotores/${usuarioUuid}`,
   );
+  return data;
+}
+
+// Substitui a foto anterior (ver PontoVendaController::atualizarFachada) — mesmo padrão de
+// enviarFotoCapa em lib/api/planogramas.ts.
+export async function enviarFachadaPontoVenda(uuid: string, imagem: File): Promise<{ ponto_venda: PontoVenda }> {
+  const formData = new FormData();
+  formData.append('imagem', imagem);
+  const { data } = await apiClient.post<{ ponto_venda: PontoVenda }>(`/pontos-venda/${uuid}/fachada`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return data;
+}
+
+export async function removerFachadaPontoVenda(uuid: string): Promise<{ ponto_venda: PontoVenda }> {
+  const { data } = await apiClient.delete<{ ponto_venda: PontoVenda }>(`/pontos-venda/${uuid}/fachada`);
   return data;
 }

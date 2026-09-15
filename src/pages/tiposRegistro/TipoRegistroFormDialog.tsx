@@ -3,6 +3,7 @@ import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   Checkbox,
@@ -26,9 +27,18 @@ import { Controller, useFieldArray, useForm, useWatch, type Control, type UseFor
 import { z } from 'zod';
 import { MdiIcon } from '../../components/MdiIcon';
 import { listarCampanhas } from '../../lib/api/campanhas';
+import { listarDepartamentos } from '../../lib/api/departamentos';
+import { listarMarcas } from '../../lib/api/marcas';
+import { listarProdutos } from '../../lib/api/produtos';
 import { listarSecoes } from '../../lib/api/secoes';
 import { atualizarTipoRegistro, criarTipoRegistro } from '../../lib/api/tiposRegistro';
 import type { GranularidadeResposta, TipoCampoRegistro, TipoRegistro } from '../../types/api';
+
+const TIPOS_VINCULO_SORTIMENTO: { value: 'SECAO' | 'DEPARTAMENTO' | 'MARCA'; label: string }[] = [
+  { value: 'SECAO', label: 'Seção' },
+  { value: 'DEPARTAMENTO', label: 'Departamento' },
+  { value: 'MARCA', label: 'Marca' },
+];
 
 const GRANULARIDADES: { value: GranularidadeResposta; label: string }[] = [
   { value: 'LINHA', label: 'Linha/seção inteira' },
@@ -52,6 +62,7 @@ const TIPOS_CAMPO: { value: TipoCampoRegistro; label: string }[] = [
   { value: 'MULTIPLA_ESCOLHA', label: 'Múltipla escolha' },
   { value: 'BOOLEANO', label: 'Sim/Não' },
   { value: 'DATA', label: 'Data' },
+  { value: 'SORTIMENTO', label: 'Sortimento (checklist de produtos)' },
 ];
 
 const campoSchema = z.object({
@@ -61,7 +72,7 @@ const campoSchema = z.object({
     .max(50)
     .regex(/^[a-z0-9_]+$/, 'Só minúsculas, números e underscore (ex.: quantidade).'),
   rotulo: z.string().min(1, 'Obrigatório').max(255),
-  tipo_campo: z.enum(['NUMERO', 'TEXTO', 'MOEDA', 'MULTIPLA_ESCOLHA', 'BOOLEANO', 'DATA']),
+  tipo_campo: z.enum(['NUMERO', 'TEXTO', 'MOEDA', 'MULTIPLA_ESCOLHA', 'BOOLEANO', 'DATA', 'SORTIMENTO']),
   // Opções de MULTIPLA_ESCOLHA como texto separado por vírgula — convertido pra array só no
   // envio (payload.campos[].opcoes), mais simples que uma mini-lista editável dentro do array.
   opcoesTexto: z.string(),
@@ -71,6 +82,14 @@ const campoSchema = z.object({
   // novo, ainda sem id). `null` = sempre aparece, sem condição.
   depende_de_chave: z.string().nullable(),
   depende_de_valor: z.string().nullable(),
+  // Campo SORTIMENTO (decisão 3) — só usado quando tipo_campo = SORTIMENTO.
+  sortimento_origem: z.enum(['DINAMICO', 'FIXO']).nullable(),
+  sortimento_tipo_vinculo: z.enum(['SECAO', 'DEPARTAMENTO', 'MARCA']).nullable(),
+  sortimento_secao_uuid: z.string().nullable(),
+  sortimento_departamento_uuid: z.string().nullable(),
+  sortimento_marca_uuid: z.string().nullable(),
+  sortimento_produtos: z.array(z.object({ uuid: z.string(), descricao: z.string() })),
+  confirmar_ruptura_ausentes: z.boolean(),
 });
 
 const excecaoGranularidadeSchema = z.object({
@@ -94,6 +113,8 @@ const schema = z
     excecoes_granularidade: z.array(excecaoGranularidadeSchema),
     eh_ruptura: z.boolean(),
     eh_alerta: z.boolean(),
+    usa_pontuacao: z.boolean(),
+    disponivel_registro_livre: z.boolean(),
     campos: z.array(campoSchema),
   })
   .refine((data) => !data.acao_obrigatoria || data.escopo_acao !== null, {
@@ -116,6 +137,31 @@ const schema = z
   .refine((data) => data.campos.every((c) => !c.depende_de_chave || !!c.depende_de_valor), {
     message: 'Escolha o valor que libera a pergunta condicional.',
     path: ['campos'],
+  })
+  // Campo SORTIMENTO (decisão 3) — origem obrigatória; dinâmico exige o recorte (tipo +
+  // seção/departamento/marca correspondente); fixo exige pelo menos 1 produto na lista curada.
+  .refine((data) => data.campos.every((c) => c.tipo_campo !== 'SORTIMENTO' || !!c.sortimento_origem), {
+    message: 'Escolha a origem da lista de produtos (dinâmica ou fixa).',
+    path: ['campos'],
+  })
+  .refine(
+    (data) => data.campos.every((c) => c.sortimento_origem !== 'DINAMICO' || !!c.sortimento_tipo_vinculo),
+    { message: 'Escolha o recorte do catálogo (seção, departamento ou marca).', path: ['campos'] },
+  )
+  .refine(
+    (data) =>
+      data.campos.every((c) => {
+        if (c.sortimento_origem !== 'DINAMICO') return true;
+        if (c.sortimento_tipo_vinculo === 'SECAO') return !!c.sortimento_secao_uuid;
+        if (c.sortimento_tipo_vinculo === 'DEPARTAMENTO') return !!c.sortimento_departamento_uuid;
+        if (c.sortimento_tipo_vinculo === 'MARCA') return !!c.sortimento_marca_uuid;
+        return true;
+      }),
+    { message: 'Escolha a seção/departamento/marca do recorte.', path: ['campos'] },
+  )
+  .refine((data) => data.campos.every((c) => c.sortimento_origem !== 'FIXO' || c.sortimento_produtos.length > 0), {
+    message: 'Escolha pelo menos um produto pra lista curada do campo fixo.',
+    path: ['campos'],
   });
 
 type FormData = z.infer<typeof schema>;
@@ -133,8 +179,30 @@ const DEFAULT_VALUES: FormData = {
   excecoes_granularidade: [],
   eh_ruptura: false,
   eh_alerta: false,
+  usa_pontuacao: false,
+  disponivel_registro_livre: true,
   campos: [],
 };
+
+/**
+ * Autoria embutida na Campanha (Fase 3, §3 de docs/20-FORMULARIO-DINAMICO-CAMPANHA.md) — quando
+ * o dialog abre a partir da tela de Campanha (não da tela genérica Tipos de Registro), o tipo
+ * novo já nasce com `escopo_acao=CAMPANHA` + a campanha em questão + `acao_obrigatoria=true` +
+ * `disponivel_registro_livre=false` (não polui o dropdown de registro livre do promotor) — o
+ * gestor pode reverter qualquer um desses defaults no próprio formulário, é só um ponto de
+ * partida mais direto. Por baixo continua sendo o mesmo TipoRegistro/mesmo endpoint de sempre.
+ */
+function valoresIniciais(campanhaContexto: CampanhaContexto | null): FormData {
+  if (!campanhaContexto) return DEFAULT_VALUES;
+
+  return {
+    ...DEFAULT_VALUES,
+    acao_obrigatoria: true,
+    escopo_acao: 'CAMPANHA',
+    campanha_auditoria_uuid: campanhaContexto.uuid,
+    disponivel_registro_livre: false,
+  };
+}
 
 function campoVazio(): FormData['campos'][number] {
   return {
@@ -145,6 +213,13 @@ function campoVazio(): FormData['campos'][number] {
     obrigatorio: false,
     depende_de_chave: null,
     depende_de_valor: null,
+    sortimento_origem: null,
+    sortimento_tipo_vinculo: null,
+    sortimento_secao_uuid: null,
+    sortimento_departamento_uuid: null,
+    sortimento_marca_uuid: null,
+    sortimento_produtos: [],
+    confirmar_ruptura_ausentes: false,
   };
 }
 
@@ -152,13 +227,21 @@ function excecaoVazia(): FormData['excecoes_granularidade'][number] {
   return { secao_uuid: '', granularidade: 'PRODUTO' };
 }
 
+interface CampanhaContexto {
+  uuid: string;
+  descricao: string;
+}
+
 interface TipoRegistroFormDialogProps {
   open: boolean;
   tipo: TipoRegistro | null;
   onClose: () => void;
+  // Presente só quando o dialog abre de dentro da tela de Campanha (Fase 3) — muda os defaults
+  // de criação (ver valoresIniciais) e o título. `null`/omitido = fluxo genérico de sempre.
+  campanhaContexto?: CampanhaContexto | null;
 }
 
-export function TipoRegistroFormDialog({ open, tipo, onClose }: TipoRegistroFormDialogProps) {
+export function TipoRegistroFormDialog({ open, tipo, onClose, campanhaContexto = null }: TipoRegistroFormDialogProps) {
   const modoEdicao = tipo !== null;
   const queryClient = useQueryClient();
   const [erroGeral, setErroGeral] = useState<string | null>(null);
@@ -169,7 +252,7 @@ export function TipoRegistroFormDialog({ open, tipo, onClose }: TipoRegistroForm
     reset,
     setValue,
     formState: { isSubmitting, errors },
-  } = useForm<FormData>({ resolver: zodResolver(schema), defaultValues: DEFAULT_VALUES });
+  } = useForm<FormData>({ resolver: zodResolver(schema), defaultValues: valoresIniciais(campanhaContexto) });
 
   const { fields, append, remove } = useFieldArray({ control, name: 'campos' });
   const {
@@ -199,6 +282,8 @@ export function TipoRegistroFormDialog({ open, tipo, onClose }: TipoRegistroForm
               })),
               eh_ruptura: tipo.eh_ruptura,
               eh_alerta: tipo.eh_alerta,
+              usa_pontuacao: tipo.usa_pontuacao,
+              disponivel_registro_livre: tipo.disponivel_registro_livre,
               campos: tipo.campos.map((c) => ({
                 chave: c.chave,
                 rotulo: c.rotulo,
@@ -207,12 +292,19 @@ export function TipoRegistroFormDialog({ open, tipo, onClose }: TipoRegistroForm
                 obrigatorio: c.obrigatorio,
                 depende_de_chave: c.depende_de_chave,
                 depende_de_valor: c.depende_de_valor,
+                sortimento_origem: c.sortimento_origem,
+                sortimento_tipo_vinculo: c.sortimento_tipo_vinculo,
+                sortimento_secao_uuid: c.sortimento_secao?.id ?? null,
+                sortimento_departamento_uuid: c.sortimento_departamento?.id ?? null,
+                sortimento_marca_uuid: c.sortimento_marca?.id ?? null,
+                sortimento_produtos: c.sortimento_produtos.map((p) => ({ uuid: p.id, descricao: p.descricao })),
+                confirmar_ruptura_ausentes: c.confirmar_ruptura_ausentes,
               })),
             }
-          : DEFAULT_VALUES,
+          : valoresIniciais(campanhaContexto),
       );
     }
-  }, [open, tipo, reset]);
+  }, [open, tipo, reset, campanhaContexto]);
 
   const mutation = useMutation({
     mutationFn: async (data: FormData) => {
@@ -228,6 +320,8 @@ export function TipoRegistroFormDialog({ open, tipo, onClose }: TipoRegistroForm
         excecoes_granularidade: data.excecoes_granularidade,
         eh_ruptura: data.eh_ruptura,
         eh_alerta: data.eh_alerta,
+        usa_pontuacao: data.usa_pontuacao,
+        disponivel_registro_livre: data.disponivel_registro_livre,
         campos: data.campos.map((c) => ({
           chave: c.chave,
           rotulo: c.rotulo,
@@ -242,6 +336,13 @@ export function TipoRegistroFormDialog({ open, tipo, onClose }: TipoRegistroForm
               : undefined,
           depende_de_chave: c.depende_de_chave,
           depende_de_valor: c.depende_de_chave ? c.depende_de_valor : null,
+          sortimento_origem: c.tipo_campo === 'SORTIMENTO' ? c.sortimento_origem : null,
+          sortimento_tipo_vinculo: c.sortimento_origem === 'DINAMICO' ? c.sortimento_tipo_vinculo : null,
+          sortimento_secao_uuid: c.sortimento_tipo_vinculo === 'SECAO' ? c.sortimento_secao_uuid : null,
+          sortimento_departamento_uuid: c.sortimento_tipo_vinculo === 'DEPARTAMENTO' ? c.sortimento_departamento_uuid : null,
+          sortimento_marca_uuid: c.sortimento_tipo_vinculo === 'MARCA' ? c.sortimento_marca_uuid : null,
+          sortimento_produtos_uuids: c.sortimento_origem === 'FIXO' ? c.sortimento_produtos.map((p) => p.uuid) : undefined,
+          confirmar_ruptura_ausentes: c.tipo_campo === 'SORTIMENTO' ? c.confirmar_ruptura_ausentes : false,
         })),
       };
 
@@ -265,7 +366,13 @@ export function TipoRegistroFormDialog({ open, tipo, onClose }: TipoRegistroForm
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>{modoEdicao ? 'Editar tipo de registro' : 'Novo tipo de registro'}</DialogTitle>
+      <DialogTitle>
+        {modoEdicao
+          ? 'Editar tipo de registro'
+          : campanhaContexto
+            ? `Novo formulário — ${campanhaContexto.descricao}`
+            : 'Novo tipo de registro'}
+      </DialogTitle>
       <Box
         component="form"
         onSubmit={(e) =>
@@ -469,6 +576,39 @@ export function TipoRegistroFormDialog({ open, tipo, onClose }: TipoRegistroForm
             Ação da concorrência.
           </Typography>
 
+          <Controller
+            name="disponivel_registro_livre"
+            control={control}
+            render={({ field }) => (
+              <FormControlLabel
+                sx={{ display: 'block', mt: 1 }}
+                control={<Switch checked={field.value} onChange={(e) => field.onChange(e.target.checked)} />}
+                label="Aparece solto no Registro geral do promotor"
+              />
+            )}
+          />
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: -1 }}>
+            Desligado, esse tipo só aparece via Ação obrigatória ou formulário de campanha — evita
+            duplicar a mesma pendência no dropdown geral (decisão 8 de
+            docs/20-FORMULARIO-DINAMICO-CAMPANHA.md).
+          </Typography>
+
+          <Controller
+            name="usa_pontuacao"
+            control={control}
+            render={({ field }) => (
+              <FormControlLabel
+                sx={{ display: 'block', mt: 1 }}
+                control={<Switch checked={field.value} onChange={(e) => field.onChange(e.target.checked)} />}
+                label="Calcula % de compliance deste formulário"
+              />
+            )}
+          />
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: -1 }}>
+            % de campos "Sim/Não" e "Sortimento" que passaram (Sim / mix 100% presente), sobre o
+            total do formulário — sem peso por pergunta ainda.
+          </Typography>
+
           <Divider sx={{ my: 2 }} />
           <Typography variant="subtitle2" gutterBottom>
             Campos extras do formulário
@@ -542,6 +682,7 @@ export function TipoRegistroFormDialog({ open, tipo, onClose }: TipoRegistroForm
                   />
                 </Box>
                 <FieldTipoCampoWatcher control={control} indice={indice} />
+                <CampoSortimentoFields control={control} indice={indice} setValue={setValue} />
                 <CampoCondicionalFields control={control} indice={indice} setValue={setValue} />
               </Box>
               <IconButton size="small" onClick={() => remove(indice)} sx={{ mt: 0.5 }}>
@@ -733,6 +874,226 @@ function FieldTipoCampoWatcher({ control, indice }: { control: Control<FormData>
         />
       )}
     />
+  );
+}
+
+// Campo SORTIMENTO (docs/20-FORMULARIO-DINAMICO-CAMPANHA.md decisão 3) — origem (dinâmica/fixa),
+// recorte do catálogo quando dinâmica, lista curada quando fixa, switch de ruptura confirmada.
+// Isolado num componente próprio (mesmo raciocínio de FieldTipoCampoWatcher) pra usar `watch` só
+// aqui, sem re-render do formulário inteiro.
+function CampoSortimentoFields({
+  control,
+  indice,
+  setValue,
+}: {
+  control: Control<FormData>;
+  indice: number;
+  setValue: UseFormSetValue<FormData>;
+}) {
+  const tipoCampo = useWatch({ control, name: `campos.${indice}.tipo_campo` });
+  const origem = useWatch({ control, name: `campos.${indice}.sortimento_origem` });
+  const tipoVinculo = useWatch({ control, name: `campos.${indice}.sortimento_tipo_vinculo` });
+  const [buscaProduto, setBuscaProduto] = useState('');
+
+  const secoesQuery = useQuery({
+    queryKey: ['secoes', { ativo: true }],
+    queryFn: () => listarSecoes({ ativo: true }),
+    enabled: tipoVinculo === 'SECAO',
+  });
+  const departamentosQuery = useQuery({
+    queryKey: ['departamentos', { ativo: true }],
+    queryFn: () => listarDepartamentos({ ativo: true }),
+    enabled: tipoVinculo === 'DEPARTAMENTO',
+  });
+  const marcasQuery = useQuery({
+    queryKey: ['marcas', { ativo: true }],
+    queryFn: () => listarMarcas({ ativo: true }),
+    enabled: tipoVinculo === 'MARCA',
+  });
+  const produtosQuery = useQuery({
+    queryKey: ['produtos', { ativo: true, busca: buscaProduto }],
+    queryFn: () => listarProdutos({ ativo: true, busca: buscaProduto || undefined }),
+    enabled: origem === 'FIXO',
+  });
+
+  if (tipoCampo !== 'SORTIMENTO') return null;
+
+  return (
+    <Box sx={{ mt: 1, p: 1.5, border: '1px dashed', borderColor: 'divider', borderRadius: 1 }}>
+      <Controller
+        name={`campos.${indice}.sortimento_origem`}
+        control={control}
+        render={({ field }) => (
+          <TextField
+            {...field}
+            value={field.value ?? ''}
+            onChange={(e) => {
+              field.onChange(e.target.value || null);
+              setValue(`campos.${indice}.sortimento_tipo_vinculo`, null);
+              setValue(`campos.${indice}.sortimento_secao_uuid`, null);
+              setValue(`campos.${indice}.sortimento_departamento_uuid`, null);
+              setValue(`campos.${indice}.sortimento_marca_uuid`, null);
+              setValue(`campos.${indice}.sortimento_produtos`, []);
+            }}
+            select
+            label="Origem da lista de produtos"
+            size="small"
+            fullWidth
+          >
+            <MenuItem value="DINAMICO">Dinâmica — sortimento real do PDV, dentro de um recorte</MenuItem>
+            <MenuItem value="FIXO">Fixa — lista curada aqui, sempre a mesma</MenuItem>
+          </TextField>
+        )}
+      />
+
+      {origem === 'DINAMICO' && (
+        <Box sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap' }}>
+          <Controller
+            name={`campos.${indice}.sortimento_tipo_vinculo`}
+            control={control}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                value={field.value ?? ''}
+                onChange={(e) => {
+                  field.onChange(e.target.value || null);
+                  setValue(`campos.${indice}.sortimento_secao_uuid`, null);
+                  setValue(`campos.${indice}.sortimento_departamento_uuid`, null);
+                  setValue(`campos.${indice}.sortimento_marca_uuid`, null);
+                }}
+                select
+                label="Recorte"
+                size="small"
+                sx={{ minWidth: 160 }}
+              >
+                {TIPOS_VINCULO_SORTIMENTO.map((t) => (
+                  <MenuItem key={t.value} value={t.value}>
+                    {t.label}
+                  </MenuItem>
+                ))}
+              </TextField>
+            )}
+          />
+
+          {tipoVinculo === 'SECAO' && (
+            <Controller
+              name={`campos.${indice}.sortimento_secao_uuid`}
+              control={control}
+              render={({ field, fieldState }) => (
+                <TextField
+                  {...field}
+                  value={field.value ?? ''}
+                  select
+                  label="Seção"
+                  size="small"
+                  sx={{ minWidth: 200 }}
+                  error={!!fieldState.error}
+                  disabled={secoesQuery.isLoading}
+                >
+                  {(secoesQuery.data?.secoes ?? []).map((s) => (
+                    <MenuItem key={s.id} value={s.id}>
+                      {s.descricao}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              )}
+            />
+          )}
+
+          {tipoVinculo === 'DEPARTAMENTO' && (
+            <Controller
+              name={`campos.${indice}.sortimento_departamento_uuid`}
+              control={control}
+              render={({ field, fieldState }) => (
+                <TextField
+                  {...field}
+                  value={field.value ?? ''}
+                  select
+                  label="Departamento"
+                  size="small"
+                  sx={{ minWidth: 200 }}
+                  error={!!fieldState.error}
+                  disabled={departamentosQuery.isLoading}
+                >
+                  {(departamentosQuery.data?.departamentos ?? []).map((d) => (
+                    <MenuItem key={d.id} value={d.id}>
+                      {d.descricao}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              )}
+            />
+          )}
+
+          {tipoVinculo === 'MARCA' && (
+            <Controller
+              name={`campos.${indice}.sortimento_marca_uuid`}
+              control={control}
+              render={({ field, fieldState }) => (
+                <TextField
+                  {...field}
+                  value={field.value ?? ''}
+                  select
+                  label="Marca"
+                  size="small"
+                  sx={{ minWidth: 200 }}
+                  error={!!fieldState.error}
+                  disabled={marcasQuery.isLoading}
+                >
+                  {(marcasQuery.data?.marcas ?? []).map((m) => (
+                    <MenuItem key={m.id} value={m.id}>
+                      {m.descricao}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              )}
+            />
+          )}
+        </Box>
+      )}
+
+      {origem === 'FIXO' && (
+        <Controller
+          name={`campos.${indice}.sortimento_produtos`}
+          control={control}
+          render={({ field, fieldState }) => (
+            <Autocomplete
+              multiple
+              sx={{ mt: 1 }}
+              options={produtosQuery.data?.produtos.map((p) => ({ uuid: p.id, descricao: p.descricao })) ?? []}
+              value={field.value}
+              isOptionEqualToValue={(a, b) => a.uuid === b.uuid}
+              getOptionLabel={(o) => o.descricao}
+              loading={produtosQuery.isLoading}
+              onChange={(_, valor) => field.onChange(valor)}
+              onInputChange={(_, valor) => setBuscaProduto(valor)}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Produtos da lista curada"
+                  size="small"
+                  placeholder="Buscar produto..."
+                  error={!!fieldState.error}
+                  helperText={fieldState.error?.message}
+                />
+              )}
+            />
+          )}
+        />
+      )}
+
+      <Controller
+        name={`campos.${indice}.confirmar_ruptura_ausentes`}
+        control={control}
+        render={({ field }) => (
+          <FormControlLabel
+            sx={{ display: 'block', mt: 1 }}
+            control={<Checkbox checked={field.value} onChange={(e) => field.onChange(e.target.checked)} />}
+            label="Ausência vira ruptura (com confirmação do promotor no fim do formulário)"
+          />
+        )}
+      />
+    </Box>
   );
 }
 

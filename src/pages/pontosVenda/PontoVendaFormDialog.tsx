@@ -1,6 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   Dialog,
@@ -11,12 +12,14 @@ import {
   Switch,
   TextField,
 } from '@mui/material';
-import { useQueryClient, useMutation } from '@tanstack/react-query';
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import axios from 'axios';
 import { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { atualizarPontoVenda, criarPontoVenda } from '../../lib/api/pontosVenda';
+import { listarRamosAtividade } from '../../lib/api/ramosAtividade';
+import { listarRedesLojas } from '../../lib/api/redesLojas';
 import type { PontoVenda } from '../../types/api';
 
 const schema = z.object({
@@ -39,6 +42,11 @@ const schema = z.object({
   cep: z.string(),
   telefone: z.string(),
   email: z.union([z.literal(''), z.string().email('E-mail inválido')]),
+  rede_loja_uuid: z.string().nullable(),
+  ramo_atividade_uuid: z.string().nullable(),
+  numero_checkouts: z
+    .string()
+    .refine((v) => v === '' || (!Number.isNaN(Number(v)) && Number(v) >= 0), 'Deve ser um número positivo'),
   ativo: z.boolean(),
 });
 
@@ -58,6 +66,9 @@ const DEFAULT_VALUES: PontoVendaFormData = {
   cep: '',
   telefone: '',
   email: '',
+  rede_loja_uuid: null,
+  ramo_atividade_uuid: null,
+  numero_checkouts: '',
   ativo: true,
 };
 
@@ -71,6 +82,17 @@ export function PontoVendaFormDialog({ open, pontoVenda, onClose }: PontoVendaFo
   const modoEdicao = pontoVenda !== null;
   const queryClient = useQueryClient();
   const [erroGeral, setErroGeral] = useState<string | null>(null);
+
+  const redesLojasQuery = useQuery({
+    queryKey: ['redes-lojas'],
+    queryFn: () => listarRedesLojas(),
+    enabled: open,
+  });
+  const ramosAtividadeQuery = useQuery({
+    queryKey: ['ramos-atividade'],
+    queryFn: () => listarRamosAtividade(),
+    enabled: open,
+  });
 
   const {
     control,
@@ -102,6 +124,9 @@ export function PontoVendaFormDialog({ open, pontoVenda, onClose }: PontoVendaFo
               cep: pontoVenda.cep ?? '',
               telefone: pontoVenda.telefone ?? '',
               email: pontoVenda.email ?? '',
+              rede_loja_uuid: pontoVenda.rede_loja?.id ?? null,
+              ramo_atividade_uuid: pontoVenda.ramo_atividade?.id ?? null,
+              numero_checkouts: pontoVenda.numero_checkouts === null ? '' : String(pontoVenda.numero_checkouts),
               ativo: pontoVenda.ativo,
             }
           : DEFAULT_VALUES,
@@ -125,6 +150,9 @@ export function PontoVendaFormDialog({ open, pontoVenda, onClose }: PontoVendaFo
         cep: data.cep || null,
         telefone: data.telefone || null,
         email: data.email || null,
+        rede_loja_uuid: data.rede_loja_uuid,
+        ramo_atividade_uuid: data.ramo_atividade_uuid,
+        numero_checkouts: data.numero_checkouts === '' ? null : Number(data.numero_checkouts),
       };
 
       if (modoEdicao) {
@@ -363,6 +391,74 @@ export function PontoVendaFormDialog({ open, pontoVenda, onClose }: PontoVendaFo
               )}
             />
           </Box>
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <Controller
+              name="rede_loja_uuid"
+              control={control}
+              render={({ field, fieldState }) => (
+                <Autocomplete
+                  sx={{ flex: 1 }}
+                  options={redesLojasQuery.data?.redes_lojas ?? []}
+                  getOptionLabel={(option) => option.descricao}
+                  getOptionKey={(option) => option.id}
+                  loading={redesLojasQuery.isLoading}
+                  value={redesLojasQuery.data?.redes_lojas.find((r) => r.id === field.value) ?? null}
+                  onChange={(_, value) => field.onChange(value?.id ?? null)}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Rede de lojas"
+                      margin="normal"
+                      fullWidth
+                      error={!!fieldState.error}
+                      helperText={fieldState.error?.message ?? 'Opcional'}
+                    />
+                  )}
+                />
+              )}
+            />
+            <Controller
+              name="ramo_atividade_uuid"
+              control={control}
+              render={({ field, fieldState }) => (
+                <Autocomplete
+                  sx={{ flex: 1 }}
+                  options={ramosAtividadeQuery.data?.ramos_atividade ?? []}
+                  getOptionLabel={(option) => option.descricao}
+                  getOptionKey={(option) => option.id}
+                  loading={ramosAtividadeQuery.isLoading}
+                  value={ramosAtividadeQuery.data?.ramos_atividade.find((r) => r.id === field.value) ?? null}
+                  onChange={(_, value) => field.onChange(value?.id ?? null)}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Ramo de atividade"
+                      margin="normal"
+                      fullWidth
+                      error={!!fieldState.error}
+                      helperText={fieldState.error?.message ?? 'Opcional'}
+                    />
+                  )}
+                />
+              )}
+            />
+          </Box>
+          <Controller
+            name="numero_checkouts"
+            control={control}
+            render={({ field, fieldState }) => (
+              <TextField
+                {...field}
+                label="Número de checkouts"
+                type="number"
+                slotProps={{ htmlInput: { min: 0 } }}
+                sx={{ maxWidth: 220 }}
+                margin="normal"
+                error={!!fieldState.error}
+                helperText={fieldState.error?.message ?? 'Opcional'}
+              />
+            )}
+          />
           {modoEdicao && (
             <Controller
               name="ativo"

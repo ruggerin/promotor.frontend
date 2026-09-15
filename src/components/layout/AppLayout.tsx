@@ -1,3 +1,4 @@
+import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import BoltIcon from '@mui/icons-material/Bolt';
 import BusinessIcon from '@mui/icons-material/Business';
@@ -13,9 +14,11 @@ import ListAltIcon from '@mui/icons-material/ListAlt';
 import LogoutIcon from '@mui/icons-material/Logout';
 import PaidIcon from '@mui/icons-material/Paid';
 import PeopleIcon from '@mui/icons-material/People';
+import PhotoLibraryIcon from '@mui/icons-material/PhotoLibrary';
 import SecurityIcon from '@mui/icons-material/Security';
 import StoreIcon from '@mui/icons-material/Store';
 import TuneIcon from '@mui/icons-material/Tune';
+import WorkIcon from '@mui/icons-material/Work';
 import {
   AppBar,
   Badge,
@@ -104,6 +107,16 @@ export function AppLayout() {
               <ListItemText primary="Atividades" />
             </ListItemButton>
           )}
+          {/* Grade só de fotos (diferente do Atividades, que é timeline de eventos) — mesmo
+              gate de ADMIN/GESTOR, ver docs/23-GALERIA-DE-FOTOS.md §4. */}
+          {(usuario?.user_type === 'ADMIN' || usuario?.user_type === 'GESTOR') && (
+            <ListItemButton component={NavLink} to="/galeria-fotos">
+              <ListItemIcon>
+                <PhotoLibraryIcon />
+              </ListItemIcon>
+              <ListItemText primary="Galeria de Fotos" />
+            </ListItemButton>
+          )}
         </List>
         <List subheader={<ListSubheader>Gestão</ListSubheader>}>
           <ListItemButton component={NavLink} to="/catalogo">
@@ -111,6 +124,18 @@ export function AppLayout() {
               <CategoryIcon />
             </ListItemIcon>
             <ListItemText primary="Catálogo" />
+          </ListItemButton>
+          <ListItemButton component={NavLink} to="/redes-lojas">
+            <ListItemIcon>
+              <AccountTreeIcon />
+            </ListItemIcon>
+            <ListItemText primary="Redes de Lojas" />
+          </ListItemButton>
+          <ListItemButton component={NavLink} to="/ramos-atividade">
+            <ListItemIcon>
+              <WorkIcon />
+            </ListItemIcon>
+            <ListItemText primary="Ramos de Atividade" />
           </ListItemButton>
           <ListItemButton component={NavLink} to="/tipos-registro">
             <ListItemIcon>
