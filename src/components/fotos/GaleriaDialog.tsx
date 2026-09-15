@@ -3,6 +3,7 @@ import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import CloseIcon from '@mui/icons-material/Close';
 import { Box, Chip, Dialog, IconButton, Typography } from '@mui/material';
 import { MdiIcon } from '../MdiIcon';
+import { UsuarioAvatar } from '../UsuarioAvatar';
 import { AutenticatedImage } from './AutenticatedImage';
 import type { FotoComRegistro } from './tipos';
 
@@ -35,15 +36,31 @@ export function GaleriaDialog({
   const camposPreenchidos = Object.entries(registro.valores_campos ?? {}).filter(([, valor]) => valor !== '' && valor != null);
 
   return (
-    <Dialog open onClose={onClose} maxWidth="sm" fullWidth>
-      <Box sx={{ position: 'relative', bgcolor: '#000', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 320 }}>
+    <Dialog open onClose={onClose} maxWidth="lg" fullWidth>
+      <Box
+        sx={{
+          position: 'relative',
+          bgcolor: '#000',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          minHeight: { xs: 320, sm: 480 },
+        }}
+      >
         <IconButton onClick={onClose} sx={{ position: 'absolute', top: 4, right: 4, color: '#fff', zIndex: 1 }}>
           <CloseIcon />
         </IconButton>
         {indice > 0 && (
           <IconButton
             onClick={() => onNavegar(indice - 1)}
-            sx={{ position: 'absolute', left: 4, color: '#fff', zIndex: 1 }}
+            sx={{
+              position: 'absolute',
+              left: 8,
+              color: '#fff',
+              zIndex: 1,
+              bgcolor: 'rgba(0,0,0,0.35)',
+              '&:hover': { bgcolor: 'rgba(0,0,0,0.6)' },
+            }}
           >
             <ChevronLeftIcon fontSize="large" />
           </IconButton>
@@ -52,12 +69,19 @@ export function GaleriaDialog({
           key={foto.imagem.id}
           url={foto.imagem.url}
           alt={registro.tipo_registro.descricao}
-          sx={{ maxWidth: '100%', maxHeight: '65vh', objectFit: 'contain' }}
+          sx={{ maxWidth: '100%', maxHeight: '80vh', objectFit: 'contain' }}
         />
         {indice < fotos.length - 1 && (
           <IconButton
             onClick={() => onNavegar(indice + 1)}
-            sx={{ position: 'absolute', right: 4, color: '#fff', zIndex: 1 }}
+            sx={{
+              position: 'absolute',
+              right: 8,
+              color: '#fff',
+              zIndex: 1,
+              bgcolor: 'rgba(0,0,0,0.35)',
+              '&:hover': { bgcolor: 'rgba(0,0,0,0.6)' },
+            }}
           >
             <ChevronRightIcon fontSize="large" />
           </IconButton>
@@ -65,6 +89,14 @@ export function GaleriaDialog({
       </Box>
 
       <Box sx={{ p: 2 }}>
+        {foto.usuario && (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+            <UsuarioAvatar nome={foto.usuario.nome} fotoUrl={foto.usuario.foto_url} size={28} />
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+              {foto.usuario.nome}
+            </Typography>
+          </Box>
+        )}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
           <Chip
             icon={<MdiIcon icone={registro.tipo_registro.icone ?? 'image'} size={16} sx={{ color: 'inherit' }} />}

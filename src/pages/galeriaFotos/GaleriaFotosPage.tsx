@@ -1,4 +1,6 @@
 import AddIcon from '@mui/icons-material/Add';
+import PhotoSizeSelectLargeIcon from '@mui/icons-material/PhotoSizeSelectLarge';
+import PhotoSizeSelectSmallIcon from '@mui/icons-material/PhotoSizeSelectSmall';
 import {
   Autocomplete,
   Box,
@@ -8,12 +10,13 @@ import {
   Menu,
   MenuItem,
   Popover,
+  Slider,
   TextField,
   Typography,
 } from '@mui/material';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { forwardRef, useMemo, useState } from 'react';
-import type { GridItemProps, GridListProps } from 'react-virtuoso';
+import type { ContextProp, GridItemProps, GridListProps } from 'react-virtuoso';
 import { VirtuosoGrid } from 'react-virtuoso';
 import { GaleriaDialog } from '../../components/fotos/GaleriaDialog';
 import { MosaicoImagens } from '../../components/fotos/MosaicoImagens';
@@ -99,23 +102,57 @@ function formatarData(iso: string): string {
   return `${dia}/${mes}/${ano}`;
 }
 
+function hojeISO(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+// "Últimos 7 dias" = hoje + os 6 dias anteriores, 7 dias corridos no total (inclusive hoje) —
+// mesmo período padrão que Google Fotos/dashboards de analytics costumam abrir.
+function seteDiasAtrasISO(): string {
+  const data = new Date();
+  data.setDate(data.getDate() - 6);
+  return data.toISOString().slice(0, 10);
+}
+
+const TAMANHO_CARD_PADRAO = 180;
+const TAMANHO_CARD_MIN = 100;
+const TAMANHO_CARD_MAX = 320;
+
+interface GridContext {
+  tamanhoCard: number;
+}
+
 // Célula da grade virtualizada — `GridListProps`/`GridItemProps` vêm prontos do react-virtuoso
 // (style de posicionamento + className), só embrulha num `Box` pra poder usar `sx` (a grade em
 // si, `display: grid`, é definida aqui; o resto do layout já é responsabilidade de cada card).
-const GridList = forwardRef<HTMLDivElement, GridListProps>(function GridList({ style, children, ...props }, ref) {
+// `context` (ver VirtuosoGrid abaixo) carrega o tamanho do card escolhido no slider — permite o
+// controle "personalizado, tal como Google Fotos" sem recriar a grade inteira a cada mudança.
+const GridList = forwardRef<HTMLDivElement, GridListProps & ContextProp<GridContext>>(function GridList(
+  { style, children, context, ...props },
+  ref,
+) {
   return (
     <Box
       ref={ref}
       {...props}
       style={style}
-      sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 1.5 }}
+      sx={{
+        display: 'grid',
+        gridTemplateColumns: `repeat(auto-fill, minmax(${context.tamanhoCard}px, 1fr))`,
+        gap: 1.5,
+      }}
     >
       {children}
     </Box>
   );
 });
 
-const GridItem = forwardRef<HTMLDivElement, GridItemProps>(function GridItem({ children, ...props }, ref) {
+// Descarta `context` explicitamente — sem isso ele vazaria como atributo inválido pro <div> (o
+// componente recebe a prop mesmo sem usá-la, já que a grade toda foi tipada com GridContext).
+const GridItem = forwardRef<HTMLDivElement, GridItemProps & ContextProp<GridContext>>(function GridItem(
+  { children, context: _context, ...props },
+  ref,
+) {
   return (
     <Box ref={ref} {...props}>
       {children}
@@ -128,13 +165,21 @@ function CardFoto({
   onAbrirImagem,
 }: {
   foto: FotoGaleria;
-  onAbrirImagem: (fotos: FotoComRegistro[], indice: number) => void;
+  // Devolve só o id da imagem clicada — quem decide a lista/índice pra navegação é o pai (ver
+  // `todasFotos` em GaleriaFotosPage), não este card: um clique aqui precisa abrir o lightbox
+  // navegável pela GRADE INTEIRA (estilo Google Fotos), não só pelas fotos deste card (que aqui
+  // é normalmente 1 só — sem isso as setas de navegação nunca apareciam, ver GaleriaDialog).
+  onAbrirImagem: (imagemId: string) => void;
 }) {
   const fotosDoRegistro = useMemo(() => achatarFotos([foto.registro]), [foto.registro]);
 
   return (
     <Box sx={{ borderRadius: 2, overflow: 'hidden', border: '1px solid', borderColor: 'divider', height: '100%' }}>
-      <MosaicoImagens fotos={fotosDoRegistro} onAbrir={(i) => onAbrirImagem(fotosDoRegistro, i)} maxWidth="100%" />
+      <MosaicoImagens
+        fotos={fotosDoRegistro}
+        onAbrir={(i) => onAbrirImagem(fotosDoRegistro[i].imagem.id)}
+        maxWidth="100%"
+      />
       <Box sx={{ p: 1 }}>
         <Typography variant="caption" sx={{ fontWeight: 600, display: 'block' }} noWrap>
           {foto.registro.tipo_registro.descricao}
@@ -152,14 +197,18 @@ function CardFoto({
 // ficam no DOM, economia real de memória numa sessão que pode acumular muitas fotos). Ver
 // docs/23-GALERIA-DE-FOTOS.md.
 export function GaleriaFotosPage() {
-  const [filtrosAtivos, setFiltrosAtivos] = useState<TipoFiltro[]>([]);
-  const [dataInicio, setDataInicio] = useState('');
-  const [dataFim, setDataFim] = useState('');
+  // Abre em "últimos 7 dias" por padrão — diferente da v1 (sem filtro nenhum), pedido explícito
+  // do usuário. Continua removível como qualquer outro chip (clica o X e vê tudo).
+  const [filtrosAtivos, setFiltrosAtivos] = useState<TipoFiltro[]>(['periodo']);
+  const [dataInicio, setDataInicio] = useState(seteDiasAtrasISO());
+  const [dataFim, setDataFim] = useState(hojeISO());
   const [entidades, setEntidades] = useState(ENTIDADES_VAZIAS);
   const [ruptura, setRuptura] = useState(true);
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const [edicao, setEdicao] = useState<{ tipo: TipoFiltro; anchorEl: HTMLElement } | null>(null);
   const [galeria, setGaleria] = useState<{ fotos: FotoComRegistro[]; indice: number } | null>(null);
+  // Tamanho do card, personalizável — mesmo controle que Google Fotos tem pro zoom da grade.
+  const [tamanhoCard, setTamanhoCard] = useState(TAMANHO_CARD_PADRAO);
 
   const tiposRegistroQuery = useQuery({ queryKey: ['tipos-registro', 'filtro'], queryFn: () => listarTiposRegistro() });
   const departamentosQuery = useQuery({ queryKey: ['departamentos', 'filtro'], queryFn: () => listarDepartamentos() });
@@ -236,6 +285,22 @@ export function GaleriaFotosPage() {
       pagina.meta.current_page < pagina.meta.last_page ? pagina.meta.current_page + 1 : undefined,
   });
   const fotos = useMemo(() => galeriaQuery.data?.pages.flatMap((pagina) => pagina.registros) ?? [], [galeriaQuery.data]);
+  // Lista achatada de TODAS as fotos já carregadas (todas as páginas, não só o card clicado) —
+  // é o que dá ao lightbox setinha de navegação de verdade pela grade inteira, estilo Google
+  // Fotos, com o nome de quem registrou (só a Galeria tem esse dado por foto, ver FotoGaleria).
+  const todasFotos = useMemo<FotoComRegistro[]>(
+    () =>
+      fotos.flatMap((f) =>
+        f.registro.imagens.map((imagem) => ({ registro: f.registro, imagem, usuario: f.usuario ?? undefined })),
+      ),
+    [fotos],
+  );
+
+  function abrirNaGaleria(imagemId: string) {
+    const indice = todasFotos.findIndex((f) => f.imagem.id === imagemId);
+    if (indice === -1) return;
+    setGaleria({ fotos: todasFotos, indice });
+  }
 
   function adicionarFiltro(tipo: TipoFiltro) {
     setFiltrosAtivos((atual) => [...atual, tipo]);
@@ -320,6 +385,24 @@ export function GaleriaFotosPage() {
             Limpar filtros
           </Button>
         )}
+
+        {/* Tamanho do card — personalizável, mesmo controle que Google Fotos usa pro zoom da
+            grade (slider entre uma miniatura pequena e uma bem grande). Empurrado pro fim da
+            barra (ml: 'auto') — some pra baixo dos chips só em tela muito estreita. */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 'auto', minWidth: 160 }}>
+          <PhotoSizeSelectSmallIcon fontSize="small" color="action" />
+          <Slider
+            size="small"
+            value={tamanhoCard}
+            min={TAMANHO_CARD_MIN}
+            max={TAMANHO_CARD_MAX}
+            step={20}
+            onChange={(_, valor) => setTamanhoCard(valor as number)}
+            sx={{ width: 100 }}
+            aria-label="Tamanho das fotos"
+          />
+          <PhotoSizeSelectLargeIcon fontSize="small" color="action" />
+        </Box>
       </Box>
 
       <Popover
@@ -385,14 +468,15 @@ export function GaleriaFotosPage() {
       <VirtuosoGrid
         useWindowScroll
         data={fotos}
-        overscan={600}
+        // Maior que o default — desmonta menos card num scroll normal, complementando o cache
+        // de blob URL (ver components/fotos/blobCache.ts) que já cobre o resto do caso.
+        overscan={1600}
+        context={{ tamanhoCard }}
         endReached={() => {
           if (galeriaQuery.hasNextPage && !galeriaQuery.isFetchingNextPage) void galeriaQuery.fetchNextPage();
         }}
         components={{ List: GridList, Item: GridItem }}
-        itemContent={(_, foto) => (
-          <CardFoto foto={foto} onAbrirImagem={(fs, indice) => setGaleria({ fotos: fs, indice })} />
-        )}
+        itemContent={(_, foto) => <CardFoto foto={foto} onAbrirImagem={abrirNaGaleria} />}
       />
       {galeriaQuery.isFetchingNextPage && (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
