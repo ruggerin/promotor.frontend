@@ -1,5 +1,7 @@
+import AddIcon from '@mui/icons-material/Add';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import DeleteIcon from '@mui/icons-material/Delete';
+import EditIcon from '@mui/icons-material/Edit';
 import {
   Alert,
   Autocomplete,
@@ -29,9 +31,11 @@ import { listarDepartamentos } from '../../lib/api/departamentos';
 import { listarMarcas } from '../../lib/api/marcas';
 import { listarProdutos } from '../../lib/api/produtos';
 import { listarSecoes } from '../../lib/api/secoes';
+import { listarTiposRegistro } from '../../lib/api/tiposRegistro';
 import { formatarDataSemFuso } from '../../lib/formatarData';
 import { entidadeDoItem, TIPO_ITEM_LABELS } from '../../lib/tipoItemCampanha';
-import type { TipoItemCampanha } from '../../types/api';
+import { TipoRegistroFormDialog } from '../tiposRegistro/TipoRegistroFormDialog';
+import type { TipoItemCampanha, TipoRegistro } from '../../types/api';
 
 export function CampanhaDetailPage() {
   const { publicId } = useParams<{ publicId: string }>();
@@ -40,10 +44,21 @@ export function CampanhaDetailPage() {
   const [tipoItem, setTipoItem] = useState<TipoItemCampanha>('PRODUTO');
   const [entidadeUuid, setEntidadeUuid] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
+  const [dialogFormularioAberto, setDialogFormularioAberto] = useState(false);
+  const [formularioEmEdicao, setFormularioEmEdicao] = useState<TipoRegistro | null>(null);
 
   const campanhaQuery = useQuery({
     queryKey: ['campanhas', publicId],
     queryFn: () => buscarCampanha(publicId!),
+    enabled: !!publicId,
+  });
+
+  // "Formulário desta campanha" (Fase 3, autoria embutida — docs/20-FORMULARIO-DINAMICO-CAMPANHA.md
+  // §3) — por baixo é o mesmo TipoRegistro/mesmo endpoint de Tipos de Registro, só filtrado por
+  // campanha_auditoria_uuid pra não misturar com o catálogo geral da empresa.
+  const formulariosQuery = useQuery({
+    queryKey: ['tipos-registro', { campanha_auditoria_uuid: publicId }],
+    queryFn: () => listarTiposRegistro({ campanha_auditoria_uuid: publicId! }),
     enabled: !!publicId,
   });
 
@@ -171,7 +186,7 @@ export function CampanhaDetailPage() {
         </Button>
       </Paper>
 
-      <TableContainer component={Paper}>
+      <TableContainer component={Paper} sx={{ mb: 4 }}>
         <Table>
           <TableHead>
             <TableRow>
@@ -206,6 +221,97 @@ export function CampanhaDetailPage() {
           </TableBody>
         </Table>
       </TableContainer>
+
+      {/* Formulário desta campanha — Fase 3 de docs/20-FORMULARIO-DINAMICO-CAMPANHA.md §3. */}
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+        <Typography variant="h6">Formulário desta campanha</Typography>
+        <Button
+          variant="contained"
+          size="small"
+          startIcon={<AddIcon />}
+          onClick={() => {
+            setFormularioEmEdicao(null);
+            setDialogFormularioAberto(true);
+          }}
+        >
+          Novo formulário
+        </Button>
+      </Box>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        As perguntas que o promotor responde nas visitas desta campanha — por baixo é o mesmo
+        motor de "Tipos de Registro" (campos tipados, condicional, sortimento), só que já nasce
+        vinculado a esta campanha, sem precisar configurar isso na mão.
+      </Typography>
+
+      <TableContainer component={Paper}>
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell>Descrição</TableCell>
+              <TableCell>Campos</TableCell>
+              <TableCell>Status</TableCell>
+              <TableCell align="right">Ações</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {formulariosQuery.isLoading && (
+              <TableRow>
+                <TableCell colSpan={4} align="center">
+                  <CircularProgress size={24} />
+                </TableCell>
+              </TableRow>
+            )}
+            {formulariosQuery.data?.tipos_registro.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={4} align="center">
+                  Nenhum formulário criado ainda pra esta campanha.
+                </TableCell>
+              </TableRow>
+            )}
+            {formulariosQuery.data?.tipos_registro.map((tipo) => (
+              <TableRow key={tipo.id} hover>
+                <TableCell>{tipo.descricao}</TableCell>
+                <TableCell>
+                  {tipo.campos.length === 0 ? (
+                    <Typography variant="body2" color="text.secondary">
+                      —
+                    </Typography>
+                  ) : (
+                    <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                      {tipo.campos.map((c) => (
+                        <Chip key={c.id} label={c.rotulo} size="small" />
+                      ))}
+                    </Box>
+                  )}
+                </TableCell>
+                <TableCell>
+                  <Chip label={tipo.ativo ? 'Ativo' : 'Inativo'} color={tipo.ativo ? 'success' : 'default'} size="small" />
+                </TableCell>
+                <TableCell align="right">
+                  <Tooltip title="Editar">
+                    <IconButton
+                      size="small"
+                      onClick={() => {
+                        setFormularioEmEdicao(tipo);
+                        setDialogFormularioAberto(true);
+                      }}
+                    >
+                      <EditIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
+
+      <TipoRegistroFormDialog
+        open={dialogFormularioAberto}
+        tipo={formularioEmEdicao}
+        onClose={() => setDialogFormularioAberto(false)}
+        campanhaContexto={{ uuid: campanha.id, descricao: campanha.descricao }}
+      />
     </Box>
   );
 }

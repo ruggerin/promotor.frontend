@@ -12,6 +12,7 @@ import { ContratoDetailPage } from './pages/contratos/ContratoDetailPage';
 import { ContratosListPage } from './pages/contratos/ContratosListPage';
 import { EmpresaDetailPage } from './pages/empresas/EmpresaDetailPage';
 import { EmpresasListPage } from './pages/empresas/EmpresasListPage';
+import { GaleriaFotosPage } from './pages/galeriaFotos/GaleriaFotosPage';
 import { ObjetivosVisitaListPage } from './pages/objetivosVisita/ObjetivosVisitaListPage';
 import { OrdensServicoListPage } from './pages/ordensServico/OrdensServicoListPage';
 import { ParametrosListPage } from './pages/parametros/ParametrosListPage';
@@ -20,6 +21,8 @@ import { PlanogramaEditorPage } from './pages/planogramas/PlanogramaEditorPage';
 import { PlanogramasListPage } from './pages/planogramas/PlanogramasListPage';
 import { PontoVendaDetailPage } from './pages/pontosVenda/PontoVendaDetailPage';
 import { PontosVendaListPage } from './pages/pontosVenda/PontosVendaListPage';
+import { RamosAtividadeListPage } from './pages/ramosAtividade/RamosAtividadeListPage';
+import { RedesLojasListPage } from './pages/redesLojas/RedesLojasListPage';
 import { TiposRegistroListPage } from './pages/tiposRegistro/TiposRegistroListPage';
 import { TiposVisitaListPage } from './pages/tiposVisita/TiposVisitaListPage';
 import { UsuarioDetailPage } from './pages/usuarios/UsuarioDetailPage';
@@ -39,8 +42,11 @@ export function App() {
           <Route path="/visitas/:publicId" element={<VisitaDetailPage />} />
           <Route path="/pontos-venda" element={<PontosVendaListPage />} />
           <Route path="/atividades" element={<AtividadesPage />} />
+          <Route path="/galeria-fotos" element={<GaleriaFotosPage />} />
           <Route path="/pontos-venda/:publicId" element={<PontoVendaDetailPage />} />
           <Route path="/catalogo" element={<CatalogoPage />} />
+          <Route path="/redes-lojas" element={<RedesLojasListPage />} />
+          <Route path="/ramos-atividade" element={<RamosAtividadeListPage />} />
           <Route path="/tipos-registro" element={<TiposRegistroListPage />} />
           <Route path="/planogramas" element={<PlanogramasListPage />} />
           <Route path="/planogramas/:publicId" element={<PlanogramaEditorPage />} />

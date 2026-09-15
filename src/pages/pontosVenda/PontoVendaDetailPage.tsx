@@ -29,9 +29,10 @@ import {
 } from '@mui/material';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { listarAgendasVisita } from '../../lib/api/agendasVisita';
+import { apiClient } from '../../lib/api/client';
 import { listarDepartamentos } from '../../lib/api/departamentos';
 import { listarMarcas } from '../../lib/api/marcas';
 import {
@@ -39,6 +40,8 @@ import {
   atualizarPontoVenda,
   buscarPontoVenda,
   desativarPontoVenda,
+  enviarFachadaPontoVenda,
+  removerFachadaPontoVenda,
   removerPromotorPontoVenda,
 } from '../../lib/api/pontosVenda';
 import { listarProdutos } from '../../lib/api/produtos';
@@ -57,6 +60,108 @@ import { AgendaVisitaFormDialog } from '../agendasVisita/AgendaVisitaFormDialog'
 import { PontoVendaFormDialog } from './PontoVendaFormDialog';
 
 const DIAS_SEMANA = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+
+/**
+ * Foto da fachada da loja — mesma técnica de PlanogramaEditorPage pra foto capa: fachada_url
+ * exige Authorization: Bearer (não é um <img src> comum), então baixa via Axios e vira blob URL.
+ */
+function FachadaCard({ pontoVenda, onErro }: { pontoVenda: PontoVenda; onErro: (mensagem: string) => void }) {
+  const queryClient = useQueryClient();
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    setBlobUrl(null);
+    const url = pontoVenda.fachada_url;
+    if (!url) return;
+
+    let objectUrl: string | null = null;
+    let cancelado = false;
+    apiClient
+      .get<Blob>(url, { responseType: 'blob' })
+      .then((response) => {
+        if (cancelado) return;
+        objectUrl = URL.createObjectURL(response.data);
+        setBlobUrl(objectUrl);
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelado = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [pontoVenda.fachada_url]);
+
+  function invalidar() {
+    void queryClient.invalidateQueries({ queryKey: ['pontos-venda', pontoVenda.id] });
+  }
+
+  const enviarMutation = useMutation({
+    mutationFn: (imagem: File) => enviarFachadaPontoVenda(pontoVenda.id, imagem),
+    onSuccess: invalidar,
+    onError: () => onErro('Não foi possível enviar a foto da fachada.'),
+  });
+
+  const removerMutation = useMutation({
+    mutationFn: () => removerFachadaPontoVenda(pontoVenda.id),
+    onSuccess: invalidar,
+    onError: () => onErro('Não foi possível remover a foto da fachada.'),
+  });
+
+  function handleArquivoSelecionado(evento: React.ChangeEvent<HTMLInputElement>) {
+    const arquivo = evento.target.files?.[0];
+    evento.target.value = ''; // permite selecionar o mesmo arquivo de novo depois
+    if (arquivo) enviarMutation.mutate(arquivo);
+  }
+
+  return (
+    <Paper sx={{ p: 3, mb: 3, display: 'flex', gap: 2, alignItems: 'center' }}>
+      <Box
+        sx={{
+          width: 88,
+          height: 88,
+          borderRadius: 1,
+          overflow: 'hidden',
+          bgcolor: 'action.hover',
+          flexShrink: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        {blobUrl ? (
+          <Box component="img" src={blobUrl} sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        ) : (
+          <Typography variant="caption" color="text.secondary" sx={{ px: 1, textAlign: 'center' }}>
+            Sem fachada
+          </Typography>
+        )}
+      </Box>
+      <Box sx={{ flex: 1 }}>
+        <Typography variant="subtitle2">Foto da fachada</Typography>
+        <Typography variant="body2" color="text.secondary">
+          Ajuda o promotor a reconhecer a loja em campo.
+        </Typography>
+        <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
+          <Button size="small" variant="outlined" component="label" disabled={enviarMutation.isPending}>
+            Enviar foto
+            <input type="file" accept="image/png,image/jpeg" hidden onChange={handleArquivoSelecionado} />
+          </Button>
+          {pontoVenda.fachada_url && (
+            <Button
+              size="small"
+              variant="outlined"
+              color="error"
+              onClick={() => removerMutation.mutate()}
+              disabled={removerMutation.isPending}
+            >
+              Remover
+            </Button>
+          )}
+        </Box>
+      </Box>
+    </Paper>
+  );
+}
 
 const STATUS_VISITA_LABELS: Record<StatusVisita, string> = {
   ABERTA: 'Aberta',
@@ -351,10 +456,30 @@ export function PontoVendaDetailPage() {
             </Typography>
             <Typography>{pdv.email ?? '—'}</Typography>
           </Grid>
+          <Grid size={{ xs: 12, sm: 6 }}>
+            <Typography variant="caption" color="text.secondary">
+              Rede de lojas
+            </Typography>
+            <Typography>{pdv.rede_loja?.descricao ?? '—'}</Typography>
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6 }}>
+            <Typography variant="caption" color="text.secondary">
+              Ramo de atividade
+            </Typography>
+            <Typography>{pdv.ramo_atividade?.descricao ?? '—'}</Typography>
+          </Grid>
+          <Grid size={{ xs: 12, sm: 6 }}>
+            <Typography variant="caption" color="text.secondary">
+              Número de checkouts
+            </Typography>
+            <Typography>{pdv.numero_checkouts ?? '—'}</Typography>
+          </Grid>
         </Grid>
       </Paper>
 
-      <Paper sx={{ p: 3 }}>
+      <FachadaCard pontoVenda={pdv} onErro={setErro} />
+
+      <Paper sx={{ p: 3, mb: 3 }}>
         <Typography variant="h6" gutterBottom>
           Promotores
         </Typography>

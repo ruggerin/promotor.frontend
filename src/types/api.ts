@@ -33,7 +33,7 @@ export type AutonomiaPromotor = 'DESABILITADO' | 'AUTONOMO' | 'REQUER_APROVACAO'
 export type StatusFatura = 'PENDENTE' | 'PAGA' | 'CANCELADA';
 export type TipoEventoHistorico = 'LOGIN' | 'VISITA_INICIO' | 'VISITA_FIM' | 'REGISTRO';
 export type TipoContrato = 'COMODATO' | 'PONTO_EXTRA';
-export type TipoCampoRegistro = 'NUMERO' | 'TEXTO' | 'MOEDA' | 'MULTIPLA_ESCOLHA' | 'BOOLEANO' | 'DATA';
+export type TipoCampoRegistro = 'NUMERO' | 'TEXTO' | 'MOEDA' | 'MULTIPLA_ESCOLHA' | 'BOOLEANO' | 'DATA' | 'SORTIMENTO';
 // visitas.tipo (PROGRAMADA/NAO_PROGRAMADA) foi removido — agendamento agora vive inteiro em
 // OrdemServico, ver docs/07-ORDEM-DE-SERVICO.md e docs/10-AGENDA-VISITA.md. CONTRATO = gerada
 // automaticamente por um comodato/ponto extra vencendo, ver GerarOrdensServicoPorContrato.
@@ -195,6 +195,11 @@ export interface PontoVenda {
   cep: string | null;
   telefone: string | null;
   email: string | null;
+  numero_checkouts: number | null;
+  // Rota autenticada (mesmo padrão de UsuarioAvatar/foto_url) — nunca a URL direta do disco.
+  fachada_url: string | null;
+  rede_loja: { id: string; descricao: string } | null;
+  ramo_atividade: { id: string; descricao: string } | null;
   // Promotores atribuídos a esta loja (regra de negócio 6, ver docs/02-API-BACKEND.md) — vazio
   // quando ninguém foi atribuído ainda (a loja fica visível a todos os promotores da empresa).
   promotores: { id: string; nome: string }[];
@@ -280,6 +285,26 @@ export interface DepartamentoAuditoria {
   updated_at: string;
 }
 
+export interface RedeLoja {
+  id: string;
+  descricao: string;
+  // Só vem preenchido pra quem pede como SUPERADMIN (ver docs/02-API-BACKEND.md) — usado pra
+  // mostrar a coluna/filtro "Empresa" no admin web.
+  empresa?: Empresa;
+  ativo: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RamoAtividade {
+  id: string;
+  descricao: string;
+  empresa?: Empresa;
+  ativo: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface SecaoAuditoria {
   id: string;
   descricao: string;
@@ -309,6 +334,13 @@ export interface NivelExibicao {
   updated_at: string;
 }
 
+// Origem da lista de produtos de um campo SORTIMENTO — docs/20-FORMULARIO-DINAMICO-CAMPANHA.md
+// decisão 3. DINAMICO busca ao vivo o sortimento real do PDV dentro do recorte configurado;
+// FIXO usa uma lista curada no cadastro do campo, ignorando o sortimento do PDV.
+export type SortimentoOrigemCampo = 'DINAMICO' | 'FIXO';
+// Subconjunto de TipoItemCampanha — sem PRODUTO, que não faz sentido como recorte de um checklist.
+export type SortimentoTipoVinculo = 'SECAO' | 'DEPARTAMENTO' | 'MARCA';
+
 export interface CampoTipoRegistro {
   id: string;
   chave: string;
@@ -323,6 +355,16 @@ export interface CampoTipoRegistro {
   // quando esse campo pai tiver o valor `depende_de_valor`.
   depende_de_chave: string | null;
   depende_de_valor: string | null;
+  // Campo SORTIMENTO (decisão 3) — todos só preenchidos quando tipo_campo = SORTIMENTO.
+  sortimento_origem: SortimentoOrigemCampo | null;
+  sortimento_tipo_vinculo: SortimentoTipoVinculo | null;
+  sortimento_secao: { id: string; descricao: string } | null;
+  sortimento_departamento: { id: string; descricao: string } | null;
+  sortimento_marca: { id: string; descricao: string } | null;
+  // Lista curada — só populada quando sortimento_origem = FIXO.
+  sortimento_produtos: { id: string; descricao: string }[];
+  // Ausência no checklist vira ruptura só quando este switch está ligado (decisão 4).
+  confirmar_ruptura_ausentes: boolean;
 }
 
 // Substitui o antigo enum fixo TipoRegistroVisita (FOTO/RUPTURA/OBSERVACAO) — lista
@@ -356,6 +398,9 @@ export interface TipoRegistro {
   eh_ruptura: boolean;
   // Dispara evento de alerta no Painel de Atividades — ver docs/19-PAINEL-ATIVIDADES.md.
   eh_alerta: boolean;
+  // Fase 3 de docs/20-FORMULARIO-DINAMICO-CAMPANHA.md (decisões 5 e 8).
+  usa_pontuacao: boolean;
+  disponivel_registro_livre: boolean;
   campos: CampoTipoRegistro[];
   empresa?: Empresa;
   ativo: boolean;
@@ -450,6 +495,9 @@ export interface VisitaRegistro {
   observacao: string | null;
   // Valores dos campos customizados do tipo_registro (ex.: { quantidade: "5", valor: "199.90" }).
   valores_campos: Record<string, string> | null;
+  // % de compliance (campos BOOLEANO/SORTIMENTO que "passaram") — só quando
+  // tipo_registro.usa_pontuacao = true, ver docs/20-FORMULARIO-DINAMICO-CAMPANHA.md decisão 5.
+  pontuacao: number | null;
   // N:N — mesma foto pode evidenciar vários registros, um registro pode ter várias fotos. Ver
   // docs/21-EVIDENCIA-EM-FOTOS.md. Substitui o antigo imagem_url (string única).
   imagens: { id: string; url: string }[];
@@ -459,6 +507,23 @@ export interface VisitaRegistro {
   resolvido_por: { id: string; nome: string } | null;
   created_at: string;
   updated_at: string;
+}
+
+// Galeria de Fotos — grade só de fotos (VisitaRegistro com ≥1 imagem), diferente do Atividades
+// (que mistura eventos). Cada item embrulha o VisitaRegistroResource com loja/rede/ramo/
+// promotor ao lado, já que o Resource sozinho não sabe da Visita dona. Ver
+// docs/23-GALERIA-DE-FOTOS.md §3.3.
+export interface FotoGaleria {
+  id: string;
+  ocorrido_em: string;
+  ponto_venda: {
+    id: string;
+    fantasia: string;
+    rede_loja: { id: string; descricao: string } | null;
+    ramo_atividade: { id: string; descricao: string } | null;
+  } | null;
+  usuario: { id: string; nome: string; foto_url: string | null } | null;
+  registro: VisitaRegistro;
 }
 
 // Feed do Painel de Atividades — mistura Visita (check-in/checkout) e VisitaRegistro-alerta
