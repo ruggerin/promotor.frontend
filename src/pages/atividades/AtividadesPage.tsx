@@ -19,8 +19,9 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
+import { alpha } from '@mui/material/styles';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState, useEffect } from 'react';
 import InfiniteScroll from 'react-infinite-scroll-component';
 import { Link as RouterLink } from 'react-router-dom';
 import { GaleriaDialog } from '../../components/fotos/GaleriaDialog';
@@ -30,6 +31,7 @@ import { MdiIcon } from '../../components/MdiIcon';
 import { usePageHeader } from '../../components/layout/PageHeaderSlot';
 import { UsuarioAvatar } from '../../components/UsuarioAvatar';
 import { listarAtividades, resolverAlerta } from '../../lib/api/atividades';
+import { labelDoDia } from '../../lib/datas';
 import { buscarAlertaRequerResolucao, buscarPollingAtividadesMs } from '../../lib/api/parametros';
 import { listarPontosVenda } from '../../lib/api/pontosVenda';
 import { listarTiposRegistro } from '../../lib/api/tiposRegistro';
@@ -326,27 +328,32 @@ export function AtividadesPage() {
         <Box sx={{ display: 'flex', flexDirection: 'column' }}>
           {agruparPorDia(eventos).map((grupo) => (
             <Box key={grupo.chave}>
-              {/* Cabeçalho do dia — mesmo padrão visual do handoff de design (Atividades.dc.html):
-                  rótulo + contador + linha divisória, "grudado" no topo ao rolar. */}
+              {/* Cabeçalho do dia — rótulo + contador + linha divisória, "grudado" no topo ao
+                  rolar (estilo Google Fotos). Fundo com blur pra não ficar um retângulo seco
+                  cortando os cards que passam por baixo. */}
               <Box
                 sx={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: 1.5,
+                  gap: 1.25,
                   position: 'sticky',
-                  top: 0,
-                  zIndex: 1,
-                  bgcolor: 'background.default',
-                  py: 1,
+                  // 64px = altura da AppBar fixa (AppLayout) — sem isso o header gruda em top:0
+                  // do documento, que fica ESCONDIDO atrás da AppBar (zIndex bem maior), não
+                  // logo abaixo dela como devia.
+                  top: 64,
+                  zIndex: 2,
+                  backdropFilter: 'blur(6px)',
+                  bgcolor: (t) => alpha(t.palette.background.default, 0.85),
+                  py: 0.75,
                 }}
               >
-                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700, fontSize: 13.5 }}>
                   {grupo.label}
                 </Typography>
                 <Chip
                   size="small"
                   label={`${grupo.eventos.length} evento${grupo.eventos.length === 1 ? '' : 's'}`}
-                  sx={{ fontFamily: 'monospace', fontWeight: 600, bgcolor: 'action.hover' }}
+                  sx={{ height: 20, fontSize: 11, fontFamily: 'monospace', fontWeight: 600, bgcolor: 'action.hover' }}
                 />
                 <Box sx={{ flex: 1, height: '1px', bgcolor: 'divider' }} />
               </Box>
@@ -404,19 +411,6 @@ function corDoEvento(evento: AtividadeEvento): CorEvento {
   return evento.registro?.alerta_resolvido_em ? CORES_EVENTO.ALERTA_RESOLVIDO : CORES_EVENTO.ALERTA_PENDENTE;
 }
 
-function labelDoDia(dataISO: string): string {
-  const data = new Date(dataISO);
-  const hoje = new Date();
-  const ontem = new Date(hoje);
-  ontem.setDate(hoje.getDate() - 1);
-  const mesmoDia = (a: Date, b: Date) => a.toDateString() === b.toDateString();
-  const dataFormatada = data.toLocaleDateString('pt-BR');
-  if (mesmoDia(data, hoje)) return `Hoje, ${dataFormatada}`;
-  if (mesmoDia(data, ontem)) return `Ontem, ${dataFormatada}`;
-  const diaSemana = data.toLocaleDateString('pt-BR', { weekday: 'long' });
-  return `${diaSemana.charAt(0).toUpperCase()}${diaSemana.slice(1)}, ${dataFormatada}`;
-}
-
 // Agrupa por dia (chave = data local do evento) preservando a ordem cronológica que a API já
 // devolve (mais recente primeiro) — mesmo padrão visual do mock, cada dia com seu próprio
 // cabeçalho fixo.
@@ -448,10 +442,10 @@ function EventoLinha(props: {
   const cores = corDoEvento(evento);
 
   return (
-    <Box sx={{ display: 'grid', gridTemplateColumns: '52px 24px minmax(0,1fr)', columnGap: 1 }}>
+    <Box sx={{ display: 'grid', gridTemplateColumns: '46px 20px minmax(0,1fr)', columnGap: 0.75 }}>
       <Typography
         variant="caption"
-        sx={{ textAlign: 'right', pt: 2, fontFamily: 'monospace', color: 'text.secondary', fontWeight: 500 }}
+        sx={{ textAlign: 'right', pt: 1.5, fontSize: 11, fontFamily: 'monospace', color: 'text.secondary', fontWeight: 500 }}
       >
         {hora}
       </Typography>
@@ -460,16 +454,16 @@ function EventoLinha(props: {
         <Box
           sx={{
             position: 'relative',
-            width: 11,
-            height: 11,
-            mt: 2.25,
+            width: 9,
+            height: 9,
+            mt: 1.75,
             borderRadius: '50%',
             bgcolor: cores.dot,
-            boxShadow: (t) => `0 0 0 4px ${t.palette.background.default}`,
+            boxShadow: (t) => `0 0 0 3px ${t.palette.background.default}`,
           }}
         />
       </Box>
-      <Box sx={{ pb: 2, minWidth: 0 }}>
+      <Box sx={{ pb: 1.25, minWidth: 0 }}>
         <EventoCard {...props} cores={cores} />
       </Box>
     </Box>
@@ -499,53 +493,53 @@ function EventoCard({
   const fotosFinalizada = achatarFotos(evento.imagens ?? []);
 
   return (
-    <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'hidden' }}>
+    <Paper variant="outlined" sx={{ borderRadius: 1.5, overflow: 'hidden' }}>
       {/* Cabeçalho — avatar do autor + nome + loja, igual o topo de um post (a hora já aparece
           na régua da timeline, à esquerda do card — ver EventoLinha). */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, p: 2, pb: 1.5 }}>
-        <UsuarioAvatar nome={nome} fotoUrl={evento.usuario?.foto_url} size={40} />
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, p: 1.25, pb: 1 }}>
+        <UsuarioAvatar nome={nome} fotoUrl={evento.usuario?.foto_url} size={30} />
         <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-          <Typography variant="subtitle2" noWrap>
+          <Typography variant="body2" sx={{ fontWeight: 600 }} noWrap>
             {nome}
           </Typography>
-          <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block' }}>
+          <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block', lineHeight: 1.3 }}>
             {evento.ponto_venda?.fantasia}
           </Typography>
         </Box>
         {evento.tipo_evento === 'ALERTA' && registro ? (
           <Chip
             icon={
-              <MdiIcon icone={registro.tipo_registro.icone ?? 'alert'} size={16} sx={{ color: 'inherit !important' }} />
+              <MdiIcon icone={registro.tipo_registro.icone ?? 'alert'} size={14} sx={{ color: 'inherit !important' }} />
             }
             label={registro.tipo_registro.descricao}
             size="small"
-            sx={{ bgcolor: cores.bg, color: cores.fg, border: '1px solid', borderColor: cores.borda, fontWeight: 600 }}
+            sx={{ height: 22, fontSize: 11, bgcolor: cores.bg, color: cores.fg, border: '1px solid', borderColor: cores.borda, fontWeight: 600 }}
           />
         ) : (
           <Chip
             icon={
               evento.tipo_evento === 'VISITA_FINALIZADA' ? (
-                <LogoutIcon sx={{ color: 'inherit !important' }} />
+                <LogoutIcon sx={{ fontSize: 14, color: 'inherit !important' }} />
               ) : (
-                <LoginIcon sx={{ color: 'inherit !important' }} />
+                <LoginIcon sx={{ fontSize: 14, color: 'inherit !important' }} />
               )
             }
             label={TIPO_CHIP[evento.tipo_evento as 'VISITA_INICIADA' | 'VISITA_FINALIZADA'].label}
             size="small"
-            sx={{ bgcolor: cores.bg, color: cores.fg, border: '1px solid', borderColor: cores.borda, fontWeight: 600 }}
+            sx={{ height: 22, fontSize: 11, bgcolor: cores.bg, color: cores.fg, border: '1px solid', borderColor: cores.borda, fontWeight: 600 }}
           />
         )}
       </Box>
 
       {/* Corpo — conteúdo específico do tipo de evento. */}
       {evento.tipo_evento === 'ALERTA' && registro?.observacao && (
-        <Typography variant="body2" sx={{ px: 2, pb: 1.5 }}>
+        <Typography variant="body2" sx={{ px: 1.25, pb: 1, fontSize: 13 }}>
           {registro.observacao}
         </Typography>
       )}
 
       {evento.tipo_evento === 'ALERTA' && fotosAlerta.length > 0 && (
-        <Box sx={{ px: 2, pb: 2 }}>
+        <Box sx={{ px: 1.25, pb: 1.25 }}>
           <MosaicoImagens fotos={fotosAlerta} onAbrir={(i) => onAbrirImagem(fotosAlerta, i)} />
         </Box>
       )}
@@ -559,7 +553,7 @@ function EventoCard({
       )}
 
       {evento.tipo_evento === 'VISITA_FINALIZADA' && fotosFinalizada.length > 0 && (
-        <Box sx={{ px: 2, pb: 2 }}>
+        <Box sx={{ px: 1.25, pb: 1.25 }}>
           <MosaicoImagens fotos={fotosFinalizada} onAbrir={(i) => onAbrirImagem(fotosFinalizada, i)} />
         </Box>
       )}
@@ -570,9 +564,8 @@ function EventoCard({
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          px: 2,
-          py: 1,
-          mt: 1,
+          px: 1.25,
+          py: 0.75,
           borderTop: '1px solid',
           borderColor: 'divider',
         }}
@@ -684,14 +677,14 @@ function MapaCheckin({
   const { ctrlPressionado, mostrarDica, aoRolarSemCtrl } = useZoomSoComCtrl();
 
   return (
-    <Box sx={{ px: 2, pb: 2 }}>
+    <Box sx={{ px: 1.25, pb: 1.25 }}>
       <Box sx={{ position: 'relative', borderRadius: 1, overflow: 'hidden' }}>
         <Box
           component="iframe"
           title="Localização do check-in"
           src={urlMapaEmbed(latitude, longitude)}
           loading="lazy"
-          sx={{ width: '100%', height: 180, border: 0, display: 'block' }}
+          sx={{ width: '100%', height: 140, border: 0, display: 'block' }}
         />
         {/* pointerEvents 'none' com Ctrl pressionado deixa o wheel passar direto pro iframe por
             baixo (o mapa some da hit-test do navegador nesse instante) — sem isso, todo scroll

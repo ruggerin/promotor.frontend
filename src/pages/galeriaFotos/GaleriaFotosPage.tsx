@@ -15,6 +15,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
+import { alpha } from '@mui/material/styles';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { forwardRef, useMemo, useState } from 'react';
 import type { ContextProp, GridItemProps, GridListProps } from 'react-virtuoso';
@@ -32,6 +33,7 @@ import { listarRedesLojas } from '../../lib/api/redesLojas';
 import { listarSecoes } from '../../lib/api/secoes';
 import { listarTiposRegistro } from '../../lib/api/tiposRegistro';
 import { listarUsuarios } from '../../lib/api/usuarios';
+import { labelDoDia, mesmaDataLocal } from '../../lib/datas';
 import type { FotoGaleria } from '../../types/api';
 
 // Filtro em chip dinâmico (Linear/Notion/Airtable), não formulário estático — pedido explícito
@@ -115,7 +117,7 @@ function seteDiasAtrasISO(): string {
   return data.toISOString().slice(0, 10);
 }
 
-const TAMANHO_CARD_PADRAO = 180;
+const TAMANHO_CARD_PADRAO = 160;
 const TAMANHO_CARD_MIN = 100;
 const TAMANHO_CARD_MAX = 320;
 
@@ -140,7 +142,7 @@ const GridList = forwardRef<HTMLDivElement, GridListProps & ContextProp<GridCont
       sx={{
         display: 'grid',
         gridTemplateColumns: `repeat(auto-fill, minmax(${context.tamanhoCard}px, 1fr))`,
-        gap: 1.5,
+        gap: 1,
       }}
     >
       {children}
@@ -175,24 +177,24 @@ function CardFoto({
   const fotosDoRegistro = useMemo(() => achatarFotos([foto.registro]), [foto.registro]);
 
   return (
-    <Box sx={{ borderRadius: 2, overflow: 'hidden', border: '1px solid', borderColor: 'divider', height: '100%' }}>
+    <Box sx={{ borderRadius: 1.5, overflow: 'hidden', border: '1px solid', borderColor: 'divider', height: '100%' }}>
       <Box sx={{ position: 'relative' }}>
         {/* Tag do tipo de registro sobreposta na foto (canto superior esquerdo) — mesmo lugar
             do handoff de design (Galeria de Fotos.dc.html: "{{ p.tag }}"). */}
         <Box
           sx={{
             position: 'absolute',
-            left: 8,
-            top: 8,
+            left: 6,
+            top: 6,
             zIndex: 1,
-            fontSize: 10.5,
+            fontSize: 10,
             fontWeight: 600,
             fontFamily: 'monospace',
             color: '#fff',
             bgcolor: 'rgba(23,21,49,0.72)',
             borderRadius: 1,
-            px: 0.9,
-            py: 0.3,
+            px: 0.75,
+            py: 0.25,
             pointerEvents: 'none',
           }}
         >
@@ -204,13 +206,13 @@ function CardFoto({
           maxWidth="100%"
         />
       </Box>
-      <Box sx={{ p: 1 }}>
-        <Typography variant="caption" sx={{ fontWeight: 600, display: 'block' }} noWrap>
+      <Box sx={{ px: 0.75, py: 0.5 }}>
+        <Typography variant="caption" sx={{ fontWeight: 600, display: 'block', lineHeight: 1.4, fontSize: 11.5 }} noWrap>
           {foto.ponto_venda?.fantasia ?? '—'}
         </Typography>
         {/* hora · promotor — mesmo par de dados que o card do handoff de design mostra
             (Galeria de Fotos.dc.html: "{{ p.time }} · {{ p.promoter }}"). */}
-        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }} noWrap>
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1.4, fontSize: 10.5 }} noWrap>
           {new Date(foto.ocorrido_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
           {foto.usuario ? ` · ${foto.usuario.nome}` : ''}
         </Typography>
@@ -236,6 +238,11 @@ export function GaleriaFotosPage() {
   const [galeria, setGaleria] = useState<{ fotos: FotoComRegistro[]; indice: number } | null>(null);
   // Tamanho do card, personalizável — mesmo controle que Google Fotos tem pro zoom da grade.
   const [tamanhoCard, setTamanhoCard] = useState(TAMANHO_CARD_PADRAO);
+  // Índice da primeira foto visível no viewport — alimenta a barra de data fixa abaixo (estilo
+  // Google Fotos: a data não fica repetida em cada seção, um único rótulo no topo troca sozinho
+  // conforme rola). Preferido a agrupar a grade em seções por dia porque a VirtuosoGrid não
+  // suporta cabeçalho de grupo nativamente (só a Virtuoso em modo lista suporta).
+  const [indiceVisivel, setIndiceVisivel] = useState(0);
 
   const tiposRegistroQuery = useQuery({ queryKey: ['tipos-registro', 'filtro'], queryFn: () => listarTiposRegistro() });
   const departamentosQuery = useQuery({ queryKey: ['departamentos', 'filtro'], queryFn: () => listarDepartamentos() });
@@ -322,6 +329,11 @@ export function GaleriaFotosPage() {
       ),
     [fotos],
   );
+
+  // Data da foto atualmente no topo do viewport + quantas fotos já carregadas são desse mesmo
+  // dia (só entre o que já veio das páginas carregadas, mesmo espírito do contador do Atividades).
+  const dataVisivel = fotos[indiceVisivel]?.ocorrido_em;
+  const contagemDiaVisivel = dataVisivel ? fotos.filter((f) => mesmaDataLocal(f.ocorrido_em, dataVisivel)).length : 0;
 
   function abrirNaGaleria(imagemId: string) {
     const indice = todasFotos.findIndex((f) => f.imagem.id === imagemId);
@@ -504,6 +516,37 @@ export function GaleriaFotosPage() {
         <Typography color="text.secondary">Nenhuma foto encontrada pros filtros escolhidos.</Typography>
       )}
 
+      {/* Data fixa no topo ao rolar, estilo Google Fotos — mostra o dia da foto que está no topo
+          do viewport agora, trocando sozinha conforme a rolagem (ver rangeChanged abaixo). */}
+      {dataVisivel && (
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1.25,
+            position: 'sticky',
+            // 64px = altura da AppBar fixa (AppLayout) — mesmo ajuste do AtividadesPage, sem
+            // isso o rótulo gruda atrás da AppBar em vez de logo abaixo dela.
+            top: 64,
+            zIndex: 2,
+            backdropFilter: 'blur(6px)',
+            bgcolor: (t) => alpha(t.palette.background.default, 0.85),
+            py: 0.75,
+            mb: 1,
+          }}
+        >
+          <Typography variant="subtitle2" sx={{ fontWeight: 700, fontSize: 13.5 }}>
+            {labelDoDia(dataVisivel)}
+          </Typography>
+          <Chip
+            size="small"
+            label={`${contagemDiaVisivel} foto${contagemDiaVisivel === 1 ? '' : 's'}`}
+            sx={{ height: 20, fontSize: 11, fontFamily: 'monospace', fontWeight: 600, bgcolor: 'action.hover' }}
+          />
+          <Box sx={{ flex: 1, height: '1px', bgcolor: 'divider' }} />
+        </Box>
+      )}
+
       <VirtuosoGrid
         useWindowScroll
         data={fotos}
@@ -511,6 +554,7 @@ export function GaleriaFotosPage() {
         // de blob URL (ver components/fotos/blobCache.ts) que já cobre o resto do caso.
         overscan={1600}
         context={{ tamanhoCard }}
+        rangeChanged={(range) => setIndiceVisivel(range.startIndex)}
         endReached={() => {
           if (galeriaQuery.hasNextPage && !galeriaQuery.isFetchingNextPage) void galeriaQuery.fetchNextPage();
         }}
