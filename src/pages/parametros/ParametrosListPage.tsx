@@ -1,4 +1,5 @@
 import AddIcon from '@mui/icons-material/Add';
+import { usePageHeader } from '../../components/layout/PageHeaderSlot';
 import BlockIcon from '@mui/icons-material/Block';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import EditIcon from '@mui/icons-material/Edit';
@@ -105,12 +106,16 @@ export function ParametrosListPage() {
     reativarMutation.mutate(parametro);
   }
 
+  const cabecalho = usePageHeader(
+    <Typography variant="h6" sx={{ fontWeight: 700 }}>
+      Parâmetros
+    </Typography>,
+  );
+
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h4" component="h1">
-          Parâmetros
-        </Typography>
+      {cabecalho}
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', mb: 2 }}>
         {!isSuperadmin && (
           <Button
             variant="contained"

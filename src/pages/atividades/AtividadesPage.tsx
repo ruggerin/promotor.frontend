@@ -12,12 +12,11 @@ import {
   Chip,
   CircularProgress,
   FormControlLabel,
-  IconButton,
   Link as MuiLink,
   Paper,
+  Popover,
   Switch,
   TextField,
-  Tooltip,
   Typography,
 } from '@mui/material';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -28,6 +27,7 @@ import { GaleriaDialog } from '../../components/fotos/GaleriaDialog';
 import { MosaicoImagens } from '../../components/fotos/MosaicoImagens';
 import { achatarFotos, type FotoComRegistro } from '../../components/fotos/tipos';
 import { MdiIcon } from '../../components/MdiIcon';
+import { usePageHeader } from '../../components/layout/PageHeaderSlot';
 import { UsuarioAvatar } from '../../components/UsuarioAvatar';
 import { listarAtividades, resolverAlerta } from '../../lib/api/atividades';
 import { buscarAlertaRequerResolucao, buscarPollingAtividadesMs } from '../../lib/api/parametros';
@@ -40,6 +40,17 @@ function hojeISO(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+function formatarData(iso: string): string {
+  if (!iso) return '';
+  const [ano, mes, dia] = iso.split('-');
+  return `${dia}/${mes}/${ano}`;
+}
+
+// Filtro em pill (Atividades.dc.html) — mesmo espírito do padrão em chip da Galeria de Fotos
+// (docs/23-GALERIA-DE-FOTOS.md §5.1), só que aqui o período é sempre visível (não removível —
+// a rotina sempre parte de uma janela de datas) e só 3 filtros de entidade existem.
+type FiltroAtividade = 'periodo' | 'promotor' | 'ponto_venda' | 'tipo_alerta';
+
 // Timeline única (check-in/checkout/alertas), estilo feed de rede social — avatar + conteúdo do
 // evento (mosaico de fotos, mapinha do check-in) + link pro detalhe — pensada pra substituir o
 // grupo de WhatsApp que o gestor usa hoje. Ver docs/19-PAINEL-ATIVIDADES.md.
@@ -51,6 +62,7 @@ export function AtividadesPage() {
   const [pontoVendaUuid, setPontoVendaUuid] = useState<string | null>(null);
   const [tipoRegistroUuid, setTipoRegistroUuid] = useState<string | null>(null);
   const [apenasPendentes, setApenasPendentes] = useState(false);
+  const [edicao, setEdicao] = useState<{ tipo: FiltroAtividade; anchorEl: HTMLElement } | null>(null);
   // Galeria aberta ao clicar numa foto — compartilhada entre todos os cards, guarda as fotos
   // (achatadas — ver achatarFotos) daquele evento específico + o índice atual (pra navegar
   // prev/próxima e mostrar a informação do registro junto da imagem).
@@ -68,6 +80,11 @@ export function AtividadesPage() {
     () => (tiposRegistroQuery.data?.tipos_registro ?? []).filter((t) => t.eh_alerta),
     [tiposRegistroQuery.data],
   );
+  // Objeto selecionado (não só o uuid) — precisa do rótulo pra mostrar no pill do filtro
+  // ("Promotor: João"), não só pra montar o payload da query.
+  const promotorSelecionado = usuariosQuery.data?.usuarios.find((u) => u.id === usuarioUuid);
+  const pontoVendaSelecionado = pontosVendaQuery.data?.pontos_venda.find((p) => p.id === pontoVendaUuid);
+  const tipoAlertaSelecionado = tiposAlerta.find((t) => t.id === tipoRegistroUuid);
 
   const pollingQuery = useQuery({ queryKey: ['parametros', 'atividades-polling'], queryFn: buscarPollingAtividadesMs });
   const requerResolucaoQuery = useQuery({
@@ -106,76 +123,178 @@ export function AtividadesPage() {
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['atividades'] }),
   });
 
+  // Título da página — vai pro header (docs/24-TEMA-ADMIN-WEB.md), não a descrição (essa
+  // continua no corpo, junto do botão de recarregar — só o título some do corpo pra ganhar
+  // aquela linha de espaço vertical).
+  const cabecalho = usePageHeader(
+    <Typography variant="h6" noWrap sx={{ fontWeight: 700 }}>
+      Atividades
+    </Typography>,
+  );
+
   return (
     <Box>
-      <Typography variant="h4" component="h1" gutterBottom>
-        Atividades
-      </Typography>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-        <Typography variant="body2" color="text.secondary">
-          Tudo que rolou nas visitas — todos os promotores, todas as lojas, em ordem cronológica.
-          Atualiza sozinho a cada {Math.round(pollingMs / 1000)}s.
-        </Typography>
-        <Tooltip title="Recarregar agora">
-          <span>
-            <IconButton size="small" onClick={() => void eventosQuery.refetch()} disabled={eventosQuery.isFetching}>
-              {eventosQuery.isFetching ? <CircularProgress size={18} /> : <RefreshIcon fontSize="small" />}
-            </IconButton>
-          </span>
-        </Tooltip>
+      {cabecalho}
+      {/* "Ao vivo" + Atualizar — mesma peça do handoff de design (Atividades.dc.html), só que
+          sem o h1 ao lado (esse já foi pro header, ver docs/24-TEMA-ADMIN-WEB.md). */}
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1.5, mb: 2 }}>
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            fontSize: 12.5,
+            fontWeight: 600,
+            color: '#15803d',
+            bgcolor: '#eafaf0',
+            border: '1px solid #c9ecd8',
+            borderRadius: 99,
+            px: 1.75,
+            py: 0.85,
+          }}
+        >
+          <Box sx={{ width: 7, height: 7, borderRadius: '50%', bgcolor: '#22c55e' }} />
+          Ao vivo · atualiza a cada {Math.round(pollingMs / 1000)}s
+        </Box>
+        <Button
+          size="small"
+          variant="outlined"
+          startIcon={eventosQuery.isFetching ? <CircularProgress size={14} /> : <RefreshIcon fontSize="small" />}
+          disabled={eventosQuery.isFetching}
+          onClick={() => void eventosQuery.refetch()}
+        >
+          Atualizar
+        </Button>
       </Box>
 
-      <Paper sx={{ p: 2, mb: 2, display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
-        <TextField
-          label="Data início"
-          type="date"
-          size="small"
-          slotProps={{ inputLabel: { shrink: true } }}
-          value={dataInicio}
-          onChange={(e) => setDataInicio(e.target.value)}
+      {/* Barra de filtros em pill — mesmo visual do handoff de design: período sempre visível
+          (indigo, não removível) + um botão por filtro de entidade, que abre um popover com o
+          Autocomplete. Mesmo padrão em chip já usado na Galeria de Fotos (doc 23 §5.1). */}
+      <Box
+        sx={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          gap: 1,
+          mb: 2,
+          bgcolor: 'background.paper',
+          border: '1px solid',
+          borderColor: 'divider',
+          borderRadius: 3.5,
+          p: 1.5,
+        }}
+      >
+        <Chip
+          label={`${formatarData(dataInicio)} – ${formatarData(dataFim)}`}
+          color="primary"
+          onClick={(e) => setEdicao({ tipo: 'periodo', anchorEl: e.currentTarget })}
         />
-        <TextField
-          label="Data fim"
-          type="date"
-          size="small"
-          slotProps={{ inputLabel: { shrink: true } }}
-          value={dataFim}
-          onChange={(e) => setDataFim(e.target.value)}
+        <Chip
+          label={promotorSelecionado ? `Promotor: ${promotorSelecionado.nome}` : 'Promotor'}
+          variant={promotorSelecionado ? 'filled' : 'outlined'}
+          color={promotorSelecionado ? 'primary' : 'default'}
+          onClick={(e) => setEdicao({ tipo: 'promotor', anchorEl: e.currentTarget })}
+          onDelete={promotorSelecionado ? () => setUsuarioUuid(null) : undefined}
         />
-        <Autocomplete
-          size="small"
-          sx={{ width: 220 }}
-          options={usuariosQuery.data?.usuarios ?? []}
-          getOptionLabel={(option) => option.nome}
-          loading={usuariosQuery.isLoading}
-          onChange={(_, value) => setUsuarioUuid(value?.id ?? null)}
-          renderInput={(params) => <TextField {...params} label="Promotor" />}
+        <Chip
+          label={pontoVendaSelecionado ? `Ponto de venda: ${pontoVendaSelecionado.fantasia}` : 'Ponto de venda'}
+          variant={pontoVendaSelecionado ? 'filled' : 'outlined'}
+          color={pontoVendaSelecionado ? 'primary' : 'default'}
+          onClick={(e) => setEdicao({ tipo: 'ponto_venda', anchorEl: e.currentTarget })}
+          onDelete={pontoVendaSelecionado ? () => setPontoVendaUuid(null) : undefined}
         />
-        <Autocomplete
-          size="small"
-          sx={{ width: 240 }}
-          options={pontosVendaQuery.data?.pontos_venda ?? []}
-          getOptionLabel={(option) => option.fantasia}
-          loading={pontosVendaQuery.isLoading}
-          onChange={(_, value) => setPontoVendaUuid(value?.id ?? null)}
-          renderInput={(params) => <TextField {...params} label="Ponto de venda" />}
+        <Chip
+          label={tipoAlertaSelecionado ? `Tipo de alerta: ${tipoAlertaSelecionado.descricao}` : 'Tipo de alerta'}
+          variant={tipoAlertaSelecionado ? 'filled' : 'outlined'}
+          color={tipoAlertaSelecionado ? 'primary' : 'default'}
+          onClick={(e) => setEdicao({ tipo: 'tipo_alerta', anchorEl: e.currentTarget })}
+          onDelete={tipoAlertaSelecionado ? () => setTipoRegistroUuid(null) : undefined}
         />
-        <Autocomplete
-          size="small"
-          sx={{ width: 220 }}
-          options={tiposAlerta}
-          getOptionLabel={(option) => option.descricao}
-          loading={tiposRegistroQuery.isLoading}
-          onChange={(_, value) => setTipoRegistroUuid(value?.id ?? null)}
-          renderInput={(params) => <TextField {...params} label="Tipo de alerta" />}
-        />
+        <Box sx={{ flex: 1, minWidth: 8 }} />
         {requerResolucao && (
           <FormControlLabel
+            sx={{ mr: 0 }}
             control={<Switch checked={apenasPendentes} onChange={(e) => setApenasPendentes(e.target.checked)} />}
             label="Só pendentes"
           />
         )}
-      </Paper>
+      </Box>
+
+      <Popover
+        open={!!edicao}
+        anchorEl={edicao?.anchorEl}
+        onClose={() => setEdicao(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+      >
+        {edicao?.tipo === 'periodo' && (
+          <Box sx={{ p: 2, width: 260, display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <TextField
+              label="Data início"
+              type="date"
+              size="small"
+              slotProps={{ inputLabel: { shrink: true } }}
+              value={dataInicio}
+              onChange={(e) => setDataInicio(e.target.value)}
+            />
+            <TextField
+              label="Data fim"
+              type="date"
+              size="small"
+              slotProps={{ inputLabel: { shrink: true } }}
+              value={dataFim}
+              onChange={(e) => setDataFim(e.target.value)}
+            />
+          </Box>
+        )}
+        {edicao?.tipo === 'promotor' && (
+          <Box sx={{ p: 2, width: 260 }}>
+            <Autocomplete
+              openOnFocus
+              options={usuariosQuery.data?.usuarios ?? []}
+              getOptionLabel={(option) => option.nome}
+              loading={usuariosQuery.isLoading}
+              value={promotorSelecionado ?? null}
+              onChange={(_, value) => {
+                setUsuarioUuid(value?.id ?? null);
+                if (value) setEdicao(null);
+              }}
+              renderInput={(params) => <TextField {...params} label="Promotor" size="small" autoFocus />}
+            />
+          </Box>
+        )}
+        {edicao?.tipo === 'ponto_venda' && (
+          <Box sx={{ p: 2, width: 280 }}>
+            <Autocomplete
+              openOnFocus
+              options={pontosVendaQuery.data?.pontos_venda ?? []}
+              getOptionLabel={(option) => option.fantasia}
+              loading={pontosVendaQuery.isLoading}
+              value={pontoVendaSelecionado ?? null}
+              onChange={(_, value) => {
+                setPontoVendaUuid(value?.id ?? null);
+                if (value) setEdicao(null);
+              }}
+              renderInput={(params) => <TextField {...params} label="Ponto de venda" size="small" autoFocus />}
+            />
+          </Box>
+        )}
+        {edicao?.tipo === 'tipo_alerta' && (
+          <Box sx={{ p: 2, width: 260 }}>
+            <Autocomplete
+              openOnFocus
+              options={tiposAlerta}
+              getOptionLabel={(option) => option.descricao}
+              loading={tiposRegistroQuery.isLoading}
+              value={tipoAlertaSelecionado ?? null}
+              onChange={(_, value) => {
+                setTipoRegistroUuid(value?.id ?? null);
+                if (value) setEdicao(null);
+              }}
+              renderInput={(params) => <TextField {...params} label="Tipo de alerta" size="small" autoFocus />}
+            />
+          </Box>
+        )}
+      </Popover>
 
       {eventosQuery.isLoading && (
         <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
@@ -204,18 +323,46 @@ export function AtividadesPage() {
         }
         style={{ overflow: 'visible' }}
       >
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {eventos.map((evento, indice) => (
-            <EventoCard
-              // Chave composta — o feed não tem um id próprio, é montado a partir de duas
-              // fontes diferentes (Visita e VisitaRegistro).
-              key={`${evento.tipo_evento}-${evento.visita.id}-${evento.ocorrido_em}-${indice}`}
-              evento={evento}
-              requerResolucao={requerResolucao}
-              resolvendo={resolverMutation.isPending}
-              onResolver={(visitaUuid, registroUuid) => resolverMutation.mutate({ visitaUuid, registroUuid })}
-              onAbrirImagem={(fotos, indiceImagem) => setGaleria({ fotos, indice: indiceImagem })}
-            />
+        <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+          {agruparPorDia(eventos).map((grupo) => (
+            <Box key={grupo.chave}>
+              {/* Cabeçalho do dia — mesmo padrão visual do handoff de design (Atividades.dc.html):
+                  rótulo + contador + linha divisória, "grudado" no topo ao rolar. */}
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1.5,
+                  position: 'sticky',
+                  top: 0,
+                  zIndex: 1,
+                  bgcolor: 'background.default',
+                  py: 1,
+                }}
+              >
+                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                  {grupo.label}
+                </Typography>
+                <Chip
+                  size="small"
+                  label={`${grupo.eventos.length} evento${grupo.eventos.length === 1 ? '' : 's'}`}
+                  sx={{ fontFamily: 'monospace', fontWeight: 600, bgcolor: 'action.hover' }}
+                />
+                <Box sx={{ flex: 1, height: '1px', bgcolor: 'divider' }} />
+              </Box>
+              {grupo.eventos.map((evento, indice) => (
+                <EventoLinha
+                  // Chave composta — o feed não tem um id próprio, é montado a partir de duas
+                  // fontes diferentes (Visita e VisitaRegistro).
+                  key={`${evento.tipo_evento}-${evento.visita.id}-${evento.ocorrido_em}-${indice}`}
+                  evento={evento}
+                  requerResolucao={requerResolucao}
+                  resolvendo={resolverMutation.isPending}
+                  onResolver={(visitaUuid, registroUuid) => resolverMutation.mutate({ visitaUuid, registroUuid })}
+                  onAbrirImagem={(fotos, indiceImagem) => setGaleria({ fotos, indice: indiceImagem })}
+                />
+              ))}
+            </Box>
           ))}
         </Box>
       </InfiniteScroll>
@@ -232,10 +379,102 @@ export function AtividadesPage() {
   );
 }
 
-const TIPO_CHIP: Record<'VISITA_INICIADA' | 'VISITA_FINALIZADA', { label: string; cor: 'primary' | 'success' }> = {
-  VISITA_INICIADA: { label: 'Check-in', cor: 'primary' },
-  VISITA_FINALIZADA: { label: 'Checkout', cor: 'success' },
+const TIPO_CHIP: Record<'VISITA_INICIADA' | 'VISITA_FINALIZADA', { label: string }> = {
+  VISITA_INICIADA: { label: 'Check-in' },
+  VISITA_FINALIZADA: { label: 'Checkout' },
 };
+
+// Paleta por tipo de evento — reproduz o handoff de design ("Interface administrativa indigo e
+// amber", arquivo Atividades.dc.html): cada tipo tem uma cor própria de "pill suave" (fundo
+// tingido + borda + texto combinando), fora do palette semântico padrão do MUI
+// (primary/success/error não têm esse visual). "Pedido" do mock não existe no nosso domínio
+// (não há feature de pedido sugerido), por isso ficou fora daqui.
+const CORES_EVENTO = {
+  CHECKIN: { dot: '#4f46e5', bg: '#eef0ff', fg: '#3730a3', borda: '#d6d9ff' },
+  CHECKOUT: { dot: '#8b88c9', bg: '#f2f2f9', fg: '#4a4766', borda: '#e2e1ee' },
+  ALERTA_PENDENTE: { dot: '#dc2626', bg: '#fdeeee', fg: '#9f1239', borda: '#f6cfcf' },
+  ALERTA_RESOLVIDO: { dot: '#15803d', bg: '#eafaf0', fg: '#166534', borda: '#c9ecd8' },
+} as const;
+
+type CorEvento = (typeof CORES_EVENTO)[keyof typeof CORES_EVENTO];
+
+function corDoEvento(evento: AtividadeEvento): CorEvento {
+  if (evento.tipo_evento === 'VISITA_INICIADA') return CORES_EVENTO.CHECKIN;
+  if (evento.tipo_evento === 'VISITA_FINALIZADA') return CORES_EVENTO.CHECKOUT;
+  return evento.registro?.alerta_resolvido_em ? CORES_EVENTO.ALERTA_RESOLVIDO : CORES_EVENTO.ALERTA_PENDENTE;
+}
+
+function labelDoDia(dataISO: string): string {
+  const data = new Date(dataISO);
+  const hoje = new Date();
+  const ontem = new Date(hoje);
+  ontem.setDate(hoje.getDate() - 1);
+  const mesmoDia = (a: Date, b: Date) => a.toDateString() === b.toDateString();
+  const dataFormatada = data.toLocaleDateString('pt-BR');
+  if (mesmoDia(data, hoje)) return `Hoje, ${dataFormatada}`;
+  if (mesmoDia(data, ontem)) return `Ontem, ${dataFormatada}`;
+  const diaSemana = data.toLocaleDateString('pt-BR', { weekday: 'long' });
+  return `${diaSemana.charAt(0).toUpperCase()}${diaSemana.slice(1)}, ${dataFormatada}`;
+}
+
+// Agrupa por dia (chave = data local do evento) preservando a ordem cronológica que a API já
+// devolve (mais recente primeiro) — mesmo padrão visual do mock, cada dia com seu próprio
+// cabeçalho fixo.
+function agruparPorDia(eventos: AtividadeEvento[]): { chave: string; label: string; eventos: AtividadeEvento[] }[] {
+  const grupos = new Map<string, AtividadeEvento[]>();
+  for (const evento of eventos) {
+    const chave = new Date(evento.ocorrido_em).toLocaleDateString('en-CA'); // YYYY-MM-DD local
+    if (!grupos.has(chave)) grupos.set(chave, []);
+    grupos.get(chave)!.push(evento);
+  }
+  return Array.from(grupos.entries()).map(([chave, eventosDoDia]) => ({
+    chave,
+    label: labelDoDia(eventosDoDia[0].ocorrido_em),
+    eventos: eventosDoDia,
+  }));
+}
+
+// Linha da timeline: hora | bolinha+linha conectora | card do evento — layout do handoff de
+// design (grid 3 colunas), diferente do card solto que existia antes.
+function EventoLinha(props: {
+  evento: AtividadeEvento;
+  requerResolucao: boolean;
+  resolvendo: boolean;
+  onResolver: (visitaUuid: string, registroUuid: string) => void;
+  onAbrirImagem: (fotos: FotoComRegistro[], indice: number) => void;
+}) {
+  const { evento } = props;
+  const hora = new Date(evento.ocorrido_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  const cores = corDoEvento(evento);
+
+  return (
+    <Box sx={{ display: 'grid', gridTemplateColumns: '52px 24px minmax(0,1fr)', columnGap: 1 }}>
+      <Typography
+        variant="caption"
+        sx={{ textAlign: 'right', pt: 2, fontFamily: 'monospace', color: 'text.secondary', fontWeight: 500 }}
+      >
+        {hora}
+      </Typography>
+      <Box sx={{ position: 'relative', display: 'flex', justifyContent: 'center' }}>
+        <Box sx={{ position: 'absolute', top: 0, bottom: 0, width: '2px', bgcolor: 'divider' }} />
+        <Box
+          sx={{
+            position: 'relative',
+            width: 11,
+            height: 11,
+            mt: 2.25,
+            borderRadius: '50%',
+            bgcolor: cores.dot,
+            boxShadow: (t) => `0 0 0 4px ${t.palette.background.default}`,
+          }}
+        />
+      </Box>
+      <Box sx={{ pb: 2, minWidth: 0 }}>
+        <EventoCard {...props} cores={cores} />
+      </Box>
+    </Box>
+  );
+}
 
 function EventoCard({
   evento,
@@ -243,14 +482,15 @@ function EventoCard({
   resolvendo,
   onResolver,
   onAbrirImagem,
+  cores,
 }: {
   evento: AtividadeEvento;
   requerResolucao: boolean;
   resolvendo: boolean;
   onResolver: (visitaUuid: string, registroUuid: string) => void;
   onAbrirImagem: (fotos: FotoComRegistro[], indice: number) => void;
+  cores: CorEvento;
 }) {
-  const hora = new Date(evento.ocorrido_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
   const nome = evento.usuario?.nome ?? 'Alguém';
   const registro = evento.tipo_evento === 'ALERTA' ? evento.registro : undefined;
   const resolvido = !!registro?.alerta_resolvido_em;
@@ -260,7 +500,8 @@ function EventoCard({
 
   return (
     <Paper variant="outlined" sx={{ borderRadius: 2, overflow: 'hidden' }}>
-      {/* Cabeçalho — avatar do autor + nome + loja/hora, igual o topo de um post. */}
+      {/* Cabeçalho — avatar do autor + nome + loja, igual o topo de um post (a hora já aparece
+          na régua da timeline, à esquerda do card — ver EventoLinha). */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, p: 2, pb: 1.5 }}>
         <UsuarioAvatar nome={nome} fotoUrl={evento.usuario?.foto_url} size={40} />
         <Box sx={{ flexGrow: 1, minWidth: 0 }}>
@@ -268,23 +509,30 @@ function EventoCard({
             {nome}
           </Typography>
           <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block' }}>
-            {evento.ponto_venda?.fantasia} · {hora}
+            {evento.ponto_venda?.fantasia}
           </Typography>
         </Box>
         {evento.tipo_evento === 'ALERTA' && registro ? (
           <Chip
-            icon={<MdiIcon icone={registro.tipo_registro.icone ?? 'alert'} size={16} sx={{ color: 'inherit' }} />}
+            icon={
+              <MdiIcon icone={registro.tipo_registro.icone ?? 'alert'} size={16} sx={{ color: 'inherit !important' }} />
+            }
             label={registro.tipo_registro.descricao}
-            color={resolvido ? 'success' : 'error'}
             size="small"
+            sx={{ bgcolor: cores.bg, color: cores.fg, border: '1px solid', borderColor: cores.borda, fontWeight: 600 }}
           />
         ) : (
           <Chip
-            icon={evento.tipo_evento === 'VISITA_FINALIZADA' ? <LogoutIcon /> : <LoginIcon />}
+            icon={
+              evento.tipo_evento === 'VISITA_FINALIZADA' ? (
+                <LogoutIcon sx={{ color: 'inherit !important' }} />
+              ) : (
+                <LoginIcon sx={{ color: 'inherit !important' }} />
+              )
+            }
             label={TIPO_CHIP[evento.tipo_evento as 'VISITA_INICIADA' | 'VISITA_FINALIZADA'].label}
-            color={TIPO_CHIP[evento.tipo_evento as 'VISITA_INICIADA' | 'VISITA_FINALIZADA'].cor}
             size="small"
-            variant="outlined"
+            sx={{ bgcolor: cores.bg, color: cores.fg, border: '1px solid', borderColor: cores.borda, fontWeight: 600 }}
           />
         )}
       </Box>

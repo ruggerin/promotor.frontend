@@ -1,4 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
+import { usePageHeader } from '../../components/layout/PageHeaderSlot';
 import AddIcon from '@mui/icons-material/Add';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
@@ -154,6 +155,16 @@ export function ContratoDetailPage() {
     enabled: !modoCriacao,
   });
   const contrato = contratoQuery.data?.contrato ?? null;
+
+  // Hook sempre chamado, mesmo antes de saber se o contrato carregou — Rules of Hooks não
+  // permite pular a chamada num render e chamar no outro.
+  const cabecalho = usePageHeader(
+    modoCriacao || contrato ? (
+      <Typography variant="h6" noWrap sx={{ fontWeight: 700 }}>
+        {modoCriacao ? 'Novo contrato' : (contrato?.ponto_venda?.fantasia ?? 'Contrato')}
+      </Typography>
+    ) : null,
+  );
 
   const schema = useMemo(() => buildSchema(modoCriacao, isSuperadmin), [modoCriacao, isSuperadmin]);
 
@@ -344,6 +355,7 @@ export function ContratoDetailPage() {
 
   return (
     <Box>
+      {cabecalho}
       <input ref={inputArquivoRef} type="file" accept=".pdf,.jpg,.jpeg,.png" hidden onChange={arquivoSelecionado} />
 
       <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/contratos')} sx={{ mb: 2 }}>
@@ -351,9 +363,6 @@ export function ContratoDetailPage() {
       </Button>
 
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3, flexWrap: 'wrap' }}>
-        <Typography variant="h4" component="h1">
-          {modoCriacao ? 'Novo contrato' : (contrato!.ponto_venda?.fantasia ?? 'Contrato')}
-        </Typography>
         {!modoCriacao && (
           <Chip label={contrato!.ativo ? 'Ativo' : 'Inativo'} color={contrato!.ativo ? 'success' : 'default'} size="small" />
         )}

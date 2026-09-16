@@ -1,4 +1,5 @@
 import AddIcon from '@mui/icons-material/Add';
+import { usePageHeader } from '../../components/layout/PageHeaderSlot';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import BlockIcon from '@mui/icons-material/Block';
@@ -119,11 +120,15 @@ export function TiposRegistroListPage() {
     reativarMutation.mutate(t);
   }
 
+  const cabecalho = usePageHeader(
+    <Typography variant="h6" sx={{ fontWeight: 700 }}>
+      Tipos de Registro
+    </Typography>,
+  );
+
   return (
     <Box>
-      <Typography variant="h4" component="h1" gutterBottom>
-        Tipos de Registro
-      </Typography>
+      {cabecalho}
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         Lista própria da empresa — cada uma define os próprios tipos de registro (ex.: "Foto",
         "Ruptura", "Ponto extra"), com campos de formulário customizados além da foto (ex.:

@@ -1,26 +1,32 @@
 import { zodResolver } from '@hookform/resolvers/zod';
+import AddIcon from '@mui/icons-material/Add';
+import DeleteIcon from '@mui/icons-material/Delete';
 import {
   Alert,
   Autocomplete,
   Box,
   Button,
+  Checkbox,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
   FormControlLabel,
+  IconButton,
   MenuItem,
   Switch,
   TextField,
+  Typography,
 } from '@mui/material';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import axios from 'axios';
 import { useEffect, useState } from 'react';
-import { Controller, useForm } from 'react-hook-form';
+import { Controller, useFieldArray, useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import { listarObjetivosVisita } from '../../lib/api/objetivosVisita';
 import { atualizarOrdemServico, criarOrdemServico } from '../../lib/api/ordensServico';
 import { listarPontosVenda } from '../../lib/api/pontosVenda';
+import { listarTiposRegistro } from '../../lib/api/tiposRegistro';
 import { listarTiposVisita } from '../../lib/api/tiposVisita';
 import { listarUsuarios } from '../../lib/api/usuarios';
 import type { OrdemServico } from '../../types/api';
@@ -43,6 +49,12 @@ function paraIsoUtc(valorInputDateTime: string): string {
   return new Date(valorInputDateTime).toISOString();
 }
 
+const formularioSchema = z.object({
+  tipo_registro_uuid: z.string().min(1, 'Escolha um formulário'),
+  obrigatorio: z.boolean(),
+  calcula_percentual_compliance: z.boolean(),
+});
+
 const schema = z
   .object({
     ponto_venda_uuid: z.string().min(1, 'Obrigatório'),
@@ -55,6 +67,9 @@ const schema = z
     prazo_inicio: z.string().min(1, 'Obrigatório'),
     prazo_fim: z.string().min(1, 'Obrigatório'),
     observacao: z.string(),
+    // Vínculo direto de formulário nesta OS avulsa, sem Direcionamento — ver
+    // docs/25-DIRECIONAMENTO-ORDEM-SERVICO.md §7.2. Opcional, diferente do Direcionamento.
+    formularios: z.array(formularioSchema),
   })
   .refine((data) => data.prazo_fim >= data.prazo_inicio, {
     message: 'Deve ser depois do início',
@@ -74,7 +89,12 @@ const DEFAULT_VALUES: FormData = {
   prazo_inicio: '',
   prazo_fim: '',
   observacao: '',
+  formularios: [],
 };
+
+function formularioVazio(): FormData['formularios'][number] {
+  return { tipo_registro_uuid: '', obrigatorio: true, calcula_percentual_compliance: false };
+}
 
 interface OrdemServicoFormDialogProps {
   open: boolean;
@@ -95,6 +115,9 @@ export function OrdemServicoFormDialog({ open, ordemServico, onClose }: OrdemSer
     formState: { isSubmitting },
   } = useForm<FormData>({ resolver: zodResolver(schema), defaultValues: DEFAULT_VALUES });
 
+  const { fields, append, remove } = useFieldArray({ control, name: 'formularios' });
+  const formulariosAtuais = useWatch({ control, name: 'formularios' }) ?? [];
+
   useEffect(() => {
     if (open) {
       setErroGeral(null);
@@ -111,6 +134,11 @@ export function OrdemServicoFormDialog({ open, ordemServico, onClose }: OrdemSer
               prazo_inicio: paraInputDateTime(ordemServico.prazo_inicio),
               prazo_fim: paraInputDateTime(ordemServico.prazo_fim),
               observacao: ordemServico.observacao ?? '',
+              formularios: (ordemServico.formularios ?? []).map((f) => ({
+                tipo_registro_uuid: f.tipo_registro.id,
+                obrigatorio: f.obrigatorio,
+                calcula_percentual_compliance: f.calcula_percentual_compliance,
+              })),
             }
           : DEFAULT_VALUES,
       );
@@ -148,6 +176,13 @@ export function OrdemServicoFormDialog({ open, ordemServico, onClose }: OrdemSer
   });
   const objetivosVisita = objetivosVisitaQuery.data?.objetivos_visita ?? [];
 
+  const tiposRegistroQuery = useQuery({
+    queryKey: ['tipos-registro', 'form-ordem-servico'],
+    queryFn: () => listarTiposRegistro({ ativo: true }),
+    enabled: open,
+  });
+  const tiposRegistro = tiposRegistroQuery.data?.tipos_registro ?? [];
+
   const mutation = useMutation({
     mutationFn: async (data: FormData) => {
       const payload = {
@@ -161,6 +196,7 @@ export function OrdemServicoFormDialog({ open, ordemServico, onClose }: OrdemSer
         prazo_inicio: paraIsoUtc(data.prazo_inicio),
         prazo_fim: paraIsoUtc(data.prazo_fim),
         observacao: data.observacao || null,
+        formularios: data.formularios,
       };
 
       if (modoEdicao) {
@@ -374,6 +410,73 @@ export function OrdemServicoFormDialog({ open, ordemServico, onClose }: OrdemSer
               />
             )}
           />
+
+          {/* Vínculo direto de formulário, sem Direcionamento — ver
+              docs/25-DIRECIONAMENTO-ORDEM-SERVICO.md §7.2 ("só esse promotor, só essa loja, uma
+              vez, não precisa do aparato inteiro de filtro + geração em massa"). */}
+          <Typography variant="subtitle2" sx={{ mt: 2 }}>
+            Formulários (opcional)
+          </Typography>
+          {fields.map((item, indice) => {
+            const jaEscolhidos = new Set(
+              formulariosAtuais.map((f, i) => (i === indice ? null : f.tipo_registro_uuid)),
+            );
+            const opcoes = tiposRegistro.filter((t) => !jaEscolhidos.has(t.id));
+
+            return (
+              <Box
+                key={item.id}
+                sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mt: 1.5, p: 1.5, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}
+              >
+                <Box sx={{ flex: 1 }}>
+                  <Controller
+                    name={`formularios.${indice}.tipo_registro_uuid`}
+                    control={control}
+                    render={({ field, fieldState }) => (
+                      <Autocomplete
+                        size="small"
+                        options={opcoes}
+                        getOptionLabel={(o) => o.descricao}
+                        value={tiposRegistro.find((t) => t.id === field.value) ?? null}
+                        onChange={(_, value) => field.onChange(value?.id ?? '')}
+                        renderInput={(params) => (
+                          <TextField {...params} label="Formulário" error={!!fieldState.error} helperText={fieldState.error?.message} />
+                        )}
+                      />
+                    )}
+                  />
+                  <Box sx={{ display: 'flex', gap: 2, mt: 0.5 }}>
+                    <Controller
+                      name={`formularios.${indice}.obrigatorio`}
+                      control={control}
+                      render={({ field }) => (
+                        <FormControlLabel
+                          control={<Checkbox size="small" checked={field.value} onChange={(e) => field.onChange(e.target.checked)} />}
+                          label="Obrigatório"
+                        />
+                      )}
+                    />
+                    <Controller
+                      name={`formularios.${indice}.calcula_percentual_compliance`}
+                      control={control}
+                      render={({ field }) => (
+                        <FormControlLabel
+                          control={<Checkbox size="small" checked={field.value} onChange={(e) => field.onChange(e.target.checked)} />}
+                          label="Calcula % de compliance"
+                        />
+                      )}
+                    />
+                  </Box>
+                </Box>
+                <IconButton size="small" onClick={() => remove(indice)} sx={{ mt: 0.5 }}>
+                  <DeleteIcon fontSize="small" />
+                </IconButton>
+              </Box>
+            );
+          })}
+          <Button size="small" startIcon={<AddIcon />} sx={{ mt: 1.5 }} onClick={() => append(formularioVazio())}>
+            Adicionar formulário
+          </Button>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={onClose}>Cancelar</Button>

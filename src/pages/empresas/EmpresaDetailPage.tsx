@@ -1,4 +1,5 @@
 import AddIcon from '@mui/icons-material/Add';
+import { usePageHeader } from '../../components/layout/PageHeaderSlot';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import {
   Alert,
@@ -89,6 +90,16 @@ export function EmpresaDetailPage() {
     enabled: Boolean(publicId),
   });
 
+  // Hook sempre chamado, mesmo antes de saber se a empresa carregou — Rules of Hooks não
+  // permite pular a chamada num render e chamar no outro.
+  const cabecalho = usePageHeader(
+    empresaQuery.data ? (
+      <Typography variant="h6" noWrap sx={{ fontWeight: 700 }}>
+        {empresaQuery.data.empresa.nome_fantasia}
+      </Typography>
+    ) : null,
+  );
+
   const faturasQuery = useQuery({
     queryKey: ['faturas', publicId],
     queryFn: () => listarFaturas(publicId as string),
@@ -145,14 +156,12 @@ export function EmpresaDetailPage() {
 
   return (
     <Box>
+      {cabecalho}
       <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/empresas')} sx={{ mb: 2 }}>
         Voltar
       </Button>
 
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3, flexWrap: 'wrap' }}>
-        <Typography variant="h4" component="h1">
-          {empresa.nome_fantasia}
-        </Typography>
         <Chip label={empresa.ativo ? 'Ativa' : 'Bloqueada'} color={empresa.ativo ? 'success' : 'error'} size="small" />
         <Box sx={{ flexGrow: 1 }} />
         <Button variant="outlined" onClick={() => setDialogEmpresaAberto(true)}>

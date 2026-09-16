@@ -1,4 +1,5 @@
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import { usePageHeader } from '../../components/layout/PageHeaderSlot';
 import DeleteIcon from '@mui/icons-material/Delete';
 import ExitToAppIcon from '@mui/icons-material/ExitToApp';
 import LoginIcon from '@mui/icons-material/Login';
@@ -151,6 +152,16 @@ export function UsuarioDetailPage() {
   const usuario = usuarioQuery.data?.usuario;
   const ehPromotor = usuario?.user_type === 'PROMOTOR';
 
+  // Hook sempre chamado, mesmo antes de saber se o usuário carregou — Rules of Hooks não
+  // permite pular a chamada num render e chamar no outro.
+  const cabecalho = usePageHeader(
+    usuario ? (
+      <Typography variant="h6" noWrap sx={{ fontWeight: 700 }}>
+        {usuario.nome}
+      </Typography>
+    ) : null,
+  );
+
   const pontosVendaQuery = useQuery({
     queryKey: ['pontos-venda', { promotor_uuid: publicId }],
     queryFn: () => listarPontosVenda({ promotor_uuid: publicId as string }),
@@ -298,15 +309,13 @@ export function UsuarioDetailPage() {
 
   return (
     <Box>
+      {cabecalho}
       <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/usuarios')} sx={{ mb: 2 }}>
         Voltar
       </Button>
 
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3, flexWrap: 'wrap' }}>
         <UsuarioAvatar nome={usuario.nome} fotoUrl={usuario.foto_url} size={56} />
-        <Typography variant="h4" component="h1">
-          {usuario.nome}
-        </Typography>
         <Chip label={USER_TYPE_LABELS[usuario.user_type]} color={USER_TYPE_COLORS[usuario.user_type]} size="small" />
         <Chip label={usuario.ativo ? 'Ativo' : 'Inativo'} color={usuario.ativo ? 'success' : 'default'} size="small" />
         <Box sx={{ flexGrow: 1 }} />
