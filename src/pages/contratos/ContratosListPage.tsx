@@ -1,4 +1,5 @@
 import AddIcon from '@mui/icons-material/Add';
+import { usePageHeader } from '../../components/layout/PageHeaderSlot';
 import BlockIcon from '@mui/icons-material/Block';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import DescriptionIcon from '@mui/icons-material/Description';
@@ -117,12 +118,16 @@ export function ContratosListPage() {
   const perPage = contratosQuery.data?.meta.per_page ?? 15;
   const totalColunas = isSuperadmin ? 7 : 6;
 
+  const cabecalho = usePageHeader(
+    <Typography variant="h6" sx={{ fontWeight: 700 }}>
+      Contratos
+    </Typography>,
+  );
+
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h4" component="h1">
-          Contratos
-        </Typography>
+      {cabecalho}
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', mb: 2 }}>
         <Button variant="contained" startIcon={<AddIcon />} onClick={() => navigate('/contratos/novo')}>
           Novo contrato
         </Button>

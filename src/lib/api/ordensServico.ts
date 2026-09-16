@@ -27,6 +27,12 @@ export async function listarOrdensServico(params: OrdensServicoListParams = {}):
   return data;
 }
 
+export interface OrdemServicoFormularioPayload {
+  tipo_registro_uuid: string;
+  obrigatorio?: boolean;
+  calcula_percentual_compliance?: boolean;
+}
+
 export interface OrdemServicoPayload {
   ponto_venda_uuid: string;
   // null/ausente = fila aberta, qualquer promotor da empresa pode atender.
@@ -39,6 +45,9 @@ export interface OrdemServicoPayload {
   prazo_inicio: string;
   prazo_fim: string;
   observacao?: string | null;
+  // Vínculo direto de formulário nesta OS avulsa, sem Direcionamento nenhum por trás — ver
+  // docs/25-DIRECIONAMENTO-ORDEM-SERVICO.md §7.2. Lista completa, sempre substitui a existente.
+  formularios?: OrdemServicoFormularioPayload[];
 }
 
 export async function criarOrdemServico(payload: OrdemServicoPayload): Promise<{ ordem_servico: OrdemServico }> {
@@ -66,5 +75,12 @@ export async function rejeitarOrdemServico(uuid: string, motivo?: string): Promi
   const { data } = await apiClient.post<{ ordem_servico: OrdemServico }>(`/ordens-servico/${uuid}/rejeitar`, {
     motivo: motivo || undefined,
   });
+  return data;
+}
+
+// Cancelamento em lote, independente de Direcionamento — checkbox na listagem + "cancelar
+// selecionadas" (docs/25 §2 decisão 7). Só cancela as que ainda estão PENDENTE.
+export async function cancelarOrdensServicoEmLote(uuids: string[]): Promise<{ canceladas: number }> {
+  const { data } = await apiClient.post<{ canceladas: number }>('/ordens-servico/cancelar-em-lote', { uuids });
   return data;
 }

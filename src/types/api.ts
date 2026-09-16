@@ -37,7 +37,7 @@ export type TipoCampoRegistro = 'NUMERO' | 'TEXTO' | 'MOEDA' | 'MULTIPLA_ESCOLHA
 // visitas.tipo (PROGRAMADA/NAO_PROGRAMADA) foi removido — agendamento agora vive inteiro em
 // OrdemServico, ver docs/07-ORDEM-DE-SERVICO.md e docs/10-AGENDA-VISITA.md. CONTRATO = gerada
 // automaticamente por um comodato/ponto extra vencendo, ver GerarOrdensServicoPorContrato.
-export type OrigemOrdemServico = 'MANUAL' | 'CAMPANHA' | 'AGENDA' | 'CONTRATO';
+export type OrigemOrdemServico = 'MANUAL' | 'CAMPANHA' | 'AGENDA' | 'CONTRATO' | 'DIRECIONAMENTO';
 
 // Prioridade de uma OrdemServico ou AgendaVisita — só exibição/ordenação. Ver
 // docs/10-AGENDA-VISITA.md.
@@ -613,6 +613,15 @@ export interface ObjetivoVisita {
 
 // Compromisso de visita que o gestor direciona a um promotor (ou deixa em fila aberta,
 // usuario null) — separado de Visita de propósito. Ver docs/07-ORDEM-DE-SERVICO.md.
+// Formulário exigido por uma OrdemServico específica — obrigatorio/calcula_percentual_compliance
+// vêm do vínculo (docs/25-DIRECIONAMENTO-ORDEM-SERVICO.md §2 decisão 9), não do TipoRegistro.
+export interface FormularioOrdemServico {
+  tipo_registro: { id: string; descricao: string };
+  obrigatorio: boolean;
+  calcula_percentual_compliance: boolean;
+  respondido_em: string | null;
+}
+
 export interface OrdemServico {
   id: string;
   ponto_venda?: { id: string; fantasia: string };
@@ -622,6 +631,9 @@ export interface OrdemServico {
   // Presente só em origem CONTRATO — ver docs/09-CONTRATO-METAS.md e
   // App\Console\Commands\GerarOrdensServicoPorContrato.
   contrato?: { id: string; tipo: TipoContrato } | null;
+  // Presente só em origem DIRECIONAMENTO — ver docs/25-DIRECIONAMENTO-ORDEM-SERVICO.md.
+  direcionamento?: { id: string; descricao: string } | null;
+  formularios?: FormularioOrdemServico[];
   // tipo/prioridade/horário valem pra qualquer origem, não só AGENDA — ver
   // docs/10-AGENDA-VISITA.md §3.3.
   tipo_visita?: TipoVisita | null;
@@ -649,6 +661,41 @@ export interface OrdemServico {
 
 // Tipo de recorrência de uma AgendaVisita — ver docs/10-AGENDA-VISITA.md.
 export type RecorrenciaAgendaVisita = 'SEMANAL' | 'DATA_UNICA';
+
+// Molde que gera Ordem de Serviço em massa — ver docs/25-DIRECIONAMENTO-ORDEM-SERVICO.md.
+export interface FormularioDirecionamento {
+  tipo_registro: { id: string; descricao: string };
+  obrigatorio: boolean;
+  calcula_percentual_compliance: boolean;
+}
+
+export interface Direcionamento {
+  id: string;
+  descricao: string;
+  vigencia_inicio: string;
+  vigencia_fim: string;
+  ativo: boolean;
+  // Presente só na listagem (DirecionamentosListPage) — o resumo de progresso completo só vem
+  // no detalhe (buscarDirecionamento).
+  ordens_servico_count?: number | null;
+  filtros: {
+    pontos_venda: { id: string; fantasia: string }[];
+    redes_loja: { id: string; descricao: string }[];
+    promotores: { id: string; nome: string }[];
+  };
+  formularios: FormularioDirecionamento[];
+  created_at: string;
+  updated_at: string;
+}
+
+// "N expedidos, M preenchidos" — computado ao vivo, nunca um contador solto (ver
+// App\Support\ProgressoDirecionamento).
+export interface ProgressoDirecionamento {
+  ordens_geradas: number;
+  ordens_concluidas: number;
+  ordens_pendentes: number;
+  por_formulario: { tipo_registro_id: string; descricao: string; expedidos: number; preenchidos: number }[];
+}
 
 // Regra recorrente (semanal, num dia fixo) ou pontual (uma data específica) que define a rotina
 // de um promotor num PDV — gera OrdemServico automaticamente (origem AGENDA). Ver

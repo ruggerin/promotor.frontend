@@ -1,5 +1,6 @@
 import { DndContext, PointerSensor, useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
+import { usePageHeader } from '../../components/layout/PageHeaderSlot';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CloseIcon from '@mui/icons-material/Close';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -211,6 +212,16 @@ export function PlanogramaEditorPage() {
   });
 
   const planograma = planogramaQuery.data?.planograma;
+
+  // Hook sempre chamado, mesmo antes de saber se o planograma carregou — Rules of Hooks não
+  // permite pular a chamada num render e chamar no outro.
+  const cabecalho = usePageHeader(
+    planograma ? (
+      <Typography variant="h6" noWrap sx={{ fontWeight: 700 }}>
+        {planograma.descricao}
+      </Typography>
+    ) : null,
+  );
 
   // foto_capa_url exige Authorization: Bearer (não é um <img src> comum) — mesma técnica de
   // AtividadesPage::AutenticatedImage/UsuarioAvatar: baixa via Axios e vira blob URL.
@@ -478,15 +489,14 @@ export function PlanogramaEditorPage() {
 
   return (
     <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+      {cabecalho}
       <Box sx={{ display: 'flex', gap: 3, alignItems: 'flex-start' }}>
         <Box sx={{ flex: 1, minWidth: 0 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
             <IconButton onClick={() => navigate('/planogramas')}>
               <ArrowBackIcon />
             </IconButton>
-            <Typography variant="h4" component="h1" sx={{ flex: 1 }}>
-              {planograma.descricao}
-            </Typography>
+            <Box sx={{ flex: 1 }} />
             <Chip label={planograma.ativo ? 'Ativo' : 'Inativo'} color={planograma.ativo ? 'success' : 'default'} size="small" />
             <Tooltip title="Editar descrição">
               <IconButton size="small" onClick={() => setEditarDescricaoAberto(true)}>

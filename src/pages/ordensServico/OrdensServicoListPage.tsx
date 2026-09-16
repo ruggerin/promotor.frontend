@@ -1,4 +1,5 @@
 import AddIcon from '@mui/icons-material/Add';
+import { usePageHeader } from '../../components/layout/PageHeaderSlot';
 import BlockIcon from '@mui/icons-material/Block';
 import CheckIcon from '@mui/icons-material/Check';
 import CloseIcon from '@mui/icons-material/Close';
@@ -7,6 +8,7 @@ import {
   Alert,
   Box,
   Button,
+  Checkbox,
   Chip,
   CircularProgress,
   Dialog,
@@ -28,7 +30,13 @@ import {
 } from '@mui/material';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { aprovarOrdemServico, atualizarOrdemServico, listarOrdensServico, rejeitarOrdemServico } from '../../lib/api/ordensServico';
+import {
+  aprovarOrdemServico,
+  atualizarOrdemServico,
+  cancelarOrdensServicoEmLote,
+  listarOrdensServico,
+  rejeitarOrdemServico,
+} from '../../lib/api/ordensServico';
 import type { OrdemServico, OrigemOrdemServico, StatusOrdemServico } from '../../types/api';
 import { OrdemServicoFormDialog } from './OrdemServicoFormDialog';
 
@@ -57,6 +65,7 @@ const ORIGEM_LABELS: Record<OrigemOrdemServico, string> = {
   CAMPANHA: 'Campanha',
   AGENDA: 'Agenda',
   CONTRATO: 'Contrato',
+  DIRECIONAMENTO: 'Direcionamento',
 };
 
 const STATUS_CORES: Record<StatusOrdemServico, ChipColor> = {
@@ -93,6 +102,9 @@ export function OrdensServicoListPage() {
   const [erro, setErro] = useState<string | null>(null);
   const [rejeitando, setRejeitando] = useState<OrdemServico | null>(null);
   const [motivoRejeicao, setMotivoRejeicao] = useState('');
+  // Seleção múltipla, independente de Direcionamento — "cancelar selecionadas" (docs/25 §2
+  // decisão 7). Só faz sentido pra PENDENTE, então a seleção nunca inclui as outras.
+  const [selecionadas, setSelecionadas] = useState<Set<string>>(new Set());
 
   const query = useQuery({
     queryKey: ['ordens-servico', { page, filtroStatus }],
@@ -133,20 +145,55 @@ export function OrdensServicoListPage() {
     onError: () => setErro('Não foi possível rejeitar a solicitação.'),
   });
 
+  const cancelarEmLoteMutation = useMutation({
+    mutationFn: (uuids: string[]) => cancelarOrdensServicoEmLote(uuids),
+    onSuccess: () => {
+      setErro(null);
+      setSelecionadas(new Set());
+      void queryClient.invalidateQueries({ queryKey: ['ordens-servico'] });
+    },
+    onError: () => setErro('Não foi possível cancelar as ordens de serviço selecionadas.'),
+  });
+
   function cancelar(os: OrdemServico) {
     if (window.confirm(`Cancelar a ordem de serviço de "${os.ponto_venda?.fantasia}"?`)) {
       cancelarMutation.mutate(os);
     }
   }
 
+  function cancelarSelecionadas() {
+    if (window.confirm(`Cancelar as ${selecionadas.size} ordens de serviço selecionadas?`)) {
+      cancelarEmLoteMutation.mutate([...selecionadas]);
+    }
+  }
+
   const ordensServico = query.data?.ordens_servico ?? [];
+  const pendentesNaPagina = ordensServico.filter((os) => os.status === 'PENDENTE');
+  const todasSelecionadas = pendentesNaPagina.length > 0 && pendentesNaPagina.every((os) => selecionadas.has(os.id));
+
+  function alternarSelecaoTodas() {
+    setSelecionadas(todasSelecionadas ? new Set() : new Set(pendentesNaPagina.map((os) => os.id)));
+  }
+
+  function alternarSelecao(uuid: string) {
+    setSelecionadas((atual) => {
+      const novo = new Set(atual);
+      if (novo.has(uuid)) novo.delete(uuid);
+      else novo.add(uuid);
+      return novo;
+    });
+  }
+
+  const cabecalho = usePageHeader(
+    <Typography variant="h6" sx={{ fontWeight: 700 }}>
+      Ordens de Serviço
+    </Typography>,
+  );
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h4" component="h1">
-          Ordens de Serviço
-        </Typography>
+      {cabecalho}
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', mb: 2 }}>
         <Button
           variant="contained"
           startIcon={<AddIcon />}
@@ -193,12 +240,32 @@ export function OrdensServicoListPage() {
           <MenuItem value="REAGENDAMENTO_SOLICITADO">Reagendamento solicitado</MenuItem>
           <MenuItem value="CANCELAMENTO_SOLICITADO">Cancelamento solicitado</MenuItem>
         </TextField>
+        {selecionadas.size > 0 && (
+          <Button
+            variant="outlined"
+            color="error"
+            disabled={cancelarEmLoteMutation.isPending}
+            onClick={cancelarSelecionadas}
+            sx={{ ml: 'auto' }}
+          >
+            {cancelarEmLoteMutation.isPending ? 'Cancelando...' : `Cancelar selecionadas (${selecionadas.size})`}
+          </Button>
+        )}
       </Paper>
 
       <TableContainer component={Paper}>
         <Table>
           <TableHead>
             <TableRow>
+              <TableCell padding="checkbox">
+                <Checkbox
+                  size="small"
+                  checked={todasSelecionadas}
+                  indeterminate={selecionadas.size > 0 && !todasSelecionadas}
+                  disabled={pendentesNaPagina.length === 0}
+                  onChange={alternarSelecaoTodas}
+                />
+              </TableCell>
               <TableCell>Ponto de venda</TableCell>
               <TableCell>Promotor</TableCell>
               <TableCell>Origem</TableCell>
@@ -212,14 +279,14 @@ export function OrdensServicoListPage() {
           <TableBody>
             {query.isLoading && (
               <TableRow>
-                <TableCell colSpan={8} align="center">
+                <TableCell colSpan={9} align="center">
                   <CircularProgress size={24} />
                 </TableCell>
               </TableRow>
             )}
             {query.isError && (
               <TableRow>
-                <TableCell colSpan={8} align="center">
+                <TableCell colSpan={9} align="center">
                   <Typography color="error" variant="body2">
                     Não foi possível carregar a lista — você pode não ter permissão para isto, ou
                     houve um problema de conexão.
@@ -229,7 +296,7 @@ export function OrdensServicoListPage() {
             )}
             {ordensServico.length === 0 && !query.isLoading && !query.isError && (
               <TableRow>
-                <TableCell colSpan={8} align="center">
+                <TableCell colSpan={9} align="center">
                   Nenhuma ordem de serviço encontrada.
                 </TableCell>
               </TableRow>
@@ -240,6 +307,14 @@ export function OrdensServicoListPage() {
               const temSolicitacao = STATUS_SOLICITACAO.includes(os.status);
               return (
                 <TableRow key={os.id} hover>
+                  <TableCell padding="checkbox">
+                    <Checkbox
+                      size="small"
+                      checked={selecionadas.has(os.id)}
+                      disabled={os.status !== 'PENDENTE'}
+                      onChange={() => alternarSelecao(os.id)}
+                    />
+                  </TableCell>
                   <TableCell>{os.ponto_venda?.fantasia ?? '—'}</TableCell>
                   <TableCell>{os.usuario?.nome ?? 'Fila aberta'}</TableCell>
                   <TableCell>
@@ -247,6 +322,11 @@ export function OrdensServicoListPage() {
                     {os.origem === 'CONTRATO' && os.contrato && (
                       <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
                         {os.contrato.tipo === 'COMODATO' ? 'Comodato' : 'Ponto extra'}
+                      </Typography>
+                    )}
+                    {os.origem === 'DIRECIONAMENTO' && os.direcionamento && (
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                        {os.direcionamento.descricao}
                       </Typography>
                     )}
                   </TableCell>

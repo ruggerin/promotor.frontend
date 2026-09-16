@@ -1,4 +1,5 @@
 import AddIcon from '@mui/icons-material/Add';
+import { usePageHeader } from '../../components/layout/PageHeaderSlot';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
@@ -52,6 +53,16 @@ export function CampanhaDetailPage() {
     queryFn: () => buscarCampanha(publicId!),
     enabled: !!publicId,
   });
+
+  // Hook sempre chamado, mesmo antes de saber se a campanha carregou — Rules of Hooks não
+  // permite pular a chamada num render e chamar no outro.
+  const cabecalho = usePageHeader(
+    campanhaQuery.data ? (
+      <Typography variant="h6" noWrap sx={{ fontWeight: 700 }}>
+        {campanhaQuery.data.campanha.descricao}
+      </Typography>
+    ) : null,
+  );
 
   // "Formulário desta campanha" (Fase 3, autoria embutida — docs/20-FORMULARIO-DINAMICO-CAMPANHA.md
   // §3) — por baixo é o mesmo TipoRegistro/mesmo endpoint de Tipos de Registro, só filtrado por
@@ -129,14 +140,12 @@ export function CampanhaDetailPage() {
 
   return (
     <Box>
+      {cabecalho}
       <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/campanhas')} sx={{ mb: 2 }}>
         Voltar
       </Button>
 
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
-        <Typography variant="h4" component="h1">
-          {campanha.descricao}
-        </Typography>
         <Chip label={campanha.ativo ? 'Ativa' : 'Inativa'} color={campanha.ativo ? 'success' : 'default'} size="small" />
       </Box>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>

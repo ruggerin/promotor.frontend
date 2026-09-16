@@ -10,6 +10,8 @@ import { CatalogoPage } from './pages/catalogo/CatalogoPage';
 import { CentrosCustoListPage } from './pages/centrosCusto/CentrosCustoListPage';
 import { ContratoDetailPage } from './pages/contratos/ContratoDetailPage';
 import { ContratosListPage } from './pages/contratos/ContratosListPage';
+import { DirecionamentoDetailPage } from './pages/direcionamentos/DirecionamentoDetailPage';
+import { DirecionamentosListPage } from './pages/direcionamentos/DirecionamentosListPage';
 import { EmpresaDetailPage } from './pages/empresas/EmpresaDetailPage';
 import { EmpresasListPage } from './pages/empresas/EmpresasListPage';
 import { GaleriaFotosPage } from './pages/galeriaFotos/GaleriaFotosPage';
@@ -58,6 +60,8 @@ export function App() {
           <Route path="/contratos/novo" element={<ContratoDetailPage />} />
           <Route path="/contratos/:publicId" element={<ContratoDetailPage />} />
           <Route path="/ordens-servico" element={<OrdensServicoListPage />} />
+          <Route path="/direcionamentos" element={<DirecionamentosListPage />} />
+          <Route path="/direcionamentos/:publicId" element={<DirecionamentoDetailPage />} />
           <Route path="/agendas-visita" element={<AgendasVisitaListPage />} />
           <Route path="/tipos-visita" element={<TiposVisitaListPage />} />
           <Route path="/objetivos-visita" element={<ObjetivosVisitaListPage />} />

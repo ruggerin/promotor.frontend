@@ -1,4 +1,5 @@
 import AddIcon from '@mui/icons-material/Add';
+import { usePageHeader } from '../../components/layout/PageHeaderSlot';
 import PhotoSizeSelectLargeIcon from '@mui/icons-material/PhotoSizeSelectLarge';
 import PhotoSizeSelectSmallIcon from '@mui/icons-material/PhotoSizeSelectSmall';
 import {
@@ -175,17 +176,43 @@ function CardFoto({
 
   return (
     <Box sx={{ borderRadius: 2, overflow: 'hidden', border: '1px solid', borderColor: 'divider', height: '100%' }}>
-      <MosaicoImagens
-        fotos={fotosDoRegistro}
-        onAbrir={(i) => onAbrirImagem(fotosDoRegistro[i].imagem.id)}
-        maxWidth="100%"
-      />
+      <Box sx={{ position: 'relative' }}>
+        {/* Tag do tipo de registro sobreposta na foto (canto superior esquerdo) — mesmo lugar
+            do handoff de design (Galeria de Fotos.dc.html: "{{ p.tag }}"). */}
+        <Box
+          sx={{
+            position: 'absolute',
+            left: 8,
+            top: 8,
+            zIndex: 1,
+            fontSize: 10.5,
+            fontWeight: 600,
+            fontFamily: 'monospace',
+            color: '#fff',
+            bgcolor: 'rgba(23,21,49,0.72)',
+            borderRadius: 1,
+            px: 0.9,
+            py: 0.3,
+            pointerEvents: 'none',
+          }}
+        >
+          {foto.registro.tipo_registro.descricao}
+        </Box>
+        <MosaicoImagens
+          fotos={fotosDoRegistro}
+          onAbrir={(i) => onAbrirImagem(fotosDoRegistro[i].imagem.id)}
+          maxWidth="100%"
+        />
+      </Box>
       <Box sx={{ p: 1 }}>
         <Typography variant="caption" sx={{ fontWeight: 600, display: 'block' }} noWrap>
-          {foto.registro.tipo_registro.descricao}
+          {foto.ponto_venda?.fantasia ?? '—'}
         </Typography>
+        {/* hora · promotor — mesmo par de dados que o card do handoff de design mostra
+            (Galeria de Fotos.dc.html: "{{ p.time }} · {{ p.promoter }}"). */}
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }} noWrap>
-          {foto.ponto_venda?.fantasia ?? '—'} · {new Date(foto.ocorrido_em).toLocaleDateString('pt-BR')}
+          {new Date(foto.ocorrido_em).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+          {foto.usuario ? ` · ${foto.usuario.nome}` : ''}
         </Typography>
       </Box>
     </Box>
@@ -346,11 +373,15 @@ export function GaleriaFotosPage() {
     return valor ? `${LABELS_FILTRO[tipo]}: ${valor.label}` : LABELS_FILTRO[tipo];
   }
 
+  const cabecalho = usePageHeader(
+    <Typography variant="h6" sx={{ fontWeight: 700 }}>
+      Galeria de Fotos
+    </Typography>,
+  );
+
   return (
     <Box>
-      <Typography variant="h4" component="h1" gutterBottom>
-        Galeria de Fotos
-      </Typography>
+      {cabecalho}
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         Todas as fotos coletadas nas visitas, filtráveis por período, tipo, catálogo, loja e
         promotor — sem precisar abrir visita por visita.
@@ -386,10 +417,18 @@ export function GaleriaFotosPage() {
           </Button>
         )}
 
-        {/* Tamanho do card — personalizável, mesmo controle que Google Fotos usa pro zoom da
-            grade (slider entre uma miniatura pequena e uma bem grande). Empurrado pro fim da
+        {/* Contador total + tamanho do card — mesmo par de controles do handoff de design
+            (Galeria de Fotos.dc.html: "1.248 fotos" + slider "Tamanho"). Empurrado pro fim da
             barra (ml: 'auto') — some pra baixo dos chips só em tela muito estreita. */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 'auto', minWidth: 160 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, ml: 'auto', minWidth: 160 }}>
+          {galeriaQuery.data && (
+            <>
+              <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
+                {galeriaQuery.data.pages[0].meta.total} foto{galeriaQuery.data.pages[0].meta.total === 1 ? '' : 's'}
+              </Typography>
+              <Box sx={{ width: '1px', height: 20, bgcolor: 'divider' }} />
+            </>
+          )}
           <PhotoSizeSelectSmallIcon fontSize="small" color="action" />
           <Slider
             size="small"

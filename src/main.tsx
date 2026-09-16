@@ -1,10 +1,11 @@
-import { CssBaseline, ThemeProvider, createTheme } from '@mui/material';
+import { CssBaseline, ThemeProvider } from '@mui/material';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { App } from './App';
 import { AuthProvider } from './lib/auth/AuthContext';
+import { theme } from './theme';
 // Ícone de TipoRegistro (ver components/MdiIcon.tsx) — o mesmo slug do Material Design Icons
 // (pictogrammers.com/library/mdi) que o mobile usa via @expo/vector-icons/MaterialCommunityIcons.
 // Carregado uma vez, globalmente (fonte + classes .mdi/.mdi-{slug}).
@@ -18,8 +19,6 @@ const queryClient = new QueryClient({
     },
   },
 });
-
-const theme = createTheme();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

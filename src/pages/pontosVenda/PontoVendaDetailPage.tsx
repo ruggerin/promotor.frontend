@@ -1,4 +1,5 @@
 import AddIcon from '@mui/icons-material/Add';
+import { usePageHeader } from '../../components/layout/PageHeaderSlot';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ClearIcon from '@mui/icons-material/Clear';
@@ -206,6 +207,17 @@ export function PontoVendaDetailPage() {
     enabled: Boolean(publicId),
   });
 
+  // Hook sempre chamado (mesmo antes de saber se o PDV carregou) — Rules of Hooks não permite
+  // pular uma chamada de hook num render e chamar no outro; por isso o conteúdo é condicional,
+  // não a própria chamada.
+  const cabecalho = usePageHeader(
+    pdvQuery.data ? (
+      <Typography variant="h6" noWrap sx={{ fontWeight: 700 }}>
+        {pdvQuery.data.ponto_venda.fantasia}
+      </Typography>
+    ) : null,
+  );
+
   // Visão só de leitura rápida — quem quer editar/desativar em massa vai pra tela dedicada
   // (/agendas-visita). Ver docs/10-AGENDA-VISITA.md.
   const agendasVisitaQuery = useQuery({
@@ -378,14 +390,12 @@ export function PontoVendaDetailPage() {
 
   return (
     <Box>
+      {cabecalho}
       <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/pontos-venda')} sx={{ mb: 2 }}>
         Voltar
       </Button>
 
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3, flexWrap: 'wrap' }}>
-        <Typography variant="h4" component="h1">
-          {pdv.fantasia}
-        </Typography>
         <Chip label={pdv.ativo ? 'Ativo' : 'Inativo'} color={pdv.ativo ? 'success' : 'default'} size="small" />
         <Box sx={{ flexGrow: 1 }} />
         <Button variant="outlined" onClick={() => setDialogAberto(true)}>

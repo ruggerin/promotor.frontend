@@ -1,4 +1,5 @@
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import { usePageHeader } from '../../components/layout/PageHeaderSlot';
 import {
   Alert,
   Box,
@@ -150,6 +151,16 @@ export function VisitaDetailPage() {
 
   const visita = visitaQuery.data?.visita;
 
+  // Hook sempre chamado, mesmo antes de saber se a visita carregou — Rules of Hooks não
+  // permite pular a chamada num render e chamar no outro.
+  const cabecalho = usePageHeader(
+    visita ? (
+      <Typography variant="h6" noWrap sx={{ fontWeight: 700 }}>
+        {visita.ponto_venda?.fantasia}
+      </Typography>
+    ) : null,
+  );
+
   function abrirDialog(qual: Exclude<DialogAberto, null>) {
     setErroDialog(null);
     setMotivo('');
@@ -221,14 +232,12 @@ export function VisitaDetailPage() {
 
   return (
     <Box>
+      {cabecalho}
       <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/visitas')} sx={{ mb: 2 }}>
         Voltar
       </Button>
 
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3, flexWrap: 'wrap' }}>
-        <Typography variant="h4" component="h1">
-          {visita.ponto_venda?.fantasia}
-        </Typography>
         <Chip label={visita.status} color={STATUS_COLORS[visita.status]} size="small" />
         {visita.checkout_tipo === 'ADMIN' && (
           <Chip label="Checkout feito pelo admin" color="info" size="small" variant="outlined" />

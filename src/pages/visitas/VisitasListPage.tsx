@@ -1,4 +1,5 @@
 import { Autocomplete, Box, Chip, MenuItem, Paper, TextField, Typography } from '@mui/material';
+import { usePageHeader } from '../../components/layout/PageHeaderSlot';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { createColumnHelper } from '@tanstack/react-table';
 import { useMemo, useState } from 'react';
@@ -107,12 +108,15 @@ export function VisitasListPage() {
     [],
   );
 
+  const cabecalho = usePageHeader(
+    <Typography variant="h6" sx={{ fontWeight: 700 }}>
+      Visitas
+    </Typography>,
+  );
+
   return (
     <Box>
-      <Typography variant="h4" component="h1" gutterBottom>
-        Visitas
-      </Typography>
-
+      {cabecalho}
       <Paper sx={{ p: 2, mb: 2, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
         <TextField
           label="Data início"
