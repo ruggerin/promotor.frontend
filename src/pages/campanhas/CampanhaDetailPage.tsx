@@ -35,8 +35,7 @@ import { listarSecoes } from '../../lib/api/secoes';
 import { listarTiposRegistro } from '../../lib/api/tiposRegistro';
 import { formatarDataSemFuso } from '../../lib/formatarData';
 import { entidadeDoItem, TIPO_ITEM_LABELS } from '../../lib/tipoItemCampanha';
-import { TipoRegistroFormDialog } from '../tiposRegistro/TipoRegistroFormDialog';
-import type { TipoItemCampanha, TipoRegistro } from '../../types/api';
+import type { TipoItemCampanha } from '../../types/api';
 
 export function CampanhaDetailPage() {
   const { publicId } = useParams<{ publicId: string }>();
@@ -45,8 +44,6 @@ export function CampanhaDetailPage() {
   const [tipoItem, setTipoItem] = useState<TipoItemCampanha>('PRODUTO');
   const [entidadeUuid, setEntidadeUuid] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
-  const [dialogFormularioAberto, setDialogFormularioAberto] = useState(false);
-  const [formularioEmEdicao, setFormularioEmEdicao] = useState<TipoRegistro | null>(null);
 
   const campanhaQuery = useQuery({
     queryKey: ['campanhas', publicId],
@@ -238,10 +235,9 @@ export function CampanhaDetailPage() {
           variant="contained"
           size="small"
           startIcon={<AddIcon />}
-          onClick={() => {
-            setFormularioEmEdicao(null);
-            setDialogFormularioAberto(true);
-          }}
+          onClick={() =>
+            navigate('/tipos-registro/novo', { state: { campanhaContexto: { uuid: campanha.id, descricao: campanha.descricao } } })
+          }
         >
           Novo formulário
         </Button>
@@ -300,10 +296,11 @@ export function CampanhaDetailPage() {
                   <Tooltip title="Editar">
                     <IconButton
                       size="small"
-                      onClick={() => {
-                        setFormularioEmEdicao(tipo);
-                        setDialogFormularioAberto(true);
-                      }}
+                      onClick={() =>
+                        navigate(`/tipos-registro/${tipo.id}`, {
+                          state: { campanhaContexto: { uuid: campanha.id, descricao: campanha.descricao } },
+                        })
+                      }
                     >
                       <EditIcon fontSize="small" />
                     </IconButton>
@@ -314,13 +311,6 @@ export function CampanhaDetailPage() {
           </TableBody>
         </Table>
       </TableContainer>
-
-      <TipoRegistroFormDialog
-        open={dialogFormularioAberto}
-        tipo={formularioEmEdicao}
-        onClose={() => setDialogFormularioAberto(false)}
-        campanhaContexto={{ uuid: campanha.id, descricao: campanha.descricao }}
-      />
     </Box>
   );
 }

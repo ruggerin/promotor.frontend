@@ -10,6 +10,7 @@ import EventNoteIcon from '@mui/icons-material/EventNote';
 import SendIcon from '@mui/icons-material/Send';
 import FlagIcon from '@mui/icons-material/Flag';
 import GridViewIcon from '@mui/icons-material/GridView';
+import HelpOutlineIcon from '@mui/icons-material/HelpOutlineOutlined';
 import LabelIcon from '@mui/icons-material/Label';
 import ListAltIcon from '@mui/icons-material/ListAlt';
 import LogoutIcon from '@mui/icons-material/Logout';
@@ -241,7 +242,7 @@ export function AppLayout() {
             <ListItemIcon>
               <ListAltIcon />
             </ListItemIcon>
-            <ListItemText primary="Tipos de Registro" />
+            <ListItemText primary="Formulários" />
           </ListItemButton>
           <ListItemButton component={NavLink} to="/planogramas" selected={emRota('/planogramas')}>
             <ListItemIcon>
@@ -328,6 +329,14 @@ export function AppLayout() {
               <ListItemText primary="Perfis" />
             </ListItemButton>
           )}
+        </List>
+        <List subheader={<ListSubheader>Ajuda</ListSubheader>}>
+          <ListItemButton component={NavLink} to="/manual" selected={emRota('/manual')}>
+            <ListItemIcon>
+              <HelpOutlineIcon />
+            </ListItemIcon>
+            <ListItemText primary="Manual" />
+          </ListItemButton>
         </List>
         {/* SUPERADMIN não pertence a empresa nenhuma — CRUD de empresas clientes (planos,
             limites, bloqueio) é só pra ele, a API já bloqueia 403 pros outros user_type. */}

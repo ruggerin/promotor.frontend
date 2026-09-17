@@ -15,6 +15,7 @@ import { DirecionamentosListPage } from './pages/direcionamentos/Direcionamentos
 import { EmpresaDetailPage } from './pages/empresas/EmpresaDetailPage';
 import { EmpresasListPage } from './pages/empresas/EmpresasListPage';
 import { GaleriaFotosPage } from './pages/galeriaFotos/GaleriaFotosPage';
+import { ManualPage } from './pages/manual/ManualPage';
 import { ObjetivosVisitaListPage } from './pages/objetivosVisita/ObjetivosVisitaListPage';
 import { OrdensServicoListPage } from './pages/ordensServico/OrdensServicoListPage';
 import { ParametrosListPage } from './pages/parametros/ParametrosListPage';
@@ -25,6 +26,7 @@ import { PontoVendaDetailPage } from './pages/pontosVenda/PontoVendaDetailPage';
 import { PontosVendaListPage } from './pages/pontosVenda/PontosVendaListPage';
 import { RamosAtividadeListPage } from './pages/ramosAtividade/RamosAtividadeListPage';
 import { RedesLojasListPage } from './pages/redesLojas/RedesLojasListPage';
+import { TipoRegistroFormPage } from './pages/tiposRegistro/TipoRegistroFormPage';
 import { TiposRegistroListPage } from './pages/tiposRegistro/TiposRegistroListPage';
 import { TiposVisitaListPage } from './pages/tiposVisita/TiposVisitaListPage';
 import { UsuarioDetailPage } from './pages/usuarios/UsuarioDetailPage';
@@ -50,6 +52,9 @@ export function App() {
           <Route path="/redes-lojas" element={<RedesLojasListPage />} />
           <Route path="/ramos-atividade" element={<RamosAtividadeListPage />} />
           <Route path="/tipos-registro" element={<TiposRegistroListPage />} />
+          {/* Rota estática antes da dinâmica — mesmo padrão de /contratos/novo. */}
+          <Route path="/tipos-registro/novo" element={<TipoRegistroFormPage />} />
+          <Route path="/tipos-registro/:publicId" element={<TipoRegistroFormPage />} />
           <Route path="/planogramas" element={<PlanogramasListPage />} />
           <Route path="/planogramas/:publicId" element={<PlanogramaEditorPage />} />
           <Route path="/campanhas" element={<CampanhasListPage />} />
@@ -75,6 +80,7 @@ export function App() {
           <Route path="/perfis" element={<PerfisListPage />} />
           <Route path="/empresas" element={<EmpresasListPage />} />
           <Route path="/empresas/:publicId" element={<EmpresaDetailPage />} />
+          <Route path="/manual" element={<ManualPage />} />
         </Route>
       </Route>
 

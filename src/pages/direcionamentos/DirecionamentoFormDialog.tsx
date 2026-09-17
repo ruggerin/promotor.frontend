@@ -89,9 +89,9 @@ interface DirecionamentoFormDialogProps {
 // montado antes de um POST/PUT só. Ver docs/25-DIRECIONAMENTO-ORDEM-SERVICO.md §7.1.
 //
 // Simplificação consciente desta primeira versão: só "adicionar formulário já existente" — o
-// fluxo "+ Criar novo formulário" (abrir o TipoRegistroFormDialog num contexto de
-// Direcionamento, sem os toggles de Ação/Compliance) descrito no doc não foi implementado ainda;
-// pra usar um formulário novo aqui, cadastre-o primeiro em Tipos de Registro.
+// fluxo "+ Criar novo formulário" (ir pra TipoRegistroFormPage num contexto de Direcionamento,
+// sem os toggles de Ação/Compliance) descrito no doc não foi implementado ainda; pra usar um
+// formulário novo aqui, cadastre-o primeiro no menu Formulários.
 export function DirecionamentoFormDialog({ open, direcionamento, onClose }: DirecionamentoFormDialogProps) {
   const modoEdicao = direcionamento !== null;
   const queryClient = useQueryClient();

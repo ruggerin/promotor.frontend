@@ -76,6 +76,11 @@ export interface TipoRegistroPayload {
   campos?: CampoTipoRegistroPayload[];
 }
 
+export async function buscarTipoRegistro(uuid: string): Promise<{ tipo_registro: TipoRegistro }> {
+  const { data } = await apiClient.get<{ tipo_registro: TipoRegistro }>(`/tipos-registro/${uuid}`);
+  return data;
+}
+
 export async function criarTipoRegistro(payload: TipoRegistroPayload): Promise<{ tipo_registro: TipoRegistro }> {
   const { data } = await apiClient.post<{ tipo_registro: TipoRegistro }>('/tipos-registro', payload);
   return data;
