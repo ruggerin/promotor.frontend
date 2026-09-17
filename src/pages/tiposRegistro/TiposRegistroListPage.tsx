@@ -27,6 +27,7 @@ import {
 } from '@mui/material';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { MdiIcon } from '../../components/MdiIcon';
 import { listarEmpresasSuperadmin } from '../../lib/api/empresas';
 import {
@@ -38,10 +39,10 @@ import {
 } from '../../lib/api/tiposRegistro';
 import { useAuth } from '../../lib/auth/AuthContext';
 import type { TipoRegistro } from '../../types/api';
-import { TipoRegistroFormDialog } from './TipoRegistroFormDialog';
 
 export function TiposRegistroListPage() {
   const { usuario } = useAuth();
+  const navigate = useNavigate();
   // Mesmo raciocínio de CatalogoPage: catálogo/tipos de registro são dado próprio de cada
   // empresa (BelongsToEmpresa) — pro SUPERADMIN, que não pertence a empresa nenhuma, a listagem
   // viria misturando itens de todas as empresas sem filtro nenhum, e a API bloqueia
@@ -49,8 +50,6 @@ export function TiposRegistroListPage() {
   const isSuperadmin = usuario?.user_type === 'SUPERADMIN';
   const [empresaUuid, setEmpresaUuid] = useState<string | null>(null);
   const queryClient = useQueryClient();
-  const [dialogAberto, setDialogAberto] = useState(false);
-  const [emEdicao, setEmEdicao] = useState<TipoRegistro | null>(null);
   const [erro, setErro] = useState<string | null>(null);
 
   const empresasQuery = useQuery({
@@ -122,7 +121,7 @@ export function TiposRegistroListPage() {
 
   const cabecalho = usePageHeader(
     <Typography variant="h6" sx={{ fontWeight: 700 }}>
-      Tipos de Registro
+      Formulários
     </Typography>,
   );
 
@@ -130,9 +129,10 @@ export function TiposRegistroListPage() {
     <Box>
       {cabecalho}
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        Lista própria da empresa — cada uma define os próprios tipos de registro (ex.: "Foto",
-        "Ruptura", "Ponto extra"), com campos de formulário customizados além da foto (ex.:
-        quantidade, valor). É isso que o promotor escolhe no app ao registrar algo numa visita.
+        Lista própria da empresa — cada uma define os próprios formulários (ex.: "Foto",
+        "Ruptura", "Ponto extra"), com campos customizados além da foto (ex.: quantidade, valor).
+        É isso que o promotor escolhe no app ao registrar algo numa visita, e o que você vincula
+        a uma Ordem de Serviço ou Direcionamento.
       </Typography>
 
       {isSuperadmin && (
@@ -149,15 +149,8 @@ export function TiposRegistroListPage() {
 
       {!isSuperadmin && (
         <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => {
-              setEmEdicao(null);
-              setDialogAberto(true);
-            }}
-          >
-            Novo tipo
+          <Button variant="contained" startIcon={<AddIcon />} onClick={() => navigate('/tipos-registro/novo')}>
+            Novo formulário
           </Button>
         </Box>
       )}
@@ -262,13 +255,7 @@ export function TiposRegistroListPage() {
                         </span>
                       </Tooltip>
                       <Tooltip title="Editar">
-                        <IconButton
-                          size="small"
-                          onClick={() => {
-                            setEmEdicao(t);
-                            setDialogAberto(true);
-                          }}
-                        >
+                        <IconButton size="small" onClick={() => navigate(`/tipos-registro/${t.id}`)}>
                           <EditIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>
@@ -292,10 +279,6 @@ export function TiposRegistroListPage() {
           </TableBody>
         </Table>
       </TableContainer>
-
-      {!isSuperadmin && (
-        <TipoRegistroFormDialog open={dialogAberto} tipo={emEdicao} onClose={() => setDialogAberto(false)} />
-      )}
     </Box>
   );
 }

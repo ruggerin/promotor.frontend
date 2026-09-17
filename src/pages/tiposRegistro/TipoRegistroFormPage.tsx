@@ -1,5 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import AddIcon from '@mui/icons-material/Add';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import DeleteIcon from '@mui/icons-material/Delete';
 import LibraryAddIcon from '@mui/icons-material/LibraryAdd';
 import {
@@ -8,6 +9,7 @@ import {
   Box,
   Button,
   Checkbox,
+  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
@@ -21,6 +23,7 @@ import {
   ListItemIcon,
   ListItemText,
   MenuItem,
+  Paper,
   Switch,
   TextField,
   Typography,
@@ -29,15 +32,22 @@ import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import axios from 'axios';
 import { useEffect, useMemo, useState } from 'react';
 import { Controller, useFieldArray, useForm, useWatch, type Control, type UseFormSetValue } from 'react-hook-form';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { z } from 'zod';
 import { MdiIcon } from '../../components/MdiIcon';
+import { usePageHeader } from '../../components/layout/PageHeaderSlot';
 import { listarCampanhas } from '../../lib/api/campanhas';
 import { listarDepartamentos } from '../../lib/api/departamentos';
 import { listarMarcas } from '../../lib/api/marcas';
 import { listarProdutos } from '../../lib/api/produtos';
 import { listarSecoes } from '../../lib/api/secoes';
-import { atualizarTipoRegistro, criarTipoRegistro, listarTiposRegistro } from '../../lib/api/tiposRegistro';
-import type { CampoTipoRegistro, GranularidadeResposta, TipoCampoRegistro, TipoRegistro } from '../../types/api';
+import {
+  atualizarTipoRegistro,
+  buscarTipoRegistro,
+  criarTipoRegistro,
+  listarTiposRegistro,
+} from '../../lib/api/tiposRegistro';
+import type { CampoTipoRegistro, GranularidadeResposta, TipoCampoRegistro } from '../../types/api';
 
 const TIPOS_VINCULO_SORTIMENTO: { value: 'SECAO' | 'DEPARTAMENTO' | 'MARCA'; label: string }[] = [
   { value: 'SECAO', label: 'Seção' },
@@ -189,13 +199,19 @@ const DEFAULT_VALUES: FormData = {
   campos: [],
 };
 
+interface CampanhaContexto {
+  uuid: string;
+  descricao: string;
+}
+
 /**
  * Autoria embutida na Campanha (Fase 3, §3 de docs/20-FORMULARIO-DINAMICO-CAMPANHA.md) — quando
- * o dialog abre a partir da tela de Campanha (não da tela genérica Tipos de Registro), o tipo
- * novo já nasce com `escopo_acao=CAMPANHA` + a campanha em questão + `acao_obrigatoria=true` +
- * `disponivel_registro_livre=false` (não polui o dropdown de registro livre do promotor) — o
- * gestor pode reverter qualquer um desses defaults no próprio formulário, é só um ponto de
- * partida mais direto. Por baixo continua sendo o mesmo TipoRegistro/mesmo endpoint de sempre.
+ * a página abre a partir da tela de Campanha (via `location.state.campanhaContexto`, não da lista
+ * genérica de Formulários), o tipo novo já nasce com `escopo_acao=CAMPANHA` + a campanha em
+ * questão + `acao_obrigatoria=true` + `disponivel_registro_livre=false` (não polui o dropdown de
+ * registro livre do promotor) — o gestor pode reverter qualquer um desses defaults no próprio
+ * formulário, é só um ponto de partida mais direto. Por baixo continua sendo o mesmo
+ * TipoRegistro/mesmo endpoint de sempre.
  */
 function valoresIniciais(campanhaContexto: CampanhaContexto | null): FormData {
   if (!campanhaContexto) return DEFAULT_VALUES;
@@ -259,31 +275,49 @@ function mapearCampoParaImportar(campo: CampoTipoRegistro): FormData['campos'][n
   };
 }
 
-interface CampanhaContexto {
-  uuid: string;
-  descricao: string;
-}
+/**
+ * Página única de cadastro + edição de Formulário (TipoRegistro) — substitui o antigo modal
+ * `TipoRegistroFormDialog`. Decisão do usuário: um formulário tem campos e regras demais pra
+ * caber num diálogo pequeno, e a edição merece o mesmo tratamento de tela cheia que Contrato já
+ * tem (ver ContratoDetailPage). Rota `/tipos-registro/novo` (sem :publicId) cria, `/tipos-registro/:publicId`
+ * edita — mesma convenção.
+ *
+ * Contexto de Campanha (criar/editar um formulário a partir da tela de uma Campanha) chega via
+ * `location.state.campanhaContexto` em vez de prop — não tem outra forma de carregar estado ao
+ * navegar de uma página pra outra. Ausente = fluxo genérico da lista de Formulários.
+ */
+export function TipoRegistroFormPage() {
+  const { publicId } = useParams<{ publicId: string }>();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const modoCriacao = publicId === undefined;
+  const campanhaContexto = (location.state as { campanhaContexto?: CampanhaContexto } | null)?.campanhaContexto ?? null;
+  const voltarPara = campanhaContexto ? `/campanhas/${campanhaContexto.uuid}` : '/tipos-registro';
 
-interface TipoRegistroFormDialogProps {
-  open: boolean;
-  tipo: TipoRegistro | null;
-  onClose: () => void;
-  // Presente só quando o dialog abre de dentro da tela de Campanha (Fase 3) — muda os defaults
-  // de criação (ver valoresIniciais) e o título. `null`/omitido = fluxo genérico de sempre.
-  campanhaContexto?: CampanhaContexto | null;
-}
-
-export function TipoRegistroFormDialog({ open, tipo, onClose, campanhaContexto = null }: TipoRegistroFormDialogProps) {
-  const modoEdicao = tipo !== null;
   const queryClient = useQueryClient();
   const [erroGeral, setErroGeral] = useState<string | null>(null);
+
+  const tipoQuery = useQuery({
+    queryKey: ['tipos-registro', publicId],
+    queryFn: () => buscarTipoRegistro(publicId as string),
+    enabled: !modoCriacao,
+  });
+  const tipo = tipoQuery.data?.tipo_registro ?? null;
+
+  const cabecalho = usePageHeader(
+    modoCriacao || tipo ? (
+      <Typography variant="h6" noWrap sx={{ fontWeight: 700 }}>
+        {modoCriacao ? (campanhaContexto ? `Novo formulário — ${campanhaContexto.descricao}` : 'Novo formulário') : tipo!.descricao}
+      </Typography>
+    ) : null,
+  );
 
   const {
     control,
     handleSubmit,
     reset,
     setValue,
-    formState: { isSubmitting, errors },
+    formState: { isSubmitting, isDirty, errors },
   } = useForm<FormData>({ resolver: zodResolver(schema), defaultValues: valoresIniciais(campanhaContexto) });
 
   const { fields, append, remove } = useFieldArray({ control, name: 'campos' });
@@ -294,49 +328,49 @@ export function TipoRegistroFormDialog({ open, tipo, onClose, campanhaContexto =
   } = useFieldArray({ control, name: 'excecoes_granularidade' });
 
   useEffect(() => {
-    if (open) {
-      setErroGeral(null);
-      reset(
-        tipo
-          ? {
-              descricao: tipo.descricao,
-              icone: tipo.icone,
-              exige_foto: tipo.exige_foto,
-              permite_vincular_catalogo: tipo.permite_vincular_catalogo,
-              ativo: tipo.ativo,
-              acao_obrigatoria: tipo.acao_obrigatoria,
-              escopo_acao: tipo.escopo_acao,
-              campanha_auditoria_uuid: tipo.campanha_auditoria_uuid,
-              granularidade_padrao: tipo.granularidade_padrao,
-              excecoes_granularidade: tipo.excecoes_granularidade.map((e) => ({
-                secao_uuid: e.secao_uuid,
-                granularidade: e.granularidade,
-              })),
-              eh_ruptura: tipo.eh_ruptura,
-              eh_alerta: tipo.eh_alerta,
-              usa_pontuacao: tipo.usa_pontuacao,
-              disponivel_registro_livre: tipo.disponivel_registro_livre,
-              campos: tipo.campos.map((c) => ({
-                chave: c.chave,
-                rotulo: c.rotulo,
-                tipo_campo: c.tipo_campo,
-                opcoesTexto: c.opcoes?.join(', ') ?? '',
-                obrigatorio: c.obrigatorio,
-                depende_de_chave: c.depende_de_chave,
-                depende_de_valor: c.depende_de_valor,
-                sortimento_origem: c.sortimento_origem,
-                sortimento_tipo_vinculo: c.sortimento_tipo_vinculo,
-                sortimento_secao_uuid: c.sortimento_secao?.id ?? null,
-                sortimento_departamento_uuid: c.sortimento_departamento?.id ?? null,
-                sortimento_marca_uuid: c.sortimento_marca?.id ?? null,
-                sortimento_produtos: c.sortimento_produtos.map((p) => ({ uuid: p.id, descricao: p.descricao })),
-                confirmar_ruptura_ausentes: c.confirmar_ruptura_ausentes,
-              })),
-            }
-          : valoresIniciais(campanhaContexto),
-      );
+    if (modoCriacao) {
+      reset(valoresIniciais(campanhaContexto));
+      return;
     }
-  }, [open, tipo, reset, campanhaContexto]);
+    if (tipo) {
+      reset({
+        descricao: tipo.descricao,
+        icone: tipo.icone,
+        exige_foto: tipo.exige_foto,
+        permite_vincular_catalogo: tipo.permite_vincular_catalogo,
+        ativo: tipo.ativo,
+        acao_obrigatoria: tipo.acao_obrigatoria,
+        escopo_acao: tipo.escopo_acao,
+        campanha_auditoria_uuid: tipo.campanha_auditoria_uuid,
+        granularidade_padrao: tipo.granularidade_padrao,
+        excecoes_granularidade: tipo.excecoes_granularidade.map((e) => ({
+          secao_uuid: e.secao_uuid,
+          granularidade: e.granularidade,
+        })),
+        eh_ruptura: tipo.eh_ruptura,
+        eh_alerta: tipo.eh_alerta,
+        usa_pontuacao: tipo.usa_pontuacao,
+        disponivel_registro_livre: tipo.disponivel_registro_livre,
+        campos: tipo.campos.map((c) => ({
+          chave: c.chave,
+          rotulo: c.rotulo,
+          tipo_campo: c.tipo_campo,
+          opcoesTexto: c.opcoes?.join(', ') ?? '',
+          obrigatorio: c.obrigatorio,
+          depende_de_chave: c.depende_de_chave,
+          depende_de_valor: c.depende_de_valor,
+          sortimento_origem: c.sortimento_origem,
+          sortimento_tipo_vinculo: c.sortimento_tipo_vinculo,
+          sortimento_secao_uuid: c.sortimento_secao?.id ?? null,
+          sortimento_departamento_uuid: c.sortimento_departamento?.id ?? null,
+          sortimento_marca_uuid: c.sortimento_marca?.id ?? null,
+          sortimento_produtos: c.sortimento_produtos.map((p) => ({ uuid: p.id, descricao: p.descricao })),
+          confirmar_ruptura_ausentes: c.confirmar_ruptura_ausentes,
+        })),
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modoCriacao, tipo, reset]);
 
   const mutation = useMutation({
     mutationFn: async (data: FormData) => {
@@ -378,14 +412,22 @@ export function TipoRegistroFormDialog({ open, tipo, onClose, campanhaContexto =
         })),
       };
 
-      if (modoEdicao) {
+      if (!modoCriacao) {
         return atualizarTipoRegistro(tipo!.id, { ...payload, ativo: data.ativo });
       }
       return criarTipoRegistro(payload);
     },
     onSuccess: () => {
+      setErroGeral(null);
       void queryClient.invalidateQueries({ queryKey: ['tipos-registro'] });
-      onClose();
+      if (modoCriacao) {
+        // Formulário criado a partir de uma Campanha volta pra ela (é lá que a lista de
+        // formulários daquela campanha aparece); o fluxo genérico volta pra lista de Formulários
+        // — diferente de Contrato, aqui não há mais nada nesta página depois de criar.
+        navigate(voltarPara);
+        return;
+      }
+      void queryClient.invalidateQueries({ queryKey: ['tipos-registro', publicId] });
     },
     onError: (err) => {
       if (axios.isAxiosError<{ message?: string }>(err) && err.response?.status === 422) {
@@ -396,32 +438,34 @@ export function TipoRegistroFormDialog({ open, tipo, onClose, campanhaContexto =
     },
   });
 
-  return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>
-        {modoEdicao
-          ? 'Editar tipo de registro'
-          : campanhaContexto
-            ? `Novo formulário — ${campanhaContexto.descricao}`
-            : 'Novo tipo de registro'}
-      </DialogTitle>
-      <Box
-        component="form"
-        onSubmit={(e) =>
-          void handleSubmit((data) => {
-            setErroGeral(null);
-            mutation.mutate(data);
-          })(e)
-        }
-        noValidate
-      >
-        <DialogContent>
-          {erroGeral && (
-            <Alert severity="error" sx={{ mb: 2 }}>
-              {erroGeral}
-            </Alert>
-          )}
+  if (!modoCriacao && tipoQuery.isLoading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
 
+  if (!modoCriacao && (tipoQuery.isError || !tipo)) {
+    return <Typography color="error">Formulário não encontrado.</Typography>;
+  }
+
+  return (
+    <Box>
+      {cabecalho}
+
+      <Button startIcon={<ArrowBackIcon />} onClick={() => navigate(voltarPara)} sx={{ mb: 2 }}>
+        Voltar
+      </Button>
+
+      {erroGeral && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {erroGeral}
+        </Alert>
+      )}
+
+      <Paper sx={{ p: 3 }}>
+        <Box component="form" onSubmit={(e) => void handleSubmit((data) => mutation.mutate(data))(e)} noValidate>
           <Controller
             name="descricao"
             control={control}
@@ -490,7 +534,7 @@ export function TipoRegistroFormDialog({ open, tipo, onClose, campanhaContexto =
               />
             )}
           />
-          {modoEdicao && (
+          {!modoCriacao && (
             <Controller
               name="ativo"
               control={control}
@@ -734,15 +778,15 @@ export function TipoRegistroFormDialog({ open, tipo, onClose, campanhaContexto =
               {errors.campos.message}
             </Alert>
           )}
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={onClose}>Cancelar</Button>
-          <Button type="submit" variant="contained" disabled={isSubmitting}>
-            {isSubmitting ? 'Salvando...' : 'Salvar'}
-          </Button>
-        </DialogActions>
-      </Box>
-    </Dialog>
+
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3 }}>
+            <Button type="submit" variant="contained" disabled={isSubmitting || (!modoCriacao && !isDirty)}>
+              {isSubmitting ? 'Salvando...' : 'Salvar'}
+            </Button>
+          </Box>
+        </Box>
+      </Paper>
+    </Box>
   );
 }
 
@@ -1383,4 +1427,3 @@ function CampoCondicionalFields({
     </Box>
   );
 }
-

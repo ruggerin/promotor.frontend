@@ -241,7 +241,7 @@ export function AppLayout() {
             <ListItemIcon>
               <ListAltIcon />
             </ListItemIcon>
-            <ListItemText primary="Tipos de Registro" />
+            <ListItemText primary="Formulários" />
           </ListItemButton>
           <ListItemButton component={NavLink} to="/planogramas" selected={emRota('/planogramas')}>
             <ListItemIcon>
