@@ -15,6 +15,7 @@ import { DirecionamentosListPage } from './pages/direcionamentos/Direcionamentos
 import { EmpresaDetailPage } from './pages/empresas/EmpresaDetailPage';
 import { EmpresasListPage } from './pages/empresas/EmpresasListPage';
 import { GaleriaFotosPage } from './pages/galeriaFotos/GaleriaFotosPage';
+import { ManualPage } from './pages/manual/ManualPage';
 import { ObjetivosVisitaListPage } from './pages/objetivosVisita/ObjetivosVisitaListPage';
 import { OrdensServicoListPage } from './pages/ordensServico/OrdensServicoListPage';
 import { ParametrosListPage } from './pages/parametros/ParametrosListPage';
@@ -79,6 +80,7 @@ export function App() {
           <Route path="/perfis" element={<PerfisListPage />} />
           <Route path="/empresas" element={<EmpresasListPage />} />
           <Route path="/empresas/:publicId" element={<EmpresaDetailPage />} />
+          <Route path="/manual" element={<ManualPage />} />
         </Route>
       </Route>
 
