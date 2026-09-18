@@ -6,6 +6,10 @@ export interface AgendasVisitaListParams {
   ativo?: boolean;
   ponto_venda_uuid?: string;
   usuario_uuid?: string;
+  // Opt-in pra listar mais que os 15 padrão de uma vez (capado em 200 no backend) — usado pelo
+  // Planejador de Visitas, que precisa da agenda inteira de um promotor. Ver
+  // AgendaVisitaController::index.
+  por_pagina?: number;
 }
 
 export interface AgendasVisitaListResponse {
@@ -20,6 +24,7 @@ export async function listarAgendasVisita(params: AgendasVisitaListParams = {}):
       ativo: params.ativo === undefined ? undefined : params.ativo ? 1 : 0,
       ponto_venda_uuid: params.ponto_venda_uuid,
       usuario_uuid: params.usuario_uuid,
+      por_pagina: params.por_pagina,
     },
   });
   return data;
@@ -54,4 +59,16 @@ export async function atualizarAgendaVisita(
 
 export async function desativarAgendaVisita(uuid: string): Promise<void> {
   await apiClient.delete(`/agendas-visita/${uuid}`);
+}
+
+// Relatório de Rota impresso (PDF, ver docs/10-AGENDA-VISITA.md §9) — rota autenticada atrás de
+// application/pdf, não dá pra usar um <a href> direto (não manda o header Authorization). Mesmo
+// padrão de blob autenticado já usado pra foto de usuário/fachada de PDV, ver
+// AutenticatedImage.tsx — só que aqui é download de uma vez, não exibição inline.
+export async function baixarRelatorioRota(usuarioUuid: string): Promise<Blob> {
+  const { data } = await apiClient.get<Blob>('/agendas-visita/relatorio-rota', {
+    params: { usuario_uuid: usuarioUuid },
+    responseType: 'blob',
+  });
+  return data;
 }

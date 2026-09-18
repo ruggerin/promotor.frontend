@@ -16,6 +16,10 @@ export interface PontosVendaListParams {
   // Só tem efeito pra SUPERADMIN (ver docs/02-API-BACKEND.md) — escolhe de qual empresa listar
   // PDVs, ex.: pra cadastrar um contrato de uma empresa que não é a própria.
   empresa_uuid?: string;
+  // Opt-in pra listar mais que os 15 padrão de uma vez (capado em 200 no backend) — usado pelo
+  // Planejador de Visitas, que precisa da carteira inteira de um promotor. Ver
+  // PontoVendaController::index.
+  por_pagina?: number;
 }
 
 export interface PontosVendaListResponse {
@@ -34,6 +38,7 @@ export async function listarPontosVenda(params: PontosVendaListParams = {}): Pro
       fantasia: params.fantasia || undefined,
       cnpj: params.cnpj || undefined,
       empresa_uuid: params.empresa_uuid || undefined,
+      por_pagina: params.por_pagina,
     },
   });
   return data;

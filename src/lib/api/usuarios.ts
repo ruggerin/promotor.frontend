@@ -9,6 +9,10 @@ export interface UsuariosListParams {
   // são restritos à própria empresa pelo backend, então passar isso pra eles é inofensivo mas
   // inútil.
   empresa_uuid?: string;
+  // Opt-in pra listar mais que os 15 padrão de uma vez (capado em 200 no backend) — usado pelo
+  // Planejador de Visitas, que precisa de todos os promotores no seletor. Ver
+  // UsuarioController::index.
+  por_pagina?: number;
 }
 
 export interface UsuariosListResponse {
@@ -23,6 +27,7 @@ export async function listarUsuarios(params: UsuariosListParams = {}): Promise<U
       ativo: params.ativo === undefined ? undefined : params.ativo ? 1 : 0,
       user_type: params.user_type,
       empresa_uuid: params.empresa_uuid,
+      por_pagina: params.por_pagina,
     },
   });
   return data;

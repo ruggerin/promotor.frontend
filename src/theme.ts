@@ -22,7 +22,7 @@ export const theme = createTheme({
     },
   },
   typography: {
-    fontFamily: '"Inter", "Roboto", system-ui, sans-serif',
+    fontFamily: '"IBM Plex Sans", "Roboto", system-ui, sans-serif',
   },
   shape: {
     borderRadius: 10,

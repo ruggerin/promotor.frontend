@@ -5,3 +5,13 @@ body {
 #root {
   min-height: 100vh;
 }
+
+/* Esconde o chrome do admin (topo + menu lateral) ao imprimir — usado pelo Planejador de
+   Visitas (relatório de rota), mas fica disponível pra qualquer tela futura que precise. As
+   classes são o nome público/estável do MUI, não algo interno que pode mudar sem aviso. */
+@media print {
+  .MuiAppBar-root,
+  .MuiDrawer-root {
+    display: none !important;
+  }
+}
