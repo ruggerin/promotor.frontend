@@ -189,78 +189,79 @@ export function AgendaVisitaFormDialog({ open, agendaVisita, pontoVendaFixo, onC
     },
   });
 
+  // Grade 2 colunas, densa (size="small" em tudo, sem margin="normal") — em vez de um campo
+  // full-width por linha, que é o que dava aquela cara de formulário gerado por IA. Um campo
+  // que precisa ocupar a linha inteira recebe gridColumn: 'span 2'.
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>{modoEdicao ? 'Editar agenda de visita' : 'Nova agenda de visita'}</DialogTitle>
+    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+      <DialogTitle sx={{ pb: 1 }}>{modoEdicao ? 'Editar agenda de visita' : 'Nova agenda de visita'}</DialogTitle>
       <Box component="form" onSubmit={(e) => void handleSubmit((data) => mutation.mutate(data))(e)} noValidate>
-        <DialogContent>
+        <DialogContent sx={{ pt: 1 }}>
           {erroGeral && (
             <Alert severity="error" sx={{ mb: 2 }}>
               {erroGeral}
             </Alert>
           )}
 
-          <Controller
-            name="ponto_venda_uuid"
-            control={control}
-            render={({ field, fieldState }) => (
-              <Autocomplete
-                options={pontosVenda}
-                getOptionLabel={(option) => option.fantasia}
-                loading={pontosVendaQuery.isLoading}
-                disabled={!!pontoVendaFixo}
-                value={pontosVenda.find((p) => p.id === field.value) ?? pontoVendaFixo ?? null}
-                onChange={(_, value) => field.onChange(value?.id ?? '')}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="Ponto de venda"
-                    margin="normal"
-                    fullWidth
-                    autoFocus
-                    error={!!fieldState.error}
-                    helperText={fieldState.error?.message}
-                  />
-                )}
-              />
-            )}
-          />
+          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+            <Controller
+              name="ponto_venda_uuid"
+              control={control}
+              render={({ field, fieldState }) => (
+                <Autocomplete
+                  size="small"
+                  options={pontosVenda}
+                  getOptionLabel={(option) => option.fantasia}
+                  loading={pontosVendaQuery.isLoading}
+                  disabled={!!pontoVendaFixo}
+                  value={pontosVenda.find((p) => p.id === field.value) ?? pontoVendaFixo ?? null}
+                  onChange={(_, value) => field.onChange(value?.id ?? '')}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Ponto de venda"
+                      autoFocus
+                      error={!!fieldState.error}
+                      helperText={fieldState.error?.message}
+                    />
+                  )}
+                />
+              )}
+            />
 
-          <Controller
-            name="usuario_uuid"
-            control={control}
-            render={({ field, fieldState }) => (
-              <Autocomplete
-                options={promotoresDoPdv}
-                getOptionLabel={(option) => option.nome}
-                disabled={!pontoVendaUuid}
-                value={promotoresDoPdv.find((p) => p.id === field.value) ?? null}
-                onChange={(_, value) => field.onChange(value?.id ?? '')}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="Promotor"
-                    margin="normal"
-                    fullWidth
-                    error={!!fieldState.error}
-                    helperText={
-                      fieldState.error?.message ??
-                      (pontoVendaUuid && promotoresDoPdv.length === 0
-                        ? 'Este PDV ainda não tem promotor vinculado — atribua na tela do PDV primeiro.'
-                        : 'Só promotores já vinculados a este PDV')
-                    }
-                  />
-                )}
-              />
-            )}
-          />
+            <Controller
+              name="usuario_uuid"
+              control={control}
+              render={({ field, fieldState }) => (
+                <Autocomplete
+                  size="small"
+                  options={promotoresDoPdv}
+                  getOptionLabel={(option) => option.nome}
+                  disabled={!pontoVendaUuid}
+                  value={promotoresDoPdv.find((p) => p.id === field.value) ?? null}
+                  onChange={(_, value) => field.onChange(value?.id ?? '')}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Promotor"
+                      error={!!fieldState.error}
+                      helperText={
+                        fieldState.error?.message ??
+                        (pontoVendaUuid && promotoresDoPdv.length === 0
+                          ? 'Este PDV ainda não tem promotor vinculado — atribua na tela do PDV primeiro.'
+                          : 'Só promotores já vinculados a este PDV')
+                      }
+                    />
+                  )}
+                />
+              )}
+            />
 
-          <Box sx={{ display: 'flex', gap: 2 }}>
             <Controller
               name="recorrencia"
               control={control}
               render={({ field }) => (
-                <TextField {...field} select label="Recorrência" fullWidth margin="normal">
+                <TextField {...field} select size="small" label="Recorrência">
                   <MenuItem value="SEMANAL">Toda semana</MenuItem>
                   <MenuItem value="DATA_UNICA">Data específica</MenuItem>
                 </TextField>
@@ -274,9 +275,8 @@ export function AgendaVisitaFormDialog({ open, agendaVisita, pontoVendaFixo, onC
                 render={({ field, fieldState }) => (
                   <TextField
                     select
+                    size="small"
                     label="Dia da semana"
-                    fullWidth
-                    margin="normal"
                     value={field.value ?? ''}
                     onChange={(e) => field.onChange(Number(e.target.value))}
                     error={!!fieldState.error}
@@ -300,8 +300,7 @@ export function AgendaVisitaFormDialog({ open, agendaVisita, pontoVendaFixo, onC
                     value={field.value ?? ''}
                     label="Data"
                     type="date"
-                    fullWidth
-                    margin="normal"
+                    size="small"
                     slotProps={{ inputLabel: { shrink: true } }}
                     error={!!fieldState.error}
                     helperText={fieldState.error?.message}
@@ -309,21 +308,19 @@ export function AgendaVisitaFormDialog({ open, agendaVisita, pontoVendaFixo, onC
                 )}
               />
             )}
-          </Box>
 
-          <Box sx={{ display: 'flex', gap: 2 }}>
             <Controller
               name="tipo_visita_uuid"
               control={control}
               render={({ field }) => (
                 <Autocomplete
-                  sx={{ flex: 1 }}
+                  size="small"
                   options={tiposVisita}
                   getOptionLabel={(option) => option.descricao}
                   loading={tiposVisitaQuery.isLoading}
                   value={tiposVisita.find((t) => t.id === field.value) ?? null}
                   onChange={(_, value) => field.onChange(value?.id ?? null)}
-                  renderInput={(params) => <TextField {...params} label="Tipo de visita" margin="normal" fullWidth />}
+                  renderInput={(params) => <TextField {...params} label="Tipo de visita" />}
                 />
               )}
             />
@@ -332,24 +329,22 @@ export function AgendaVisitaFormDialog({ open, agendaVisita, pontoVendaFixo, onC
               control={control}
               render={({ field }) => (
                 <Autocomplete
-                  sx={{ flex: 1 }}
+                  size="small"
                   options={objetivosVisita}
                   getOptionLabel={(option) => option.descricao}
                   loading={objetivosVisitaQuery.isLoading}
                   value={objetivosVisita.find((o) => o.id === field.value) ?? null}
                   onChange={(_, value) => field.onChange(value?.id ?? null)}
-                  renderInput={(params) => <TextField {...params} label="Objetivo" margin="normal" fullWidth />}
+                  renderInput={(params) => <TextField {...params} label="Objetivo" />}
                 />
               )}
             />
-          </Box>
 
-          <Box sx={{ display: 'flex', gap: 2 }}>
             <Controller
               name="prioridade"
               control={control}
               render={({ field }) => (
-                <TextField {...field} select label="Prioridade" sx={{ flex: 1 }} margin="normal">
+                <TextField {...field} select size="small" label="Prioridade">
                   <MenuItem value="BAIXA">Baixa</MenuItem>
                   <MenuItem value="MEDIA">Média</MenuItem>
                   <MenuItem value="ALTA">Alta</MenuItem>
@@ -364,42 +359,41 @@ export function AgendaVisitaFormDialog({ open, agendaVisita, pontoVendaFixo, onC
                   {...field}
                   label="Horário (opcional)"
                   type="time"
-                  sx={{ flex: 1 }}
-                  margin="normal"
+                  size="small"
                   slotProps={{ inputLabel: { shrink: true } }}
                 />
               )}
             />
+
+            <Controller
+              name="observacao"
+              control={control}
+              render={({ field, fieldState }) => (
+                <TextField
+                  {...field}
+                  label="Observação"
+                  size="small"
+                  multiline
+                  minRows={2}
+                  sx={{ gridColumn: 'span 2' }}
+                  error={!!fieldState.error}
+                  helperText={fieldState.error?.message}
+                />
+              )}
+            />
+
+            <Controller
+              name="obrigatoria"
+              control={control}
+              render={({ field }) => (
+                <FormControlLabel
+                  sx={{ gridColumn: 'span 2', m: 0 }}
+                  control={<Switch size="small" checked={field.value} onChange={(e) => field.onChange(e.target.checked)} />}
+                  label="Obrigatória (bloqueante) — se desmarcado, aparece só como sugestão pro promotor"
+                />
+              )}
+            />
           </Box>
-
-          <Controller
-            name="observacao"
-            control={control}
-            render={({ field, fieldState }) => (
-              <TextField
-                {...field}
-                label="Observação"
-                fullWidth
-                multiline
-                minRows={2}
-                margin="normal"
-                error={!!fieldState.error}
-                helperText={fieldState.error?.message}
-              />
-            )}
-          />
-
-          <Controller
-            name="obrigatoria"
-            control={control}
-            render={({ field }) => (
-              <FormControlLabel
-                sx={{ mt: 1, display: 'block' }}
-                control={<Switch checked={field.value} onChange={(e) => field.onChange(e.target.checked)} />}
-                label="Obrigatória (bloqueante) — se desmarcado, aparece só como sugestão pro promotor"
-              />
-            )}
-          />
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={onClose}>Cancelar</Button>

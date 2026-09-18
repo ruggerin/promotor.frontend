@@ -20,6 +20,7 @@ import { ObjetivosVisitaListPage } from './pages/objetivosVisita/ObjetivosVisita
 import { OrdensServicoListPage } from './pages/ordensServico/OrdensServicoListPage';
 import { ParametrosListPage } from './pages/parametros/ParametrosListPage';
 import { PerfisListPage } from './pages/perfis/PerfisListPage';
+import { PlanejadorVisitasPage } from './pages/planejadorVisitas/PlanejadorVisitasPage';
 import { PlanogramaEditorPage } from './pages/planogramas/PlanogramaEditorPage';
 import { PlanogramasListPage } from './pages/planogramas/PlanogramasListPage';
 import { PontoVendaDetailPage } from './pages/pontosVenda/PontoVendaDetailPage';
@@ -68,6 +69,7 @@ export function App() {
           <Route path="/direcionamentos" element={<DirecionamentosListPage />} />
           <Route path="/direcionamentos/:publicId" element={<DirecionamentoDetailPage />} />
           <Route path="/agendas-visita" element={<AgendasVisitaListPage />} />
+          <Route path="/planejador-visitas" element={<PlanejadorVisitasPage />} />
           <Route path="/tipos-visita" element={<TiposVisitaListPage />} />
           <Route path="/objetivos-visita" element={<ObjetivosVisitaListPage />} />
           <Route path="/centros-custo" element={<CentrosCustoListPage />} />

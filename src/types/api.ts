@@ -209,6 +209,10 @@ export interface PontoVenda {
   // Só carregado no detalhe (PontoVendaDetailPage), nunca na listagem. Ver
   // docs/14-SORTIMENTO-PONTO-VENDA.md.
   sortimento?: SortimentoPontoVenda[];
+  // Contagem rápida do mix — só presente na listagem (PontoVendaController::index faz
+  // withCount), null no detalhe (que já traz o array `sortimento` inteiro acima). Usado pelo
+  // Planejador de Visitas (mapa e impressão de rota).
+  sortimento_count: number | null;
   ativo: boolean;
   created_at: string;
   updated_at: string;

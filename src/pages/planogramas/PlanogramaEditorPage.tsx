@@ -20,6 +20,8 @@ import {
   ListItemButton,
   Paper,
   TextField,
+  ToggleButton,
+  ToggleButtonGroup,
   Tooltip,
   Typography,
 } from '@mui/material';
@@ -43,6 +45,7 @@ import {
 import { listarProdutos } from '../../lib/api/produtos';
 import type { PlanogramaBloco, PlanogramaPrateleira } from '../../types/api';
 import { PlanogramaFormDialog } from './PlanogramaFormDialog';
+import { VisualizacaoProporcional } from './VisualizacaoProporcional';
 
 // "Aplicar aos selecionados" cria 1 bloco de largura 1 POR posição — cada célula mantém sua
 // própria imagem repetida (frentes), em vez de mesclar o intervalo num bloco só esticado. Ver
@@ -166,6 +169,9 @@ export function PlanogramaEditorPage() {
   const queryClient = useQueryClient();
 
   const [erro, setErro] = useState<string | null>(null);
+  // Toggle "Editor / Visualização" (Fase 3, docs/22-PLANOGRAMA.md §9.4) — mesmo `planograma` já
+  // carregado, só troca o corpo da página; a Visualização é só leitura, decisão 18.
+  const [modo, setModo] = useState<'editor' | 'visualizacao'>('editor');
   const [editarDescricaoAberto, setEditarDescricaoAberto] = useState(false);
   const [novaPrateleiraAberto, setNovaPrateleiraAberto] = useState(false);
   const [novaPrateleiraDescricao, setNovaPrateleiraDescricao] = useState('');
@@ -496,6 +502,15 @@ export function PlanogramaEditorPage() {
             <IconButton onClick={() => navigate('/planogramas')}>
               <ArrowBackIcon />
             </IconButton>
+            <ToggleButtonGroup
+              size="small"
+              exclusive
+              value={modo}
+              onChange={(_, valor) => valor && setModo(valor)}
+            >
+              <ToggleButton value="editor">Editor</ToggleButton>
+              <ToggleButton value="visualizacao">Visualização</ToggleButton>
+            </ToggleButtonGroup>
             <Box sx={{ flex: 1 }} />
             <Chip label={planograma.ativo ? 'Ativo' : 'Inativo'} color={planograma.ativo ? 'success' : 'default'} size="small" />
             <Tooltip title="Editar descrição">
@@ -557,6 +572,10 @@ export function PlanogramaEditorPage() {
             </Box>
           </Paper>
 
+          {modo === 'visualizacao' ? (
+            <VisualizacaoProporcional planograma={planograma} />
+          ) : (
+            <>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             Clique numa célula vazia pra selecionar (shift+clique seleciona um intervalo,
             ctrl/cmd+clique adiciona avulso), escolha um produto na lista ao lado e aplique — ou
@@ -676,8 +695,11 @@ export function PlanogramaEditorPage() {
           <Button variant="outlined" onClick={() => setVariosAndaresAberto(true)}>
             + Vários andares
           </Button>
+            </>
+          )}
         </Box>
 
+        {modo === 'editor' && (
         <Paper sx={{ width: 280, flexShrink: 0, position: 'sticky', top: 16, p: 2, maxHeight: '80vh', overflow: 'auto' }}>
           <Typography variant="subtitle1" gutterBottom>
             Produtos do catálogo
@@ -715,6 +737,7 @@ export function PlanogramaEditorPage() {
             )}
           </List>
         </Paper>
+        )}
       </Box>
 
       <PlanogramaFormDialog

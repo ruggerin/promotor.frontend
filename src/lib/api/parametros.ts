@@ -62,3 +62,20 @@ export async function buscarAlertaRequerResolucao(): Promise<boolean> {
   if (!parametro || !parametro.ativo) return false;
   return VALORES_VERDADEIROS.includes(parametro.valor.toLowerCase());
 }
+
+// Omitir domingo/sábado do quadro semanal, do mapa e da impressão de rota do Planejador de
+// Visitas — ver docs/10-AGENDA-VISITA.md §8. Ausente/inativo = false (mostra os 7 dias, mesmo
+// default conservador de ATIVIDADES_ALERTA_REQUER_RESOLUCAO).
+export async function buscarOmitirDomingoPlanejador(): Promise<boolean> {
+  const { parametros } = await listarParametros();
+  const parametro = parametros.find((p) => p.chave === 'PLANEJADOR_VISITAS_OMITIR_DOMINGO');
+  if (!parametro || !parametro.ativo) return false;
+  return VALORES_VERDADEIROS.includes(parametro.valor.toLowerCase());
+}
+
+export async function buscarOmitirSabadoPlanejador(): Promise<boolean> {
+  const { parametros } = await listarParametros();
+  const parametro = parametros.find((p) => p.chave === 'PLANEJADOR_VISITAS_OMITIR_SABADO');
+  if (!parametro || !parametro.ativo) return false;
+  return VALORES_VERDADEIROS.includes(parametro.valor.toLowerCase());
+}

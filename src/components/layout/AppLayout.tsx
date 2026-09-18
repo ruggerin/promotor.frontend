@@ -7,6 +7,7 @@ import CampaignIcon from '@mui/icons-material/Campaign';
 import CategoryIcon from '@mui/icons-material/Category';
 import DescriptionIcon from '@mui/icons-material/Description';
 import EventNoteIcon from '@mui/icons-material/EventNote';
+import EventRepeatIcon from '@mui/icons-material/EventRepeat';
 import SendIcon from '@mui/icons-material/Send';
 import FlagIcon from '@mui/icons-material/Flag';
 import GridViewIcon from '@mui/icons-material/GridView';
@@ -14,6 +15,7 @@ import HelpOutlineIcon from '@mui/icons-material/HelpOutlineOutlined';
 import LabelIcon from '@mui/icons-material/Label';
 import ListAltIcon from '@mui/icons-material/ListAlt';
 import LogoutIcon from '@mui/icons-material/Logout';
+import MenuIcon from '@mui/icons-material/Menu';
 import PaidIcon from '@mui/icons-material/Paid';
 import PeopleIcon from '@mui/icons-material/People';
 import PhotoLibraryIcon from '@mui/icons-material/PhotoLibrary';
@@ -58,6 +60,7 @@ const SIDEBAR = {
 
 const DRAWER_WIDTH = 250;
 const STATUS_SOLICITACAO = ['AGUARDANDO_APROVACAO', 'REAGENDAMENTO_SOLICITADO', 'CANCELAMENTO_SOLICITADO'] as const;
+const CHAVE_MENU_ABERTO = 'pdv-admin:menu-lateral-aberto';
 
 export function AppLayout() {
   const { usuario, logout } = useAuth();
@@ -65,6 +68,30 @@ export function AppLayout() {
   // Alvo do portal de cada página pra "descrição da rotina" (ver PageHeaderSlot.tsx) — fica no
   // header em vez de repetir "título + frase explicando a tela" dentro do corpo de cada página.
   const [headerSlot, setHeaderSlot] = useState<HTMLDivElement | null>(null);
+
+  // Expandir/recolher o menu lateral (botão hambúrguer no header) — persiste em localStorage,
+  // puro conforto do viewer (nunca lido pelo backend nem por outra aba/dispositivo), então
+  // funciona bem sem exigir nenhuma capability de artifact/servidor. Lido só na inicialização;
+  // tenta/ignora falha (modo privado, storage bloqueado) sem travar o layout.
+  const [menuAberto, setMenuAberto] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(CHAVE_MENU_ABERTO) !== '0';
+    } catch {
+      return true;
+    }
+  });
+
+  function alternarMenu() {
+    setMenuAberto((atual) => {
+      const novo = !atual;
+      try {
+        localStorage.setItem(CHAVE_MENU_ABERTO, novo ? '1' : '0');
+      } catch {
+        // Storage indisponível — só não persiste a preferência, o toggle em si continua indo.
+      }
+      return novo;
+    });
+  }
 
   // Contagem de solicitações pendentes (docs/13-AGENDA-MOBILE-E-AUTONOMIA.md §6.2) — visibilidade
   // passiva assim que o gestor abre o admin, sem depender de push. Só ADMIN/GESTOR têm a
@@ -92,16 +119,26 @@ export function AppLayout() {
         elevation={0}
         sx={{
           zIndex: (theme) => theme.zIndex.drawer + 1,
-          width: { sm: `calc(100% - ${DRAWER_WIDTH}px)` },
-          ml: { sm: `${DRAWER_WIDTH}px` },
+          width: menuAberto ? `calc(100% - ${DRAWER_WIDTH}px)` : '100%',
+          ml: menuAberto ? `${DRAWER_WIDTH}px` : 0,
           bgcolor: 'rgba(255,255,255,0.88)',
           backdropFilter: 'blur(8px)',
           color: 'text.primary',
           borderBottom: '1px solid',
           borderColor: 'divider',
+          transition: (theme) =>
+            theme.transitions.create(['width', 'margin'], { easing: theme.transitions.easing.sharp, duration: 200 }),
         }}
       >
         <Toolbar sx={{ display: 'flex', gap: 2 }}>
+          <IconButton
+            onClick={alternarMenu}
+            edge="start"
+            sx={{ flexShrink: 0 }}
+            title={menuAberto ? 'Recolher menu' : 'Expandir menu'}
+          >
+            <MenuIcon />
+          </IconButton>
           {/* Alvo do portal — cada página injeta aqui sua descrição/ação (usePageHeader), ganhando
               espaço vertical no corpo pra relatório/tabela/feed. Vazio quando a página não usa o
               hook (ex. telas que ainda não migraram esse padrão). */}
@@ -120,14 +157,29 @@ export function AppLayout() {
       <Drawer
         variant="permanent"
         sx={{
-          width: DRAWER_WIDTH,
+          width: menuAberto ? DRAWER_WIDTH : 0,
           flexShrink: 0,
+          // Item flex, por padrão, não encolhe abaixo do min-content do conteúdo interno (a
+          // regra CSS `min-width: auto` implícita) — sem isso, o `width: 0` acima é ignorado e o
+          // menu continua do tamanho de sempre mesmo "fechado". Ver overflowX abaixo, que só
+          // funciona depois que o width de verdade encolhe.
+          minWidth: 0,
+          overflowX: 'hidden',
+          transition: (theme) => theme.transitions.create('width', { easing: theme.transitions.easing.sharp, duration: 200 }),
+          // O papel do Drawer (a folha escura em si) usa `position: fixed` mesmo no variant
+          // "permanent" — não fica preso ao box do pai, então `overflowX` no root acima NÃO
+          // clipa ele sozinho (overflow de ancestral não recorta descendente fixed, a menos que
+          // o ancestral vire "containing block", o que não é o caso aqui). Por isso o encolhe
+          // direto aqui também, em espelho do root — sem isso, o menu "fechava" só por baixo dos
+          // panos (o root ia pra 0, mas a folha continuava pintando por cima, cheia, sempre).
           '& .MuiDrawer-paper': {
-            width: DRAWER_WIDTH,
+            width: menuAberto ? DRAWER_WIDTH : 0,
+            overflowX: 'hidden',
             boxSizing: 'border-box',
             bgcolor: SIDEBAR.bg,
             color: SIDEBAR.texto,
             borderRight: 0,
+            transition: (theme) => theme.transitions.create('width', { easing: theme.transitions.easing.sharp, duration: 200 }),
           },
           '& .MuiListSubheader-root': {
             bgcolor: 'transparent',
@@ -289,6 +341,14 @@ export function AppLayout() {
             </ListItemIcon>
             <ListItemText primary="Agenda de Visita" />
           </ListItemButton>
+          {/* Quadro de arrastar-e-soltar pra montar a rota fixa semanal — edita as mesmas
+              AgendaVisita de recorrência SEMANAL da tela acima, só que em lote e visual. */}
+          <ListItemButton component={NavLink} to="/planejador-visitas" selected={emRota('/planejador-visitas')}>
+            <ListItemIcon>
+              <EventRepeatIcon />
+            </ListItemIcon>
+            <ListItemText primary="Planejador de Visitas" />
+          </ListItemButton>
           <ListItemButton component={NavLink} to="/tipos-visita" selected={emRota('/tipos-visita')}>
             <ListItemIcon>
               <LabelIcon />
@@ -353,7 +413,12 @@ export function AppLayout() {
       </Drawer>
       <Box
         component="main"
-        sx={{ flexGrow: 1, p: 3, width: { sm: `calc(100% - ${DRAWER_WIDTH}px)` } }}
+        sx={{
+          flexGrow: 1,
+          p: 3,
+          width: menuAberto ? `calc(100% - ${DRAWER_WIDTH}px)` : '100%',
+          transition: (theme) => theme.transitions.create('width', { easing: theme.transitions.easing.sharp, duration: 200 }),
+        }}
       >
         <Toolbar />
         <HeaderSlotContext.Provider value={headerSlot}>
