@@ -1,5 +1,6 @@
 import AddIcon from '@mui/icons-material/Add';
 import { usePageHeader } from '../../components/layout/PageHeaderSlot';
+import { ProdutoBuscaDialog, type ProdutoSelecionado } from '../../components/ProdutoBuscaDialog';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ClearIcon from '@mui/icons-material/Clear';
@@ -45,7 +46,6 @@ import {
   removerFachadaPontoVenda,
   removerPromotorPontoVenda,
 } from '../../lib/api/pontosVenda';
-import { listarProdutos } from '../../lib/api/produtos';
 import { listarSecoes } from '../../lib/api/secoes';
 import { listarVisitas } from '../../lib/api/visitas';
 import {
@@ -55,6 +55,7 @@ import {
   removerSortimentoItem,
 } from '../../lib/api/sortimentoPontoVenda';
 import { entidadeDoItem, TIPO_ITEM_LABELS } from '../../lib/tipoItemCampanha';
+import { listarPedidosDaLoja } from '../../lib/api/pedidos';
 import { listarUsuarios } from '../../lib/api/usuarios';
 import type { AgendaVisita, PontoVenda, StatusVisita, TipoItemCampanha } from '../../types/api';
 import { AgendaVisitaFormDialog } from '../agendasVisita/AgendaVisitaFormDialog';
@@ -199,6 +200,7 @@ export function PontoVendaDetailPage() {
   const [tipoItemSortimento, setTipoItemSortimento] = useState<TipoItemCampanha>('PRODUTO');
   const [entidadeSortimentoUuid, setEntidadeSortimentoUuid] = useState<string | null>(null);
   const [erroSortimento, setErroSortimento] = useState<string | null>(null);
+  const [buscaProdutoAberta, setBuscaProdutoAberta] = useState(false);
   const [paginaVisitas, setPaginaVisitas] = useState(0);
 
   const pdvQuery = useQuery({
@@ -236,13 +238,18 @@ export function PontoVendaDetailPage() {
   // Todas as visitas já feitas nesta loja, de qualquer promotor — o backend não filtra por dono
   // pra GESTOR/ADMIN (ver VisitaController::index). Mesmo padrão da aba "Visitas neste PDV" da
   // tela de Contrato.
+  const pedidosQuery = useQuery({
+    queryKey: ['pedidos-loja', publicId],
+    queryFn: () => listarPedidosDaLoja(publicId!),
+    enabled: Boolean(publicId),
+  });
+
   const visitasQuery = useQuery({
     queryKey: ['visitas', { ponto_venda_uuid: publicId, page: paginaVisitas }],
     queryFn: () => listarVisitas({ ponto_venda_uuid: publicId, page: paginaVisitas + 1 }),
     enabled: Boolean(publicId),
   });
 
-  const produtosQuery = useQuery({ queryKey: ['produtos'], queryFn: () => listarProdutos(), enabled: tipoItemSortimento === 'PRODUTO' });
   const secoesQuery = useQuery({ queryKey: ['secoes'], queryFn: () => listarSecoes(), enabled: tipoItemSortimento === 'SECAO' });
   const departamentosQuery = useQuery({
     queryKey: ['departamentos'],
@@ -276,6 +283,25 @@ export function PontoVendaDetailPage() {
           : 'Não foi possível adicionar o item.';
       setErroSortimento(mensagem);
     },
+  });
+
+  // Multi-seleção de produtos (docs/27-BUSCA-MULTIPLA-DE-PRODUTOS.md §3.3): um POST por produto,
+  // em paralelo — cada item é independente, não há campo calculado que possa colidir. Falha em
+  // um não cancela os outros; o resumo diz quantos não entraram.
+  const adicionarProdutosMutation = useMutation({
+    mutationFn: async (produtos: ProdutoSelecionado[]) => {
+      const resultados = await Promise.allSettled(
+        produtos.map((produto) => adicionarSortimentoItem(publicId!, { tipo_item: 'PRODUTO', produto_uuid: produto.id })),
+      );
+      const falhas = resultados.filter((r) => r.status === 'rejected').length;
+      return { falhas, total: produtos.length };
+    },
+    onSuccess: ({ falhas, total }) => {
+      setErroSortimento(falhas > 0 ? `${falhas} de ${total} produto(s) não puderam ser adicionados (talvez já estejam no mix).` : null);
+      if (falhas < total) setBuscaProdutoAberta(false);
+      void queryClient.invalidateQueries({ queryKey: ['pontos-venda', publicId] });
+    },
+    onError: () => setErroSortimento('Não foi possível adicionar os produtos.'),
   });
 
   const removerSortimentoMutation = useMutation({
@@ -377,16 +403,15 @@ export function PontoVendaDetailPage() {
   );
 
   const opcoesSortimento =
-    tipoItemSortimento === 'PRODUTO'
-      ? (produtosQuery.data?.produtos ?? [])
-      : tipoItemSortimento === 'SECAO'
-        ? (secoesQuery.data?.secoes ?? [])
-        : tipoItemSortimento === 'DEPARTAMENTO'
-          ? (departamentosQuery.data?.departamentos ?? [])
-          : (marcasQuery.data?.marcas ?? []);
+    tipoItemSortimento === 'SECAO'
+      ? (secoesQuery.data?.secoes ?? [])
+      : tipoItemSortimento === 'DEPARTAMENTO'
+        ? (departamentosQuery.data?.departamentos ?? [])
+        : (marcasQuery.data?.marcas ?? []);
   const carregandoOpcoesSortimento =
-    produtosQuery.isLoading || secoesQuery.isLoading || departamentosQuery.isLoading || marcasQuery.isLoading;
+    secoesQuery.isLoading || departamentosQuery.isLoading || marcasQuery.isLoading;
   const sortimento = pdv.sortimento ?? [];
+  const produtosJaNoMix = new Set(sortimento.flatMap((item) => (item.produto ? [item.produto.id] : [])));
 
   return (
     <Box>
@@ -610,6 +635,57 @@ export function PontoVendaDetailPage() {
         )}
       </Paper>
 
+      {/* Pedidos do ERP (docs/28 §4.2) — só aparece quando o integrador já gravou algum. */}
+      {(pedidosQuery.data?.pedidos.length ?? 0) > 0 && (
+        <Paper sx={{ p: 3, mt: 3 }}>
+          <Typography variant="h6" gutterBottom>
+            Pedidos
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Pedidos desta loja vindos do ERP, gravados pelo integrador. O promotor vê esta mesma lista
+            ao entrar na loja. Sem valores, só produtos e quantidades.
+          </Typography>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Pedido</TableCell>
+                <TableCell>NF</TableCell>
+                <TableCell>Data</TableCell>
+                <TableCell>Itens</TableCell>
+                <TableCell>Situação</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {pedidosQuery.data?.pedidos.map((pedido) => (
+                <TableRow key={pedido.id} hover>
+                  <TableCell>{pedido.numero_pedido}</TableCell>
+                  <TableCell>{pedido.numero_nf ?? '—'}</TableCell>
+                  <TableCell>{new Date(`${pedido.data_pedido}T00:00:00`).toLocaleDateString('pt-BR')}</TableCell>
+                  <TableCell>
+                    {pedido.itens.map((item) => (
+                      <div key={item.id}>
+                        {item.quantidade.toLocaleString('pt-BR', { maximumFractionDigits: 3 })}× {item.descricao_produto}
+                      </div>
+                    ))}
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      size="small"
+                      color={pedido.status === 'ENTREGUE' ? 'success' : 'warning'}
+                      label={
+                        pedido.status === 'ENTREGUE' && pedido.entregue_em
+                          ? `Entregue ${new Date(pedido.entregue_em).toLocaleDateString('pt-BR')}`
+                          : 'A caminho'
+                      }
+                    />
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </Paper>
+      )}
+
       <Paper sx={{ p: 3, mt: 3 }}>
         <Typography variant="h6" gutterBottom>
           Histórico de visitas
@@ -683,7 +759,7 @@ export function PontoVendaDetailPage() {
 
       <Paper sx={{ p: 3, mt: 3 }}>
         <Typography variant="h6" gutterBottom>
-          Sortimento
+          Mix
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           Produtos (ou seções/departamentos/marcas inteiras) que esta loja compra — usado como
@@ -715,28 +791,36 @@ export function PontoVendaDetailPage() {
               </MenuItem>
             ))}
           </TextField>
-          <Autocomplete
-            size="small"
-            sx={{ width: 280 }}
-            options={opcoesSortimento}
-            getOptionLabel={(option) => option.descricao}
-            loading={carregandoOpcoesSortimento}
-            value={opcoesSortimento.find((o) => o.id === entidadeSortimentoUuid) ?? null}
-            onChange={(_, value) => setEntidadeSortimentoUuid(value?.id ?? null)}
-            renderInput={(params) => <TextField {...params} label={TIPO_ITEM_LABELS[tipoItemSortimento]} />}
-          />
-          <Button
-            variant="contained"
-            disabled={!entidadeSortimentoUuid || adicionarSortimentoMutation.isPending}
-            onClick={() => adicionarSortimentoMutation.mutate()}
-          >
-            Adicionar
-          </Button>
+          {tipoItemSortimento === 'PRODUTO' ? (
+            <Button variant="contained" onClick={() => setBuscaProdutoAberta(true)}>
+              Buscar e adicionar produtos
+            </Button>
+          ) : (
+            <>
+              <Autocomplete
+                size="small"
+                sx={{ width: 280 }}
+                options={opcoesSortimento}
+                getOptionLabel={(option) => option.descricao}
+                loading={carregandoOpcoesSortimento}
+                value={opcoesSortimento.find((o) => o.id === entidadeSortimentoUuid) ?? null}
+                onChange={(_, value) => setEntidadeSortimentoUuid(value?.id ?? null)}
+                renderInput={(params) => <TextField {...params} label={TIPO_ITEM_LABELS[tipoItemSortimento]} />}
+              />
+              <Button
+                variant="contained"
+                disabled={!entidadeSortimentoUuid || adicionarSortimentoMutation.isPending}
+                onClick={() => adicionarSortimentoMutation.mutate()}
+              >
+                Adicionar
+              </Button>
+            </>
+          )}
         </Box>
 
         {sortimento.length === 0 ? (
           <Typography variant="body2" color="text.secondary">
-            Nenhum item de sortimento cadastrado ainda.
+            Nenhum item de mix cadastrado ainda.
           </Typography>
         ) : (
           <Table size="small">
@@ -792,6 +876,15 @@ export function PontoVendaDetailPage() {
           </Table>
         )}
       </Paper>
+
+      <ProdutoBuscaDialog
+        open={buscaProdutoAberta}
+        titulo="Adicionar produtos ao mix da loja"
+        confirmando={adicionarProdutosMutation.isPending}
+        jaAdicionados={produtosJaNoMix}
+        onClose={() => setBuscaProdutoAberta(false)}
+        onConfirmar={(produtos) => adicionarProdutosMutation.mutate(produtos)}
+      />
 
       <PontoVendaFormDialog open={dialogAberto} pontoVenda={pdv} onClose={() => setDialogAberto(false)} />
 

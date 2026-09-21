@@ -1,5 +1,7 @@
 import AddIcon from '@mui/icons-material/Add';
 import { usePageHeader } from '../../components/layout/PageHeaderSlot';
+import { ProdutoBuscaDialog, type ProdutoSelecionado } from '../../components/ProdutoBuscaDialog';
+import SearchIcon from '@mui/icons-material/Search';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
@@ -30,7 +32,6 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { adicionarCampanhaItem, buscarCampanha, removerCampanhaItem } from '../../lib/api/campanhas';
 import { listarDepartamentos } from '../../lib/api/departamentos';
 import { listarMarcas } from '../../lib/api/marcas';
-import { listarProdutos } from '../../lib/api/produtos';
 import { listarSecoes } from '../../lib/api/secoes';
 import { listarTiposRegistro } from '../../lib/api/tiposRegistro';
 import { formatarDataSemFuso } from '../../lib/formatarData';
@@ -44,6 +45,7 @@ export function CampanhaDetailPage() {
   const [tipoItem, setTipoItem] = useState<TipoItemCampanha>('PRODUTO');
   const [entidadeUuid, setEntidadeUuid] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
+  const [buscaProdutoAberta, setBuscaProdutoAberta] = useState(false);
 
   const campanhaQuery = useQuery({
     queryKey: ['campanhas', publicId],
@@ -70,7 +72,6 @@ export function CampanhaDetailPage() {
     enabled: !!publicId,
   });
 
-  const produtosQuery = useQuery({ queryKey: ['produtos'], queryFn: () => listarProdutos(), enabled: tipoItem === 'PRODUTO' });
   const secoesQuery = useQuery({ queryKey: ['secoes'], queryFn: () => listarSecoes(), enabled: tipoItem === 'SECAO' });
   const departamentosQuery = useQuery({
     queryKey: ['departamentos'],
@@ -106,6 +107,23 @@ export function CampanhaDetailPage() {
     },
   });
 
+  // Produto específico entra pelo diálogo de busca (docs/27 §3.3 item 2) — N produtos de uma vez,
+  // em paralelo (cada item é independente). Falha em um não cancela os outros.
+  const adicionarProdutosMutation = useMutation({
+    mutationFn: async (produtos: ProdutoSelecionado[]) => {
+      const resultados = await Promise.allSettled(
+        produtos.map((produto) => adicionarCampanhaItem(publicId!, { tipo_item: 'PRODUTO', produto_uuid: produto.id })),
+      );
+      return { falhas: resultados.filter((r) => r.status === 'rejected').length, total: produtos.length };
+    },
+    onSuccess: ({ falhas, total }) => {
+      setErro(falhas > 0 ? `${falhas} de ${total} produto(s) não puderam ser adicionados (talvez já estejam na campanha).` : null);
+      if (falhas < total) setBuscaProdutoAberta(false);
+      void queryClient.invalidateQueries({ queryKey: ['campanhas', publicId] });
+    },
+    onError: () => setErro('Não foi possível adicionar os produtos.'),
+  });
+
   const removerMutation = useMutation({
     mutationFn: (itemUuid: string) => removerCampanhaItem(publicId!, itemUuid),
     onSuccess: () => {
@@ -126,14 +144,13 @@ export function CampanhaDetailPage() {
   }
 
   const opcoes =
-    tipoItem === 'PRODUTO'
-      ? (produtosQuery.data?.produtos ?? [])
-      : tipoItem === 'SECAO'
-        ? (secoesQuery.data?.secoes ?? [])
-        : tipoItem === 'DEPARTAMENTO'
-          ? (departamentosQuery.data?.departamentos ?? [])
-          : (marcasQuery.data?.marcas ?? []);
-  const carregandoOpcoes = produtosQuery.isLoading || secoesQuery.isLoading || departamentosQuery.isLoading || marcasQuery.isLoading;
+    tipoItem === 'SECAO'
+      ? (secoesQuery.data?.secoes ?? [])
+      : tipoItem === 'DEPARTAMENTO'
+        ? (departamentosQuery.data?.departamentos ?? [])
+        : (marcasQuery.data?.marcas ?? []);
+  const carregandoOpcoes = secoesQuery.isLoading || departamentosQuery.isLoading || marcasQuery.isLoading;
+  const produtosJaNaCampanha = new Set((campanha.itens ?? []).flatMap((item) => (item.produto ? [item.produto.id] : [])));
 
   return (
     <Box>
@@ -173,24 +190,41 @@ export function CampanhaDetailPage() {
             </MenuItem>
           ))}
         </TextField>
-        <Autocomplete
-          size="small"
-          sx={{ width: 280 }}
-          options={opcoes}
-          getOptionLabel={(option) => option.descricao}
-          loading={carregandoOpcoes}
-          value={opcoes.find((o) => o.id === entidadeUuid) ?? null}
-          onChange={(_, value) => setEntidadeUuid(value?.id ?? null)}
-          renderInput={(params) => <TextField {...params} label={TIPO_ITEM_LABELS[tipoItem]} />}
-        />
-        <Button
-          variant="contained"
-          disabled={!entidadeUuid || adicionarMutation.isPending}
-          onClick={() => adicionarMutation.mutate()}
-        >
-          Adicionar item
-        </Button>
+        {tipoItem === 'PRODUTO' ? (
+          <Button variant="contained" startIcon={<SearchIcon />} onClick={() => setBuscaProdutoAberta(true)}>
+            Buscar produtos
+          </Button>
+        ) : (
+          <>
+            <Autocomplete
+              size="small"
+              sx={{ width: 280 }}
+              options={opcoes}
+              getOptionLabel={(option) => option.descricao}
+              loading={carregandoOpcoes}
+              value={opcoes.find((o) => o.id === entidadeUuid) ?? null}
+              onChange={(_, value) => setEntidadeUuid(value?.id ?? null)}
+              renderInput={(params) => <TextField {...params} label={TIPO_ITEM_LABELS[tipoItem]} />}
+            />
+            <Button
+              variant="contained"
+              disabled={!entidadeUuid || adicionarMutation.isPending}
+              onClick={() => adicionarMutation.mutate()}
+            >
+              Adicionar item
+            </Button>
+          </>
+        )}
       </Paper>
+
+      <ProdutoBuscaDialog
+        open={buscaProdutoAberta}
+        titulo="Adicionar produtos à campanha"
+        confirmando={adicionarProdutosMutation.isPending}
+        jaAdicionados={produtosJaNaCampanha}
+        onClose={() => setBuscaProdutoAberta(false)}
+        onConfirmar={(produtos) => adicionarProdutosMutation.mutate(produtos)}
+      />
 
       <TableContainer component={Paper} sx={{ mb: 4 }}>
         <Table>
@@ -244,7 +278,7 @@ export function CampanhaDetailPage() {
       </Box>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         As perguntas que o promotor responde nas visitas desta campanha — por baixo é o mesmo
-        motor de "Tipos de Registro" (campos tipados, condicional, sortimento), só que já nasce
+        motor de "Tipos de Registro" (campos tipados, condicional, mix), só que já nasce
         vinculado a esta campanha, sem precisar configurar isso na mão.
       </Typography>
 

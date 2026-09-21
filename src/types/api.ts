@@ -12,7 +12,9 @@ export type Permissao =
   | 'ordens_servico.gerenciar'
   | 'centros_custo.gerenciar'
   | 'pontos_venda.visualizar_todos'
-  | 'visitas.intervir';
+  | 'visitas.intervir'
+  | 'rastreamento.visualizar'
+  | 'pedidos.gerenciar';
 export type PlanoEmpresa = 'GRATUITO' | 'START' | 'PRO' | 'BUSINESS';
 export type StatusVisita = 'ABERTA' | 'FINALIZADA' | 'CANCELADA';
 // PROMOTOR = checkout normal pelo app (com GPS); ADMIN = forçado por um gestor (sem GPS);
@@ -418,9 +420,12 @@ export interface ProdutoAuditoria {
   // Opcional por padrão; pode virar obrigatório/único no cadastro via os parâmetros
   // CODIGO_BARRAS_OBRIGATORIO/CODIGO_BARRAS_UNICO da empresa.
   codigo_barras: string | null;
+  // Código do ERP de origem — busca por ele também, ver docs/27-BUSCA-MULTIPLA-DE-PRODUTOS.md.
+  codigo_externo: string | null;
   imagem_url: string | null;
   departamento?: { id: string; descricao: string } | null;
   secao?: { id: string; descricao: string } | null;
+  marca?: { id: string; descricao: string } | null;
   nivel_exibicao?: { id: string; descricao: string } | null;
   produto_final: boolean;
   // Gera aviso nomeado ao finalizar a visita se ficar sem registro — ver
@@ -505,6 +510,12 @@ export interface VisitaRegistro {
   // N:N — mesma foto pode evidenciar vários registros, um registro pode ter várias fotos. Ver
   // docs/21-EVIDENCIA-EM-FOTOS.md. Substitui o antigo imagem_url (string única).
   imagens: { id: string; url: string }[];
+  // Feedback (docs/28 §3) — só presentes onde o backend contou (detalhe da visita e Painel de
+  // Atividades): total de comentários e quantos são novos pra quem está olhando.
+  comentarios_count?: number;
+  comentarios_novos?: number;
+  // Uuid da visita dona (quando o backend carregou a relação) — abre o feed de comentários.
+  visita_id?: string;
   // Resolução de alerta (Painel de Atividades) — só relevante quando tipo_registro.eh_alerta é
   // true. Ver docs/19-PAINEL-ATIVIDADES.md.
   alerta_resolvido_em: string | null;
@@ -532,7 +543,7 @@ export interface FotoGaleria {
 
 // Feed do Painel de Atividades — mistura Visita (check-in/checkout) e VisitaRegistro-alerta
 // num shape comum, discriminado por tipo_evento. Ver docs/19-PAINEL-ATIVIDADES.md.
-export type TipoEventoAtividade = 'VISITA_INICIADA' | 'VISITA_FINALIZADA' | 'ALERTA';
+export type TipoEventoAtividade = 'VISITA_INICIADA' | 'VISITA_FINALIZADA' | 'ALERTA' | 'COMENTARIO';
 
 export interface AtividadeEvento {
   tipo_evento: TipoEventoAtividade;
@@ -548,6 +559,16 @@ export interface AtividadeEvento {
   imagens?: VisitaRegistro[];
   // Só em ALERTA.
   registro?: VisitaRegistro;
+  // Só em COMENTARIO — resposta do promotor num feedback (docs/28 §3).
+  comentario?: {
+    id: string;
+    texto: string;
+    registro_id: string;
+    tipo_registro: string | null;
+    produto: string | null;
+    comentarios_count: number;
+    comentarios_novos: number;
+  };
 }
 
 export interface Visita {

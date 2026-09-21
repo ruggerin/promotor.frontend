@@ -191,7 +191,7 @@ export function ManualPage() {
               </li>
               <li>
                 <b>Campos extras do formulário</b>: além da foto, pergunta adicional (texto,
-                número, sim/não, múltipla escolha, sortimento — um checklist de vários produtos de
+                número, sim/não, múltipla escolha, mix — um checklist de vários produtos de
                 uma vez).
               </li>
             </Box>

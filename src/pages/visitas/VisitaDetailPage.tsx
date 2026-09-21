@@ -29,6 +29,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { ComentariosRegistro } from '../../components/ComentariosRegistro';
 import { apiClient } from '../../lib/api/client';
 import { useAuth } from '../../lib/auth/AuthContext';
 import {
@@ -385,6 +386,12 @@ export function VisitaDetailPage() {
                     ))}
                   </Box>
                 )}
+                <ComentariosRegistro
+                  visitaUuid={visita.id}
+                  registroUuid={registro.id}
+                  totalInicial={registro.comentarios_count}
+                  novosIniciais={registro.comentarios_novos}
+                />
               </CardContent>
             </Card>
           </Grid>

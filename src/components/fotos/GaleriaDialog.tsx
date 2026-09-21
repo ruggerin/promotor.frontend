@@ -2,6 +2,7 @@ import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import CloseIcon from '@mui/icons-material/Close';
 import { Box, Chip, Dialog, IconButton, Typography } from '@mui/material';
+import { ComentariosRegistro } from '../ComentariosRegistro';
 import { MdiIcon } from '../MdiIcon';
 import { UsuarioAvatar } from '../UsuarioAvatar';
 import { AutenticatedImage } from './AutenticatedImage';
@@ -126,6 +127,18 @@ export function GaleriaDialog({
           {new Date(registro.created_at).toLocaleString('pt-BR')}
           {fotos.length > 1 && ` · ${indice + 1} de ${fotos.length}`}
         </Typography>
+        {/* Feedback do registro (docs/28 §3) — é AQUI que se comenta; o Painel de Atividades só
+            mostra que existe comentário. `key` por registro: navegar pra outra foto de outro
+            registro recomeça o feed fechado. */}
+        {registro.visita_id && (
+          <ComentariosRegistro
+            key={registro.id}
+            visitaUuid={registro.visita_id}
+            registroUuid={registro.id}
+            totalInicial={registro.comentarios_count}
+            novosIniciais={registro.comentarios_novos}
+          />
+        )}
       </Box>
     </Dialog>
   );

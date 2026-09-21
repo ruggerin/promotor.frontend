@@ -1,6 +1,7 @@
 import CloseIcon from '@mui/icons-material/Close';
 import EditIcon from '@mui/icons-material/Edit';
 import PrintIcon from '@mui/icons-material/Print';
+import SearchIcon from '@mui/icons-material/Search';
 import {
   Alert,
   Avatar,
@@ -9,8 +10,10 @@ import {
   Chip,
   CircularProgress,
   IconButton,
+  InputAdornment,
   Paper,
   Stack,
+  TextField,
   Tooltip,
   Typography,
 } from '@mui/material';
@@ -21,6 +24,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet';
 import { Link as RouterLink } from 'react-router-dom';
 import { usePageHeader } from '../../components/layout/PageHeaderSlot';
+import { ZoomComCtrl } from '../../components/mapa/ZoomComCtrl';
 import {
   atualizarAgendaVisita,
   baixarRelatorioRota,
@@ -28,7 +32,9 @@ import {
   desativarAgendaVisita,
   listarAgendasVisita,
 } from '../../lib/api/agendasVisita';
+import { hojeISO } from '../../components/relatorios/FiltroPeriodo';
 import { buscarOmitirDomingoPlanejador, buscarOmitirSabadoPlanejador } from '../../lib/api/parametros';
+import { buscarVisitasPlanejadasXExecutadas } from '../../lib/api/relatorios';
 import { listarPontosVenda } from '../../lib/api/pontosVenda';
 import { listarUsuarios } from '../../lib/api/usuarios';
 import type { AgendaVisita, PontoVenda } from '../../types/api';
@@ -115,6 +121,14 @@ export function PlanejadorVisitasPage() {
     queryFn: () => listarAgendasVisita({ usuario_uuid: promotorUuid as string, ativo: true, por_pagina: 200 }),
     enabled: !!promotorUuid,
   });
+  // Cumprimento real dos últimos 7 dias do promotor (relatório de docs/28 §2.1, planejado ×
+  // executado) — o quadro planeja a rota, esse KPI mostra se ela está sendo cumprida.
+  const cumprimentoQuery = useQuery({
+    queryKey: ['relatorio-visitas-planejadas', 'planejador', promotorUuid],
+    queryFn: () =>
+      buscarVisitasPlanejadasXExecutadas({ data_inicio: hojeISO(-6), data_fim: hojeISO(), usuario_uuid: promotorUuid }),
+    enabled: !!promotorUuid,
+  });
   // O quadro só mostra (e só mexe em) a rota fixa — recorrência SEMANAL. Visita avulsa (data
   // específica) continua exclusivamente na tela "Agenda de Visita" (modo lista/formulário).
   const agendaSemanal = useMemo(
@@ -152,11 +166,22 @@ export function PlanejadorVisitasPage() {
   // pra adicionar uma 2ª/3ª visita numa loja que já tem alguma; sem isso a loja simplesmente
   // sumia da lista depois da primeira visita, sem jeito de arrastar/adicionar outro dia.
   const [filtroCarteira, setFiltroCarteira] = useState<'TODAS' | 'COM_ROTA' | 'SEM_ROTA'>('TODAS');
+  // Busca por texto do painel — a lupa abre um campo que cobre o cabeçalho (mesmo padrão de
+  // caixa de pesquisa de app mobile), pra não gastar uma linha fixa de espaço com o campo.
+  const [buscaAberta, setBuscaAberta] = useState(false);
+  const [buscaLoja, setBuscaLoja] = useState('');
   const carteiraFiltrada = useMemo(() => {
-    if (filtroCarteira === 'SEM_ROTA') return carteira.filter((pdv) => (porLoja.get(pdv.id)?.length ?? 0) === 0);
-    if (filtroCarteira === 'COM_ROTA') return carteira.filter((pdv) => (porLoja.get(pdv.id)?.length ?? 0) > 0);
-    return carteira;
-  }, [carteira, porLoja, filtroCarteira]);
+    let lista = carteira;
+    if (filtroCarteira === 'SEM_ROTA') lista = lista.filter((pdv) => (porLoja.get(pdv.id)?.length ?? 0) === 0);
+    if (filtroCarteira === 'COM_ROTA') lista = lista.filter((pdv) => (porLoja.get(pdv.id)?.length ?? 0) > 0);
+    const termo = buscaLoja.trim().toLowerCase();
+    if (termo) {
+      lista = lista.filter((pdv) =>
+        [pdv.fantasia, pdv.razao_social, pdv.bairro, pdv.codigo_externo].some((campo) => campo?.toLowerCase().includes(termo)),
+      );
+    }
+    return lista;
+  }, [carteira, porLoja, filtroCarteira, buscaLoja]);
 
   // Domingo/sábado somem do quadro, do mapa e da impressão quando o parâmetro da empresa está
   // ligado — ausente/inativo = mostra os 7 dias (default conservador). Ver
@@ -328,6 +353,28 @@ export function PlanejadorVisitasPage() {
               hint={semAgenda.length > 0 ? 'exige ação' : 'tudo ok'}
             />
             <KpiCard label="Lojas com 2+ visitas" valor={comMultiplasVisitas} destaque="info" />
+            <KpiCard
+              label="Cumprimento (7 dias)"
+              valor={
+                cumprimentoQuery.data?.total.percentual_cumprimento == null
+                  ? '—'
+                  : `${cumprimentoQuery.data.total.percentual_cumprimento}%`
+              }
+              hint={
+                cumprimentoQuery.data
+                  ? `${cumprimentoQuery.data.total.cumpridas}/${cumprimentoQuery.data.total.planejadas} cumpridas`
+                  : undefined
+              }
+              destaque={
+                cumprimentoQuery.data?.total.percentual_cumprimento == null
+                  ? undefined
+                  : cumprimentoQuery.data.total.percentual_cumprimento >= 90
+                    ? 'success'
+                    : cumprimentoQuery.data.total.percentual_cumprimento >= 60
+                      ? 'warning'
+                      : 'error'
+              }
+            />
           </Box>
 
           <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start', flexWrap: 'wrap' }}>
@@ -448,12 +495,19 @@ export function PlanejadorVisitasPage() {
 
             <Box sx={{ flex: '1 1 300px', minWidth: 280, display: 'flex', flexDirection: 'column', gap: 2 }}>
               <Paper variant="outlined" sx={{ overflow: 'hidden' }}>
-                <Box sx={{ p: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}>
+                <Box sx={{ p: 1.5, borderBottom: '1px solid', borderColor: 'divider', position: 'relative' }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
                       Lojas Vinculadas
                     </Typography>
-                    <Chip label={carteiraFiltrada.length} size="small" />
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      <Chip label={carteiraFiltrada.length} size="small" />
+                      <Tooltip title="Buscar loja">
+                        <IconButton size="small" onClick={() => setBuscaAberta(true)}>
+                          <SearchIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
                   </Box>
                  
                   <Box sx={{ display: 'flex', gap: 0.5 }}>
@@ -474,6 +528,57 @@ export function PlanejadorVisitasPage() {
                       />
                     ))}
                   </Box>
+
+                  {/* Campo de busca por cima do cabeçalho inteiro (título + filtros) — não ocupa
+                      linha própria, só aparece quando a lupa é tocada; fechar limpa o termo. */}
+                  {buscaAberta && (
+                    <Box
+                      sx={{
+                        position: 'absolute',
+                        inset: 0,
+                        bgcolor: 'background.paper',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 0.5,
+                        px: 1.5,
+                        zIndex: 1,
+                      }}
+                    >
+                      <TextField
+                        autoFocus
+                        fullWidth
+                        size="small"
+                        placeholder="Buscar loja, bairro ou código"
+                        value={buscaLoja}
+                        onChange={(e) => setBuscaLoja(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Escape') {
+                            setBuscaLoja('');
+                            setBuscaAberta(false);
+                          }
+                        }}
+                        slotProps={{
+                          input: {
+                            startAdornment: (
+                              <InputAdornment position="start">
+                                <SearchIcon fontSize="small" />
+                              </InputAdornment>
+                            ),
+                          },
+                        }}
+                      />
+                      <IconButton
+                        size="small"
+                        title="Fechar busca"
+                        onClick={() => {
+                          setBuscaLoja('');
+                          setBuscaAberta(false);
+                        }}
+                      >
+                        <CloseIcon fontSize="small" />
+                      </IconButton>
+                    </Box>
+                  )}
                 </Box>
                 <Stack sx={{ maxHeight: 420, overflowY: 'auto', p: 1.25, gap: 1 }}>
                   {carteiraFiltrada.map((pdv) => {
@@ -620,36 +725,6 @@ function iconePin(cor: string, badge: number, sempreMostrar: boolean): L.DivIcon
     iconAnchor: [13, 26],
     popupAnchor: [0, -26],
   });
-}
-
-// scrollWheelZoom fica ligado no Leaflet o tempo todo, mas um filtro na frente barra o wheel
-// comum (sem Ctrl/Cmd) antes dele chegar no handler interno — `stopImmediatePropagation` some
-// com o evento pros listeners seguintes no MESMO elemento, e como este listener é registrado
-// ANTES de `scrollWheelZoom.enable()` (que é quem pluga o listener interno do Leaflet nesse
-// mesmo container), o nosso sempre roda primeiro. Mais simples e mais robusto que ligar/desligar
-// o handler a cada tecla: não tem estado nenhum pra dessincronizar (ex.: soltar Ctrl fora da
-// janela do mapa e perder o keyup) — cada evento de wheel decide sozinho, olhando só o
-// modificador que ELE carrega. `preventDefault` no caso Ctrl+wheel evita o navegador tentar dar
-// zoom na página inteira ao mesmo tempo (atalho nativo do browser).
-function ZoomComCtrl() {
-  const mapa = useMap();
-  useEffect(() => {
-    const container = mapa.getContainer();
-    function aoRolar(evento: WheelEvent) {
-      if (evento.ctrlKey || evento.metaKey) {
-        evento.preventDefault();
-        return;
-      }
-      evento.stopImmediatePropagation();
-    }
-    container.addEventListener('wheel', aoRolar, { passive: false });
-    mapa.scrollWheelZoom.enable();
-    return () => {
-      container.removeEventListener('wheel', aoRolar);
-      mapa.scrollWheelZoom.disable();
-    };
-  }, [mapa]);
-  return null;
 }
 
 // Reenquadra o mapa quando a carteira muda (troca de promotor, por exemplo) — MapContainer só
