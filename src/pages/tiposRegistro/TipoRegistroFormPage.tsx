@@ -3,12 +3,14 @@ import AddIcon from '@mui/icons-material/Add';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import DeleteIcon from '@mui/icons-material/Delete';
 import LibraryAddIcon from '@mui/icons-material/LibraryAdd';
+import SearchIcon from '@mui/icons-material/Search';
 import {
   Alert,
   Autocomplete,
   Box,
   Button,
   Checkbox,
+  Chip,
   CircularProgress,
   Dialog,
   DialogActions,
@@ -39,7 +41,7 @@ import { usePageHeader } from '../../components/layout/PageHeaderSlot';
 import { listarCampanhas } from '../../lib/api/campanhas';
 import { listarDepartamentos } from '../../lib/api/departamentos';
 import { listarMarcas } from '../../lib/api/marcas';
-import { listarProdutos } from '../../lib/api/produtos';
+import { ProdutoBuscaDialog } from '../../components/ProdutoBuscaDialog';
 import { listarSecoes } from '../../lib/api/secoes';
 import {
   atualizarTipoRegistro,
@@ -77,7 +79,7 @@ const TIPOS_CAMPO: { value: TipoCampoRegistro; label: string }[] = [
   { value: 'MULTIPLA_ESCOLHA', label: 'Múltipla escolha' },
   { value: 'BOOLEANO', label: 'Sim/Não' },
   { value: 'DATA', label: 'Data' },
-  { value: 'SORTIMENTO', label: 'Sortimento (checklist de produtos)' },
+  { value: 'SORTIMENTO', label: 'Mix (checklist de produtos)' },
 ];
 
 const campoSchema = z.object({
@@ -681,7 +683,7 @@ export function TipoRegistroFormPage() {
             )}
           />
           <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: -1 }}>
-            % de campos "Sim/Não" e "Sortimento" que passaram (Sim / mix 100% presente), sobre o
+            % de campos "Sim/Não" e "Mix" que passaram (Sim / mix 100% presente), sobre o
             total do formulário — sem peso por pergunta ainda.
           </Typography>
 
@@ -1098,7 +1100,7 @@ function CampoSortimentoFields({
   const tipoCampo = useWatch({ control, name: `campos.${indice}.tipo_campo` });
   const origem = useWatch({ control, name: `campos.${indice}.sortimento_origem` });
   const tipoVinculo = useWatch({ control, name: `campos.${indice}.sortimento_tipo_vinculo` });
-  const [buscaProduto, setBuscaProduto] = useState('');
+  const [buscaProdutoAberta, setBuscaProdutoAberta] = useState(false);
 
   const secoesQuery = useQuery({
     queryKey: ['secoes', { ativo: true }],
@@ -1115,12 +1117,6 @@ function CampoSortimentoFields({
     queryFn: () => listarMarcas({ ativo: true }),
     enabled: tipoVinculo === 'MARCA',
   });
-  const produtosQuery = useQuery({
-    queryKey: ['produtos', { ativo: true, busca: buscaProduto }],
-    queryFn: () => listarProdutos({ ativo: true, busca: buscaProduto || undefined }),
-    enabled: origem === 'FIXO',
-  });
-
   if (tipoCampo !== 'SORTIMENTO') return null;
 
   return (
@@ -1145,7 +1141,7 @@ function CampoSortimentoFields({
             size="small"
             fullWidth
           >
-            <MenuItem value="DINAMICO">Dinâmica — sortimento real do PDV, dentro de um recorte</MenuItem>
+            <MenuItem value="DINAMICO">Dinâmica — mix real do PDV, dentro de um recorte</MenuItem>
             <MenuItem value="FIXO">Fixa — lista curada aqui, sempre a mesma</MenuItem>
           </TextField>
         )}
@@ -1262,27 +1258,42 @@ function CampoSortimentoFields({
           name={`campos.${indice}.sortimento_produtos`}
           control={control}
           render={({ field, fieldState }) => (
-            <Autocomplete
-              multiple
-              sx={{ mt: 1 }}
-              options={produtosQuery.data?.produtos.map((p) => ({ uuid: p.id, descricao: p.descricao })) ?? []}
-              value={field.value}
-              isOptionEqualToValue={(a, b) => a.uuid === b.uuid}
-              getOptionLabel={(o) => o.descricao}
-              loading={produtosQuery.isLoading}
-              onChange={(_, valor) => field.onChange(valor)}
-              onInputChange={(_, valor) => setBuscaProduto(valor)}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  label="Produtos da lista curada"
-                  size="small"
-                  placeholder="Buscar produto..."
-                  error={!!fieldState.error}
-                  helperText={fieldState.error?.message}
-                />
+            <Box sx={{ mt: 1 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                  Produtos da lista curada ({field.value.length})
+                </Typography>
+                <Button size="small" startIcon={<SearchIcon />} onClick={() => setBuscaProdutoAberta(true)}>
+                  Buscar produtos
+                </Button>
+              </Box>
+              <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
+                {field.value.map((p) => (
+                  <Chip
+                    key={p.uuid}
+                    size="small"
+                    label={p.descricao}
+                    onDelete={() => field.onChange(field.value.filter((x) => x.uuid !== p.uuid))}
+                  />
+                ))}
+              </Box>
+              {fieldState.error && (
+                <Typography variant="caption" color="error">
+                  {fieldState.error.message}
+                </Typography>
               )}
-            />
+              <ProdutoBuscaDialog
+                open={buscaProdutoAberta}
+                titulo="Produtos da lista curada"
+                jaAdicionados={new Set(field.value.map((p) => p.uuid))}
+                onClose={() => setBuscaProdutoAberta(false)}
+                onConfirmar={(produtos) => {
+                  const atuais = new Set(field.value.map((p) => p.uuid));
+                  field.onChange([...field.value, ...produtos.filter((p) => !atuais.has(p.id)).map((p) => ({ uuid: p.id, descricao: p.descricao }))]);
+                  setBuscaProdutoAberta(false);
+                }}
+              />
+            </Box>
           )}
         />
       )}

@@ -20,6 +20,7 @@ import { useEffect, useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import { listarDepartamentos } from '../../lib/api/departamentos';
+import { listarMarcas } from '../../lib/api/marcas';
 import { listarNiveisExibicao } from '../../lib/api/niveisExibicao';
 import { atualizarProduto, criarProduto } from '../../lib/api/produtos';
 import { listarSecoes } from '../../lib/api/secoes';
@@ -35,6 +36,8 @@ const schema = z.object({
   imagem_url: z.string().max(2048, 'URL muito longa (máximo 2048 caracteres)'),
   departamento_uuid: z.string().nullable(),
   secao_uuid: z.string().nullable(),
+  marca_uuid: z.string().nullable(),
+  codigo_externo: z.string().max(64, 'Máximo 64 caracteres'),
   nivel_exibicao_uuid: z.string().nullable(),
   produto_final: z.boolean(),
   produto_chave: z.boolean(),
@@ -50,6 +53,8 @@ const DEFAULT_VALUES: FormData = {
   imagem_url: '',
   departamento_uuid: null,
   secao_uuid: null,
+  marca_uuid: null,
+  codigo_externo: '',
   nivel_exibicao_uuid: null,
   produto_final: false,
   produto_chave: false,
@@ -71,6 +76,7 @@ export function ProdutoFormDialog({ open, produto, onClose }: ProdutoFormDialogP
   const [erroGeral, setErroGeral] = useState<string | null>(null);
 
   const departamentosQuery = useQuery({ queryKey: ['departamentos'], queryFn: () => listarDepartamentos(), enabled: open });
+  const marcasQuery = useQuery({ queryKey: ['marcas'], queryFn: () => listarMarcas(), enabled: open });
   const niveisQuery = useQuery({ queryKey: ['niveis-exibicao'], queryFn: () => listarNiveisExibicao(), enabled: open });
 
   const {
@@ -102,6 +108,8 @@ export function ProdutoFormDialog({ open, produto, onClose }: ProdutoFormDialogP
               imagem_url: produto.imagem_url ?? '',
               departamento_uuid: produto.departamento?.id ?? null,
               secao_uuid: produto.secao?.id ?? null,
+              marca_uuid: produto.marca?.id ?? null,
+              codigo_externo: produto.codigo_externo ?? '',
               nivel_exibicao_uuid: produto.nivel_exibicao?.id ?? null,
               produto_final: produto.produto_final,
               produto_chave: produto.produto_chave,
@@ -123,6 +131,8 @@ export function ProdutoFormDialog({ open, produto, onClose }: ProdutoFormDialogP
         imagem_url: data.imagem_url || null,
         departamento_uuid: data.departamento_uuid,
         secao_uuid: data.secao_uuid,
+        marca_uuid: data.marca_uuid,
+        codigo_externo: data.codigo_externo || null,
         nivel_exibicao_uuid: data.nivel_exibicao_uuid,
         produto_final: data.produto_final,
         produto_chave: data.produto_chave,
@@ -209,6 +219,20 @@ export function ProdutoFormDialog({ open, produto, onClose }: ProdutoFormDialogP
               />
             )}
           />
+          <Controller
+            name="codigo_externo"
+            control={control}
+            render={({ field, fieldState }) => (
+              <TextField
+                {...field}
+                label="Código externo"
+                fullWidth
+                margin="normal"
+                error={!!fieldState.error}
+                helperText={fieldState.error?.message ?? 'Código do ERP/sistema de origem — também entra na busca de produtos'}
+              />
+            )}
+          />
           <Box sx={{ display: 'flex', gap: 2 }}>
             <Controller
               name="departamento_uuid"
@@ -245,6 +269,22 @@ export function ProdutoFormDialog({ open, produto, onClose }: ProdutoFormDialogP
               )}
             />
           </Box>
+          <Controller
+            name="marca_uuid"
+            control={control}
+            render={({ field, fieldState }) => (
+              <Autocomplete
+                options={marcasQuery.data?.marcas ?? []}
+                getOptionLabel={(option) => option.descricao}
+                loading={marcasQuery.isLoading}
+                value={marcasQuery.data?.marcas.find((m) => m.id === field.value) ?? null}
+                onChange={(_, value) => field.onChange(value?.id ?? null)}
+                renderInput={(params) => (
+                  <TextField {...params} label="Marca" margin="normal" error={!!fieldState.error} helperText={fieldState.error?.message} />
+                )}
+              />
+            )}
+          />
           <Controller
             name="propriedade"
             control={control}

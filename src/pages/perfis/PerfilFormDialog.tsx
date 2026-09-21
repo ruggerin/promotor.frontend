@@ -39,6 +39,14 @@ const PERMISSOES: { value: Permissao; label: string }[] = [
     value: 'visitas.intervir',
     label: 'Intervir em visita (cancelar, forçar checkout, corrigir horários) — só tem efeito em Gestor',
   },
+  {
+    value: 'rastreamento.visualizar',
+    label: 'Ver o mapa ao vivo com a posição dos promotores — só tem efeito em Gestor',
+  },
+  {
+    value: 'pedidos.gerenciar',
+    label: 'Gravar pedidos do ERP (pensada pro integrador externo) — só tem efeito em Gestor',
+  },
 ];
 
 const schema = z.object({

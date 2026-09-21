@@ -51,7 +51,7 @@ export function ProdutosTab({ empresaUuid, isSuperadmin }: ProdutosTabProps) {
       listarProdutos({ departamento_uuid: filtroDepartamentoUuid ?? undefined, empresa_uuid: empresaUuid ?? undefined }),
   });
 
-  const totalColunas = isSuperadmin ? 9 : 8;
+  const totalColunas = isSuperadmin ? 10 : 9;
 
   const reativarMutation = useMutation({
     mutationFn: (p: ProdutoAuditoria) => atualizarProduto(p.id, { ativo: true }),
@@ -141,6 +141,7 @@ export function ProdutosTab({ empresaUuid, isSuperadmin }: ProdutosTabProps) {
               <TableCell>Código de barras</TableCell>
               <TableCell>Departamento</TableCell>
               <TableCell>Seção</TableCell>
+              <TableCell>Marca</TableCell>
               <TableCell>Nível</TableCell>
               <TableCell>Propriedade</TableCell>
               <TableCell>Status</TableCell>
@@ -169,6 +170,7 @@ export function ProdutosTab({ empresaUuid, isSuperadmin }: ProdutosTabProps) {
                 <TableCell>{p.codigo_barras ?? '—'}</TableCell>
                 <TableCell>{p.departamento?.descricao ?? '—'}</TableCell>
                 <TableCell>{p.secao?.descricao ?? '—'}</TableCell>
+                <TableCell>{p.marca?.descricao ?? '—'}</TableCell>
                 <TableCell>{p.nivel_exibicao?.descricao ?? '—'}</TableCell>
                 <TableCell>
                   <Chip

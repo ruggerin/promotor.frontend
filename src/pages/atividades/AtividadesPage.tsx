@@ -1,3 +1,4 @@
+import ChatBubbleOutlinedIcon from '@mui/icons-material/ChatBubbleOutlined';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import LoginIcon from '@mui/icons-material/Login';
@@ -399,6 +400,7 @@ const TIPO_CHIP: Record<'VISITA_INICIADA' | 'VISITA_FINALIZADA', { label: string
 const CORES_EVENTO = {
   CHECKIN: { dot: '#4f46e5', bg: '#eef0ff', fg: '#3730a3', borda: '#d6d9ff' },
   CHECKOUT: { dot: '#8b88c9', bg: '#f2f2f9', fg: '#4a4766', borda: '#e2e1ee' },
+  COMENTARIO: { dot: '#d97706', bg: '#fff7e6', fg: '#92400e', borda: '#fde3b0' },
   ALERTA_PENDENTE: { dot: '#dc2626', bg: '#fdeeee', fg: '#9f1239', borda: '#f6cfcf' },
   ALERTA_RESOLVIDO: { dot: '#15803d', bg: '#eafaf0', fg: '#166534', borda: '#c9ecd8' },
 } as const;
@@ -408,6 +410,7 @@ type CorEvento = (typeof CORES_EVENTO)[keyof typeof CORES_EVENTO];
 function corDoEvento(evento: AtividadeEvento): CorEvento {
   if (evento.tipo_evento === 'VISITA_INICIADA') return CORES_EVENTO.CHECKIN;
   if (evento.tipo_evento === 'VISITA_FINALIZADA') return CORES_EVENTO.CHECKOUT;
+  if (evento.tipo_evento === 'COMENTARIO') return CORES_EVENTO.COMENTARIO;
   return evento.registro?.alerta_resolvido_em ? CORES_EVENTO.ALERTA_RESOLVIDO : CORES_EVENTO.ALERTA_PENDENTE;
 }
 
@@ -492,6 +495,24 @@ function EventoCard({
   const fotosAlerta = registro ? achatarFotos([registro]) : [];
   const fotosFinalizada = achatarFotos(evento.imagens ?? []);
 
+  // Indicador de comentários do card: soma dos registros da visita (finalizada) ou do registro do
+  // evento (alerta/comentário). Os registros com foto abrem no lightbox, onde se comenta.
+  const registrosDoCard =
+    evento.tipo_evento === 'VISITA_FINALIZADA'
+      ? [...new Map((evento.imagens ?? []).map((r) => [r.id, r])).values()]
+      : registro
+        ? [registro]
+        : [];
+  const totalComentarios =
+    evento.tipo_evento === 'COMENTARIO'
+      ? (evento.comentario?.comentarios_count ?? 0)
+      : registrosDoCard.reduce((soma, r) => soma + (r.comentarios_count ?? 0), 0);
+  const novosComentarios =
+    evento.tipo_evento === 'COMENTARIO'
+      ? (evento.comentario?.comentarios_novos ?? 0)
+      : registrosDoCard.reduce((soma, r) => soma + (r.comentarios_novos ?? 0), 0);
+  const fotosComentaveis = evento.tipo_evento === 'VISITA_FINALIZADA' ? fotosFinalizada : fotosAlerta;
+
   return (
     <Paper variant="outlined" sx={{ borderRadius: 1.5, overflow: 'hidden' }}>
       {/* Cabeçalho — avatar do autor + nome + loja, igual o topo de um post (a hora já aparece
@@ -515,6 +536,13 @@ function EventoCard({
             size="small"
             sx={{ height: 22, fontSize: 11, bgcolor: cores.bg, color: cores.fg, border: '1px solid', borderColor: cores.borda, fontWeight: 600 }}
           />
+        ) : evento.tipo_evento === 'COMENTARIO' ? (
+          <Chip
+            icon={<ChatBubbleOutlinedIcon sx={{ fontSize: 14, color: 'inherit !important' }} />}
+            label="Comentário"
+            size="small"
+            sx={{ height: 22, fontSize: 11, bgcolor: cores.bg, color: cores.fg, border: '1px solid', borderColor: cores.borda, fontWeight: 600 }}
+          />
         ) : (
           <Chip
             icon={
@@ -532,6 +560,19 @@ function EventoCard({
       </Box>
 
       {/* Corpo — conteúdo específico do tipo de evento. */}
+      {evento.tipo_evento === 'COMENTARIO' && evento.comentario && (
+        <Box sx={{ px: 1.25, pb: 1 }}>
+          {(evento.comentario.produto ?? evento.comentario.tipo_registro) && (
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+              Em: {evento.comentario.produto ?? evento.comentario.tipo_registro}
+            </Typography>
+          )}
+          <Typography variant="body2" sx={{ fontSize: 13, whiteSpace: 'pre-wrap' }}>
+            {evento.comentario.texto}
+          </Typography>
+        </Box>
+      )}
+
       {evento.tipo_evento === 'ALERTA' && registro?.observacao && (
         <Typography variant="body2" sx={{ px: 1.25, pb: 1, fontSize: 13 }}>
           {registro.observacao}
@@ -555,6 +596,24 @@ function EventoCard({
       {evento.tipo_evento === 'VISITA_FINALIZADA' && fotosFinalizada.length > 0 && (
         <Box sx={{ px: 1.25, pb: 1.25 }}>
           <MosaicoImagens fotos={fotosFinalizada} onAbrir={(i) => onAbrirImagem(fotosFinalizada, i)} />
+        </Box>
+      )}
+
+      {/* Só INDICA que há comentário (docs/28 §3) — quem quer ler/responder abre a foto e comenta
+          no registro. Sem foto (alerta sem imagem), o clique leva ao detalhe da visita. */}
+      {totalComentarios > 0 && (
+        <Box sx={{ px: 1.25, pb: 0.75 }}>
+          <Chip
+            icon={<ChatBubbleOutlinedIcon sx={{ fontSize: 14 }} />}
+            label={`${totalComentarios} ${totalComentarios === 1 ? 'comentário' : 'comentários'}${novosComentarios > 0 ? ` · ${novosComentarios} ${novosComentarios === 1 ? 'novo' : 'novos'}` : ''}`}
+            size="small"
+            color={novosComentarios > 0 ? 'primary' : 'default'}
+            variant={novosComentarios > 0 ? 'filled' : 'outlined'}
+            clickable
+            {...(fotosComentaveis.length > 0
+              ? { onClick: () => onAbrirImagem(fotosComentaveis, Math.max(0, fotosComentaveis.findIndex((f) => (f.registro.comentarios_count ?? 0) > 0))) }
+              : { component: RouterLink, to: `/visitas/${evento.visita.id}` })}
+          />
         </Box>
       )}
 

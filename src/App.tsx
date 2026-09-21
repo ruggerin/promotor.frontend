@@ -21,6 +21,9 @@ import { OrdensServicoListPage } from './pages/ordensServico/OrdensServicoListPa
 import { ParametrosListPage } from './pages/parametros/ParametrosListPage';
 import { PerfisListPage } from './pages/perfis/PerfisListPage';
 import { PlanejadorVisitasPage } from './pages/planejadorVisitas/PlanejadorVisitasPage';
+import { RespostasFormularioPage } from './pages/relatorios/RespostasFormularioPage';
+import { VisitasPlanejadasPage } from './pages/relatorios/VisitasPlanejadasPage';
+import { RastreamentoPage } from './pages/rastreamento/RastreamentoPage';
 import { PlanogramaEditorPage } from './pages/planogramas/PlanogramaEditorPage';
 import { PlanogramasListPage } from './pages/planogramas/PlanogramasListPage';
 import { PontoVendaDetailPage } from './pages/pontosVenda/PontoVendaDetailPage';
@@ -70,6 +73,9 @@ export function App() {
           <Route path="/direcionamentos/:publicId" element={<DirecionamentoDetailPage />} />
           <Route path="/agendas-visita" element={<AgendasVisitaListPage />} />
           <Route path="/planejador-visitas" element={<PlanejadorVisitasPage />} />
+          <Route path="/rastreamento" element={<RastreamentoPage />} />
+          <Route path="/relatorios/visitas-planejadas" element={<VisitasPlanejadasPage />} />
+          <Route path="/relatorios/respostas-formulario" element={<RespostasFormularioPage />} />
           <Route path="/tipos-visita" element={<TiposVisitaListPage />} />
           <Route path="/objetivos-visita" element={<ObjetivosVisitaListPage />} />
           <Route path="/centros-custo" element={<CentrosCustoListPage />} />

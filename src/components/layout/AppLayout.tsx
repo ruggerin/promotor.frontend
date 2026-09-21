@@ -17,6 +17,9 @@ import ListAltIcon from '@mui/icons-material/ListAlt';
 import LogoutIcon from '@mui/icons-material/Logout';
 import MenuIcon from '@mui/icons-material/Menu';
 import PaidIcon from '@mui/icons-material/Paid';
+import AssessmentIcon from '@mui/icons-material/Assessment';
+import FactCheckIcon from '@mui/icons-material/FactCheck';
+import MyLocationIcon from '@mui/icons-material/MyLocation';
 import PeopleIcon from '@mui/icons-material/People';
 import PhotoLibraryIcon from '@mui/icons-material/PhotoLibrary';
 import SecurityIcon from '@mui/icons-material/Security';
@@ -25,6 +28,7 @@ import TuneIcon from '@mui/icons-material/Tune';
 import WorkIcon from '@mui/icons-material/Work';
 import {
   AppBar,
+  Badge,
   Box,
   Drawer,
   IconButton,
@@ -37,6 +41,7 @@ import {
   Typography,
 } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
+import { buscarNaoLidos } from '../../lib/api/comentarios';
 import { useState, type ReactNode } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { UsuarioAvatar } from '../UsuarioAvatar';
@@ -103,6 +108,15 @@ export function AppLayout() {
     refetchInterval: 60_000,
   });
   const solicitacoesPendentes = solicitacoesQuery.data?.meta.total ?? 0;
+
+  // Badge de feedback não lido (docs/28 §3) — polling, sem push. Aparece no item Atividades.
+  const naoLidosQuery = useQuery({
+    queryKey: ['comentarios-nao-lidos'],
+    queryFn: buscarNaoLidos,
+    enabled: usuario?.user_type === 'ADMIN' || usuario?.user_type === 'GESTOR',
+    refetchInterval: 60_000,
+  });
+  const naoLidos = naoLidosQuery.data;
 
   // `NavLink` só calcula `active` sozinho quando NINGUÉM mais fornece `className` — o
   // `ListItemButton` do MUI sempre passa a própria lista de classes geradas pra baixo, o que
@@ -255,7 +269,9 @@ export function AppLayout() {
           {(usuario?.user_type === 'ADMIN' || usuario?.user_type === 'GESTOR') && (
             <ListItemButton component={NavLink} to="/atividades" selected={emRota('/atividades')}>
               <ListItemIcon>
-                <BoltIcon />
+                <Badge color="error" badgeContent={naoLidos?.total ?? 0} max={99}>
+                  <BoltIcon />
+                </Badge>
               </ListItemIcon>
               <ListItemText primary="Atividades" />
             </ListItemButton>
@@ -269,6 +285,31 @@ export function AppLayout() {
               </ListItemIcon>
               <ListItemText primary="Galeria de Fotos" />
             </ListItemButton>
+          )}
+          {/* Relatórios agregados (docs/28 §2) — ADMIN/GESTOR, a API também barra com 403. */}
+          {(usuario?.user_type === 'ADMIN' || usuario?.user_type === 'GESTOR') && (
+            <>
+              <ListItemButton
+                component={NavLink}
+                to="/relatorios/visitas-planejadas"
+                selected={emRota('/relatorios/visitas-planejadas')}
+              >
+                <ListItemIcon>
+                  <AssessmentIcon />
+                </ListItemIcon>
+                <ListItemText primary="Cumprimento de visitas" />
+              </ListItemButton>
+              <ListItemButton
+                component={NavLink}
+                to="/relatorios/respostas-formulario"
+                selected={emRota('/relatorios/respostas-formulario')}
+              >
+                <ListItemIcon>
+                  <FactCheckIcon />
+                </ListItemIcon>
+                <ListItemText primary="Respostas por pergunta" />
+              </ListItemButton>
+            </>
           )}
         </List>
         <List subheader={<ListSubheader>Gestão</ListSubheader>}>
@@ -379,6 +420,17 @@ export function AppLayout() {
             </ListItemIcon>
             <ListItemText primary="Parâmetros" />
           </ListItemButton>
+          {/* Mapa ao vivo dos promotores (docs/11-RASTREAMENTO-TEMPO-REAL.md) — ADMIN sempre; GESTOR vê o
+              item e a API barra com 403 sem rastreamento.visualizar (a tela trata) — o /auth/me não
+              expõe as permissões do perfil, mesmo critério dos outros itens. */}
+          {(usuario?.user_type === 'ADMIN' || usuario?.user_type === 'GESTOR') && (
+            <ListItemButton component={NavLink} to="/rastreamento" selected={emRota('/rastreamento')}>
+              <ListItemIcon>
+                <MyLocationIcon />
+              </ListItemIcon>
+              <ListItemText primary="Mapa ao vivo" />
+            </ListItemButton>
+          )}
           {/* Gestão de perfis é sempre user_type:ADMIN no backend — nem SUPERADMIN passa (o
               middleware da rota é 'user_type:ADMIN' exato, não é uma permissão configurável). */}
           {usuario?.user_type === 'ADMIN' && (
