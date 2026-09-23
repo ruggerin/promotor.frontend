@@ -12,6 +12,7 @@ import SendIcon from '@mui/icons-material/Send';
 import FlagIcon from '@mui/icons-material/Flag';
 import GridViewIcon from '@mui/icons-material/GridView';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutlineOutlined';
+import InsightsIcon from '@mui/icons-material/Insights';
 import LabelIcon from '@mui/icons-material/Label';
 import ListAltIcon from '@mui/icons-material/ListAlt';
 import LogoutIcon from '@mui/icons-material/Logout';
@@ -30,6 +31,7 @@ import {
   AppBar,
   Badge,
   Box,
+  Chip,
   Drawer,
   IconButton,
   List,
@@ -257,6 +259,22 @@ export function AppLayout() {
           </Typography>
         </Box>
         <List subheader={<ListSubheader>Operação</ListSubheader>}>
+          {/* Protótipo com dado mocado, só pra validar layout — ver
+              docs/32-PAINEL-OPERACAO-DO-DIA.md. Mesmo gate de "Atividades" (ADMIN/GESTOR). */}
+          {(usuario?.user_type === 'ADMIN' || usuario?.user_type === 'GESTOR') && (
+            <ListItemButton component={NavLink} to="/operacao-do-dia" selected={emRota('/operacao-do-dia')}>
+              <ListItemIcon>
+                <InsightsIcon />
+              </ListItemIcon>
+              <ListItemText primary="Operação do dia" />
+              <Chip
+                label="protótipo"
+                size="small"
+                variant="outlined"
+                sx={{ height: 18, fontSize: '9.5px', color: SIDEBAR.textoFraco, borderColor: SIDEBAR.textoFraco }}
+              />
+            </ListItemButton>
+          )}
           <ListItemButton component={NavLink} to="/visitas" selected={emRota('/visitas')}>
             <ListItemIcon>
               <AssignmentIcon />

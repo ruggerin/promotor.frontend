@@ -2,6 +2,7 @@ import AddIcon from '@mui/icons-material/Add';
 import BlockIcon from '@mui/icons-material/Block';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import EditIcon from '@mui/icons-material/Edit';
+import SearchIcon from '@mui/icons-material/Search';
 import {
   Alert,
   Autocomplete,
@@ -10,6 +11,7 @@ import {
   Chip,
   CircularProgress,
   IconButton,
+  InputAdornment,
   Paper,
   Table,
   TableBody,
@@ -88,8 +90,20 @@ export function SecoesTab({ empresaUuid, isSuperadmin }: SecoesTabProps) {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2, gap: 1.5, flexWrap: 'wrap' }}>
-        <Paper sx={{ p: 1.5, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          flexWrap: 'wrap',
+          gap: 1.5,
+          pb: 2,
+          mb: 2,
+          borderBottom: '1px solid',
+          borderColor: 'divider',
+        }}
+      >
+        <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
           <TextField
             label="Buscar"
             size="small"
@@ -97,16 +111,25 @@ export function SecoesTab({ empresaUuid, isSuperadmin }: SecoesTabProps) {
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
             placeholder="Descrição da seção"
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon fontSize="small" />
+                  </InputAdornment>
+                ),
+              },
+            }}
           />
           <Autocomplete
             size="small"
-            sx={{ width: 240 }}
+            sx={{ width: 220 }}
             options={departamentosQuery.data?.departamentos ?? []}
             getOptionLabel={(option) => option.descricao}
             onChange={(_, value) => setFiltroDepartamentoUuid(value?.id ?? null)}
             renderInput={(params) => <TextField {...params} label="Departamento" />}
           />
-        </Paper>
+        </Box>
         {!isSuperadmin && (
           <Button
             variant="contained"

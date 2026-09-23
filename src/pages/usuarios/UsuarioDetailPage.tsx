@@ -42,6 +42,8 @@ import {
   buscarHistoricoUsuario,
   buscarUsuario,
   desativarUsuario,
+  enviarFotoUsuario,
+  removerFotoUsuario,
   revogarDispositivoUsuario,
 } from '../../lib/api/usuarios';
 import { useAuth } from '../../lib/auth/AuthContext';
@@ -244,6 +246,30 @@ export function UsuarioDetailPage() {
     onError: () => setErro('Não foi possível revogar o dispositivo.'),
   });
 
+  const enviarFotoMutation = useMutation({
+    mutationFn: (arquivo: File) => enviarFotoUsuario(publicId as string, arquivo),
+    onSuccess: () => {
+      setErro(null);
+      void queryClient.invalidateQueries({ queryKey: ['usuarios', publicId] });
+    },
+    onError: () => setErro('Não foi possível enviar a foto.'),
+  });
+
+  const removerFotoMutation = useMutation({
+    mutationFn: () => removerFotoUsuario(publicId as string),
+    onSuccess: () => {
+      setErro(null);
+      void queryClient.invalidateQueries({ queryKey: ['usuarios', publicId] });
+    },
+    onError: () => setErro('Não foi possível remover a foto.'),
+  });
+
+  function handleArquivoFotoSelecionado(evento: React.ChangeEvent<HTMLInputElement>) {
+    const arquivo = evento.target.files?.[0];
+    evento.target.value = ''; // permite selecionar o mesmo arquivo de novo depois
+    if (arquivo) enviarFotoMutation.mutate(arquivo);
+  }
+
   // Soma este promotor à atribuição da loja escolhida (não mexe em quem mais já atende ela) —
   // add/remove unitário (não sync da lista inteira), mesmo endpoint usado na tela de Pontos de
   // Venda, só que operado a partir do usuário em vez da loja.
@@ -314,7 +340,44 @@ export function UsuarioDetailPage() {
       </Button>
 
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3, flexWrap: 'wrap' }}>
-        <UsuarioAvatar nome={usuario.nome} fotoUrl={usuario.foto_url} size={56} />
+        <Box sx={{ position: 'relative', display: 'inline-flex' }}>
+          <UsuarioAvatar nome={usuario.nome} fotoUrl={usuario.foto_url} size={56} />
+          {usuario.user_type !== 'SUPERADMIN' && (
+            <Tooltip title="Enviar foto">
+              <IconButton
+                size="small"
+                component="label"
+                disabled={enviarFotoMutation.isPending}
+                sx={{
+                  position: 'absolute',
+                  bottom: -4,
+                  right: -4,
+                  width: 24,
+                  height: 24,
+                  bgcolor: 'background.paper',
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  '&:hover': { bgcolor: 'background.paper' },
+                }}
+              >
+                <PhotoCameraIcon sx={{ fontSize: 14 }} />
+                <input type="file" accept="image/*" hidden onChange={handleArquivoFotoSelecionado} />
+              </IconButton>
+            </Tooltip>
+          )}
+        </Box>
+        {usuario.foto_url && usuario.user_type !== 'SUPERADMIN' && (
+          <Button
+            size="small"
+            color="inherit"
+            disabled={removerFotoMutation.isPending}
+            onClick={() => {
+              if (window.confirm('Remover a foto deste usuário?')) removerFotoMutation.mutate();
+            }}
+          >
+            Remover foto
+          </Button>
+        )}
         <Chip label={USER_TYPE_LABELS[usuario.user_type]} color={USER_TYPE_COLORS[usuario.user_type]} size="small" />
         <Chip label={usuario.ativo ? 'Ativo' : 'Inativo'} color={usuario.ativo ? 'success' : 'default'} size="small" />
         <Box sx={{ flexGrow: 1 }} />

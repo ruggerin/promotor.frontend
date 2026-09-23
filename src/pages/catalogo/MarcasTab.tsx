@@ -2,6 +2,7 @@ import AddIcon from '@mui/icons-material/Add';
 import BlockIcon from '@mui/icons-material/Block';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import EditIcon from '@mui/icons-material/Edit';
+import SearchIcon from '@mui/icons-material/Search';
 import {
   Alert,
   Box,
@@ -9,6 +10,7 @@ import {
   Chip,
   CircularProgress,
   IconButton,
+  InputAdornment,
   MenuItem,
   Paper,
   Table,
@@ -82,8 +84,20 @@ export function MarcasTab({ empresaUuid, isSuperadmin }: MarcasTabProps) {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2, gap: 1.5, flexWrap: 'wrap' }}>
-        <Paper sx={{ p: 1.5, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          flexWrap: 'wrap',
+          gap: 1.5,
+          pb: 2,
+          mb: 2,
+          borderBottom: '1px solid',
+          borderColor: 'divider',
+        }}
+      >
+        <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
           <TextField
             label="Buscar"
             size="small"
@@ -91,6 +105,15 @@ export function MarcasTab({ empresaUuid, isSuperadmin }: MarcasTabProps) {
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
             placeholder="Descrição da marca"
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon fontSize="small" />
+                  </InputAdornment>
+                ),
+              },
+            }}
           />
           <TextField
             select
@@ -104,7 +127,7 @@ export function MarcasTab({ empresaUuid, isSuperadmin }: MarcasTabProps) {
             <MenuItem value="PROPRIA">Própria</MenuItem>
             <MenuItem value="CONCORRENTE">Concorrente</MenuItem>
           </TextField>
-        </Paper>
+        </Box>
         {!isSuperadmin && (
           <Button
             variant="contained"
