@@ -16,10 +16,11 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TextField,
   Tooltip,
   Typography,
 } from '@mui/material';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { atualizarNivelExibicao, desativarNivelExibicao, listarNiveisExibicao } from '../../lib/api/niveisExibicao';
 import type { NivelExibicao } from '../../types/api';
@@ -32,13 +33,15 @@ interface NiveisExibicaoTabProps {
 
 export function NiveisExibicaoTab({ empresaUuid, isSuperadmin }: NiveisExibicaoTabProps) {
   const queryClient = useQueryClient();
+  const [busca, setBusca] = useState('');
   const [dialogAberto, setDialogAberto] = useState(false);
   const [emEdicao, setEmEdicao] = useState<NivelExibicao | null>(null);
   const [erro, setErro] = useState<string | null>(null);
 
   const query = useQuery({
-    queryKey: ['niveis-exibicao', { empresaUuid }],
-    queryFn: () => listarNiveisExibicao({ empresa_uuid: empresaUuid ?? undefined }),
+    queryKey: ['niveis-exibicao', { empresaUuid, busca }],
+    queryFn: () => listarNiveisExibicao({ empresa_uuid: empresaUuid ?? undefined, busca: busca || undefined }),
+    placeholderData: keepPreviousData,
   });
 
   const totalColunas = isSuperadmin ? 4 : 3;
@@ -77,8 +80,18 @@ export function NiveisExibicaoTab({ empresaUuid, isSuperadmin }: NiveisExibicaoT
         Lista própria da empresa — cada uma define os próprios níveis (ex.: "Prateleira", "Ponta
         de gôndola"), atribuídos aos produtos no cadastro deles.
       </Typography>
-      {!isSuperadmin && (
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2, gap: 1.5, flexWrap: 'wrap' }}>
+        <Paper sx={{ p: 1.5, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
+          <TextField
+            label="Buscar"
+            size="small"
+            sx={{ width: 280 }}
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+            placeholder="Descrição do nível"
+          />
+        </Paper>
+        {!isSuperadmin && (
           <Button
             variant="contained"
             startIcon={<AddIcon />}
@@ -89,8 +102,8 @@ export function NiveisExibicaoTab({ empresaUuid, isSuperadmin }: NiveisExibicaoT
           >
             Novo nível
           </Button>
-        </Box>
-      )}
+        )}
+      </Box>
 
       {erro && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setErro(null)}>

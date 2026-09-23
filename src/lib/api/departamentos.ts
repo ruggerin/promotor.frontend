@@ -8,6 +8,7 @@ export interface DepartamentosListResponse {
 
 export interface DepartamentosListParams {
   ativo?: boolean;
+  busca?: string;
   // Só tem efeito pra quem chama como SUPERADMIN — ver docs/02-API-BACKEND.md.
   empresa_uuid?: string;
 }
@@ -16,6 +17,7 @@ export async function listarDepartamentos(params: DepartamentosListParams = {}):
   const { data } = await apiClient.get<DepartamentosListResponse>('/departamentos-auditoria', {
     params: {
       ativo: params.ativo === undefined ? undefined : params.ativo ? 1 : 0,
+      busca: params.busca || undefined,
       empresa_uuid: params.empresa_uuid,
     },
   });

@@ -11,6 +11,7 @@ import {
   Chip,
   CircularProgress,
   IconButton,
+  MenuItem,
   Paper,
   Table,
   TableBody,
@@ -21,11 +22,13 @@ import {
   TextField,
   Tooltip,
 } from '@mui/material';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { listarDepartamentos } from '../../lib/api/departamentos';
+import { listarMarcas } from '../../lib/api/marcas';
 import { aprovarProduto, atualizarProduto, desativarProduto, listarProdutos, rejeitarProduto } from '../../lib/api/produtos';
-import type { ProdutoAuditoria } from '../../types/api';
+import { listarSecoes } from '../../lib/api/secoes';
+import type { ProdutoAuditoria, Propriedade } from '../../types/api';
 import { ProdutoFormDialog } from './ProdutoFormDialog';
 
 interface ProdutosTabProps {
@@ -35,7 +38,11 @@ interface ProdutosTabProps {
 
 export function ProdutosTab({ empresaUuid, isSuperadmin }: ProdutosTabProps) {
   const queryClient = useQueryClient();
+  const [busca, setBusca] = useState('');
   const [filtroDepartamentoUuid, setFiltroDepartamentoUuid] = useState<string | null>(null);
+  const [filtroSecaoUuid, setFiltroSecaoUuid] = useState<string | null>(null);
+  const [filtroMarcaUuid, setFiltroMarcaUuid] = useState<string | null>(null);
+  const [filtroPropriedade, setFiltroPropriedade] = useState<Propriedade | ''>('');
   const [dialogAberto, setDialogAberto] = useState(false);
   const [emEdicao, setEmEdicao] = useState<ProdutoAuditoria | null>(null);
   const [erro, setErro] = useState<string | null>(null);
@@ -45,10 +52,29 @@ export function ProdutosTab({ empresaUuid, isSuperadmin }: ProdutosTabProps) {
     queryFn: () => listarDepartamentos({ empresa_uuid: empresaUuid ?? undefined }),
   });
 
+  // Escopada pelo departamento selecionado — mesmo comportamento do form de produto.
+  const secoesQuery = useQuery({
+    queryKey: ['secoes', { empresaUuid, filtroDepartamentoUuid }],
+    queryFn: () => listarSecoes({ empresa_uuid: empresaUuid ?? undefined, departamento_uuid: filtroDepartamentoUuid ?? undefined }),
+  });
+
+  const marcasQuery = useQuery({
+    queryKey: ['marcas', { empresaUuid }],
+    queryFn: () => listarMarcas({ empresa_uuid: empresaUuid ?? undefined }),
+  });
+
   const query = useQuery({
-    queryKey: ['produtos', { filtroDepartamentoUuid, empresaUuid }],
+    queryKey: ['produtos', { busca, filtroDepartamentoUuid, filtroSecaoUuid, filtroMarcaUuid, filtroPropriedade, empresaUuid }],
     queryFn: () =>
-      listarProdutos({ departamento_uuid: filtroDepartamentoUuid ?? undefined, empresa_uuid: empresaUuid ?? undefined }),
+      listarProdutos({
+        busca: busca || undefined,
+        departamento_uuid: filtroDepartamentoUuid ?? undefined,
+        secao_uuid: filtroSecaoUuid ?? undefined,
+        marca_uuid: filtroMarcaUuid ?? undefined,
+        propriedade: filtroPropriedade || undefined,
+        empresa_uuid: empresaUuid ?? undefined,
+      }),
+    placeholderData: keepPreviousData,
   });
 
   const totalColunas = isSuperadmin ? 10 : 9;
@@ -103,15 +129,57 @@ export function ProdutosTab({ empresaUuid, isSuperadmin }: ProdutosTabProps) {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2, gap: 2, flexWrap: 'wrap' }}>
-        <Autocomplete
-          size="small"
-          sx={{ width: 260 }}
-          options={departamentosQuery.data?.departamentos ?? []}
-          getOptionLabel={(option) => option.descricao}
-          onChange={(_, value) => setFiltroDepartamentoUuid(value?.id ?? null)}
-          renderInput={(params) => <TextField {...params} label="Filtrar por departamento" />}
-        />
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2, gap: 1.5, flexWrap: 'wrap' }}>
+        <Paper sx={{ p: 1.5, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
+          <TextField
+            label="Buscar"
+            size="small"
+            sx={{ width: 220 }}
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+            placeholder="Descrição ou código de barras"
+          />
+          <Autocomplete
+            size="small"
+            sx={{ width: 200 }}
+            options={departamentosQuery.data?.departamentos ?? []}
+            getOptionLabel={(option) => option.descricao}
+            onChange={(_, value) => {
+              setFiltroDepartamentoUuid(value?.id ?? null);
+              setFiltroSecaoUuid(null);
+            }}
+            renderInput={(params) => <TextField {...params} label="Departamento" />}
+          />
+          <Autocomplete
+            size="small"
+            sx={{ width: 200 }}
+            options={secoesQuery.data?.secoes ?? []}
+            getOptionLabel={(option) => option.descricao}
+            value={secoesQuery.data?.secoes.find((s) => s.id === filtroSecaoUuid) ?? null}
+            onChange={(_, value) => setFiltroSecaoUuid(value?.id ?? null)}
+            renderInput={(params) => <TextField {...params} label="Seção" />}
+          />
+          <Autocomplete
+            size="small"
+            sx={{ width: 200 }}
+            options={marcasQuery.data?.marcas ?? []}
+            getOptionLabel={(option) => option.descricao}
+            onChange={(_, value) => setFiltroMarcaUuid(value?.id ?? null)}
+            renderInput={(params) => <TextField {...params} label="Marca" />}
+          />
+          <TextField
+            select
+            label="Propriedade"
+            size="small"
+            sx={{ width: 160 }}
+            value={filtroPropriedade}
+            onChange={(e) => setFiltroPropriedade(e.target.value as Propriedade | '')}
+          >
+            <MenuItem value="">Todas</MenuItem>
+            <MenuItem value="PROPRIA">Própria</MenuItem>
+            <MenuItem value="CONCORRENTE">Concorrente</MenuItem>
+          </TextField>
+        </Paper>
         {!isSuperadmin && (
           <Button
             variant="contained"

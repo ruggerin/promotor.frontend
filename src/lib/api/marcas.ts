@@ -8,6 +8,8 @@ export interface MarcasListResponse {
 
 export interface MarcasListParams {
   ativo?: boolean;
+  busca?: string;
+  propriedade?: Propriedade;
   // Só tem efeito pra quem chama como SUPERADMIN — ver docs/02-API-BACKEND.md.
   empresa_uuid?: string;
 }
@@ -16,6 +18,8 @@ export async function listarMarcas(params: MarcasListParams = {}): Promise<Marca
   const { data } = await apiClient.get<MarcasListResponse>('/marcas-auditoria', {
     params: {
       ativo: params.ativo === undefined ? undefined : params.ativo ? 1 : 0,
+      busca: params.busca || undefined,
+      propriedade: params.propriedade,
       empresa_uuid: params.empresa_uuid,
     },
   });

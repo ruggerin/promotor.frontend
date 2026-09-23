@@ -16,9 +16,10 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TextField,
   Tooltip,
 } from '@mui/material';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { atualizarDepartamento, desativarDepartamento, listarDepartamentos } from '../../lib/api/departamentos';
 import type { DepartamentoAuditoria } from '../../types/api';
@@ -31,13 +32,15 @@ interface DepartamentosTabProps {
 
 export function DepartamentosTab({ empresaUuid, isSuperadmin }: DepartamentosTabProps) {
   const queryClient = useQueryClient();
+  const [busca, setBusca] = useState('');
   const [dialogAberto, setDialogAberto] = useState(false);
   const [emEdicao, setEmEdicao] = useState<DepartamentoAuditoria | null>(null);
   const [erro, setErro] = useState<string | null>(null);
 
   const query = useQuery({
-    queryKey: ['departamentos', { empresaUuid }],
-    queryFn: () => listarDepartamentos({ empresa_uuid: empresaUuid ?? undefined }),
+    queryKey: ['departamentos', { empresaUuid, busca }],
+    queryFn: () => listarDepartamentos({ empresa_uuid: empresaUuid ?? undefined, busca: busca || undefined }),
+    placeholderData: keepPreviousData,
   });
 
   const totalColunas = isSuperadmin ? 4 : 3;
@@ -72,8 +75,18 @@ export function DepartamentosTab({ empresaUuid, isSuperadmin }: DepartamentosTab
 
   return (
     <Box>
-      {!isSuperadmin && (
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2, gap: 1.5, flexWrap: 'wrap' }}>
+        <Paper sx={{ p: 1.5, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
+          <TextField
+            label="Buscar"
+            size="small"
+            sx={{ width: 280 }}
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+            placeholder="Descrição do departamento"
+          />
+        </Paper>
+        {!isSuperadmin && (
           <Button
             variant="contained"
             startIcon={<AddIcon />}
@@ -84,8 +97,8 @@ export function DepartamentosTab({ empresaUuid, isSuperadmin }: DepartamentosTab
           >
             Novo departamento
           </Button>
-        </Box>
-      )}
+        )}
+      </Box>
 
       {erro && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setErro(null)}>
