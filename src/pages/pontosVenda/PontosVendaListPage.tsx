@@ -279,7 +279,7 @@ export function PontosVendaListPage() {
         </Alert>
       )}
 
-      <Paper sx={{ p: 2, mb: 2, display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+      <Paper sx={{ p: 1.5, mb: 2, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
         <TextField
           label="Buscar"
           size="small"

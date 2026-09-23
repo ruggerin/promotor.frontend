@@ -15,6 +15,12 @@ declare module '@tanstack/react-table' {
   interface ColumnMeta<TData, TValue> {
     align?: 'left' | 'center' | 'right';
     padding?: 'checkbox' | 'normal' | 'none';
+    // Sem isso, texto médio (nome de loja, razão social) quebra em 2-3 linhas mesmo sobrando
+    // espaço horizontal — o <TableCell> do MUI não tem white-space: nowrap por padrão, e o
+    // <Table> encolhe coluna em vez de deixar a linha estourar (docs/30-CRITICA-UX-ADMIN-WEB.md
+    // §1). nowrap vira o padrão de toda coluna; `wrap: true` é o opt-in pra quem precisa mesmo
+    // quebrar (texto livre longo, tipo observação).
+    wrap?: boolean;
   }
 }
 
@@ -86,6 +92,7 @@ export function DataTable<T>({
                   key={header.id}
                   align={header.column.columnDef.meta?.align}
                   padding={header.column.columnDef.meta?.padding}
+                  sx={header.column.columnDef.meta?.wrap ? undefined : { whiteSpace: 'nowrap' }}
                 >
                   {header.isPlaceholder ? null : header.column.getCanSort() ? (
                     <TableSortLabel
@@ -150,6 +157,7 @@ export function DataTable<T>({
                     key={cell.id}
                     align={cell.column.columnDef.meta?.align}
                     padding={cell.column.columnDef.meta?.padding}
+                    sx={cell.column.columnDef.meta?.wrap ? undefined : { whiteSpace: 'nowrap' }}
                   >
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </TableCell>
