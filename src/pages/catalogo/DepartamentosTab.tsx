@@ -2,6 +2,7 @@ import AddIcon from '@mui/icons-material/Add';
 import BlockIcon from '@mui/icons-material/Block';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import EditIcon from '@mui/icons-material/Edit';
+import SearchIcon from '@mui/icons-material/Search';
 import {
   Alert,
   Box,
@@ -9,6 +10,7 @@ import {
   Chip,
   CircularProgress,
   IconButton,
+  InputAdornment,
   Paper,
   Table,
   TableBody,
@@ -75,17 +77,36 @@ export function DepartamentosTab({ empresaUuid, isSuperadmin }: DepartamentosTab
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2, gap: 1.5, flexWrap: 'wrap' }}>
-        <Paper sx={{ p: 1.5, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
-          <TextField
-            label="Buscar"
-            size="small"
-            sx={{ width: 280 }}
-            value={busca}
-            onChange={(e) => setBusca(e.target.value)}
-            placeholder="Descrição do departamento"
-          />
-        </Paper>
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          flexWrap: 'wrap',
+          gap: 1.5,
+          pb: 2,
+          mb: 2,
+          borderBottom: '1px solid',
+          borderColor: 'divider',
+        }}
+      >
+        <TextField
+          label="Buscar"
+          size="small"
+          sx={{ width: 280 }}
+          value={busca}
+          onChange={(e) => setBusca(e.target.value)}
+          placeholder="Descrição do departamento"
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon fontSize="small" />
+                </InputAdornment>
+              ),
+            },
+          }}
+        />
         {!isSuperadmin && (
           <Button
             variant="contained"

@@ -3,6 +3,7 @@ import BlockIcon from '@mui/icons-material/Block';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ClearIcon from '@mui/icons-material/Clear';
 import EditIcon from '@mui/icons-material/Edit';
+import SearchIcon from '@mui/icons-material/Search';
 import {
   Alert,
   Autocomplete,
@@ -11,6 +12,7 @@ import {
   Chip,
   CircularProgress,
   IconButton,
+  InputAdornment,
   MenuItem,
   Paper,
   Table,
@@ -129,8 +131,20 @@ export function ProdutosTab({ empresaUuid, isSuperadmin }: ProdutosTabProps) {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2, gap: 1.5, flexWrap: 'wrap' }}>
-        <Paper sx={{ p: 1.5, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          flexWrap: 'wrap',
+          gap: 1.5,
+          pb: 2,
+          mb: 2,
+          borderBottom: '1px solid',
+          borderColor: 'divider',
+        }}
+      >
+        <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
           <TextField
             label="Buscar"
             size="small"
@@ -138,10 +152,19 @@ export function ProdutosTab({ empresaUuid, isSuperadmin }: ProdutosTabProps) {
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
             placeholder="Descrição ou código de barras"
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon fontSize="small" />
+                  </InputAdornment>
+                ),
+              },
+            }}
           />
           <Autocomplete
             size="small"
-            sx={{ width: 200 }}
+            sx={{ width: 180 }}
             options={departamentosQuery.data?.departamentos ?? []}
             getOptionLabel={(option) => option.descricao}
             onChange={(_, value) => {
@@ -152,7 +175,7 @@ export function ProdutosTab({ empresaUuid, isSuperadmin }: ProdutosTabProps) {
           />
           <Autocomplete
             size="small"
-            sx={{ width: 200 }}
+            sx={{ width: 180 }}
             options={secoesQuery.data?.secoes ?? []}
             getOptionLabel={(option) => option.descricao}
             value={secoesQuery.data?.secoes.find((s) => s.id === filtroSecaoUuid) ?? null}
@@ -161,7 +184,7 @@ export function ProdutosTab({ empresaUuid, isSuperadmin }: ProdutosTabProps) {
           />
           <Autocomplete
             size="small"
-            sx={{ width: 200 }}
+            sx={{ width: 180 }}
             options={marcasQuery.data?.marcas ?? []}
             getOptionLabel={(option) => option.descricao}
             onChange={(_, value) => setFiltroMarcaUuid(value?.id ?? null)}
@@ -171,7 +194,7 @@ export function ProdutosTab({ empresaUuid, isSuperadmin }: ProdutosTabProps) {
             select
             label="Propriedade"
             size="small"
-            sx={{ width: 160 }}
+            sx={{ width: 150 }}
             value={filtroPropriedade}
             onChange={(e) => setFiltroPropriedade(e.target.value as Propriedade | '')}
           >
@@ -179,7 +202,7 @@ export function ProdutosTab({ empresaUuid, isSuperadmin }: ProdutosTabProps) {
             <MenuItem value="PROPRIA">Própria</MenuItem>
             <MenuItem value="CONCORRENTE">Concorrente</MenuItem>
           </TextField>
-        </Paper>
+        </Box>
         {!isSuperadmin && (
           <Button
             variant="contained"
