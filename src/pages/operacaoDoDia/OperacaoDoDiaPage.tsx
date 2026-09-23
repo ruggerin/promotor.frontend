@@ -7,7 +7,6 @@ import ScheduleIcon from '@mui/icons-material/Schedule';
 import ShoppingCartIcon from '@mui/icons-material/ShoppingCart';
 import WifiOffIcon from '@mui/icons-material/WifiOff';
 import {
-  Alert,
   Box,
   Button,
   Chip,
@@ -180,13 +179,7 @@ export function OperacaoDoDiaPage() {
     <Box>
       {cabecalho}
 
-      <Alert severity="info" sx={{ mb: 2 }}>
-        Protótipo — todos os valores abaixo são fictícios, só pra validar o layout e a
-        informação antes de implementar de verdade (ver{' '}
-        <code>docs/32-PAINEL-OPERACAO-DO-DIA.md</code>). Nenhum botão faz nada ainda.
-      </Alert>
-
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1.5 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5, flexWrap: 'wrap', gap: 1.5 }}>
         <Typography variant="body2" color="text.secondary">
           qua 23/09 · 10:41 · jornada 07:00–17:00
         </Typography>
@@ -260,8 +253,8 @@ export function OperacaoDoDiaPage() {
               Equipe em campo <Chip label={equipe.length} size="small" sx={{ ml: 1 }} />
             </Typography>
           </Box>
-          <TableContainer>
-            <Table size="small">
+          <TableContainer sx={{ maxHeight: 300, overflowY: 'auto' }}>
+            <Table size="small" stickyHeader>
               <TableHead>
                 <TableRow>
                   <TableCell>Promotor</TableCell>
@@ -316,7 +309,7 @@ export function OperacaoDoDiaPage() {
           <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1.5 }}>
             Fila de ações <Chip label={filaAcoes.length} size="small" sx={{ ml: 1 }} />
           </Typography>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, maxHeight: 300, overflowY: 'auto', pr: 0.5 }}>
             {filaAcoes.map((item, i) => (
               <Box
                 key={i}
