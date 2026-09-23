@@ -44,6 +44,7 @@ import { useQuery } from '@tanstack/react-query';
 import { buscarNaoLidos } from '../../lib/api/comentarios';
 import { useState, type ReactNode } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { AutorizacaoGestorButton } from '../AutorizacaoGestorButton';
 import { UsuarioAvatar } from '../UsuarioAvatar';
 import { listarOrdensServico } from '../../lib/api/ordensServico';
 import { useAuth } from '../../lib/auth/AuthContext';
@@ -162,6 +163,11 @@ export function AppLayout() {
             <Typography variant="body2" noWrap>
               {usuario?.nome} · {usuario?.empresa?.nome_fantasia ?? usuario?.user_type}
             </Typography>
+            {/* Saída de segurança pra visita travada, sem o gestor digitar e-mail/senha no
+                aparelho do promotor — ver docs/15-INTERVENCAO-ADMINISTRATIVA-VISITA.md §12. O
+                backend barra quem não tem visitas.intervir, então mostra pra ADMIN/GESTOR igual
+                aos outros itens gated deste jeito. */}
+            {(usuario?.user_type === 'ADMIN' || usuario?.user_type === 'GESTOR') && <AutorizacaoGestorButton />}
             <IconButton onClick={() => void logout()} title="Sair">
               <LogoutIcon />
             </IconButton>
