@@ -225,12 +225,18 @@ export function UsuarioFormDialog({ open, usuario, onClose }: UsuarioFormDialogP
   }
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle>{modoEdicao ? 'Editar usuário' : 'Novo usuário'}</DialogTitle>
       <Box component="form" onSubmit={(e) => void handleSubmit(onSubmit)(e)} noValidate>
-        <DialogContent>
+        {/* Grid de 2 colunas em vez de tudo empilhado com margin="normal" — o modal era bem mais
+            alto (até 8 campos numa coluna só) pra pouca informação por campo. Só os campos que
+            precisam de linha inteira (Empresa, Senha — texto de ajuda mais longo — e os dois
+            Alerts) ganham `gridColumn: '1 / -1'`; o resto flui automaticamente 2 a 2, inclusive
+            quando um campo condicional (Perfil, Centro de custo, Ativo) não está visível — o
+            grid preenche o buraco com o próximo campo sozinho. Ver docs/30-CRITICA-UX-ADMIN-WEB.md. */}
+        <DialogContent sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
           {erroGeral && (
-            <Alert severity="error" sx={{ mb: 2 }}>
+            <Alert severity="error" sx={{ gridColumn: '1 / -1' }}>
               {erroGeral}
             </Alert>
           )}
@@ -241,6 +247,7 @@ export function UsuarioFormDialog({ open, usuario, onClose }: UsuarioFormDialogP
               control={control}
               render={({ field, fieldState }) => (
                 <Autocomplete
+                  sx={{ gridColumn: '1 / -1' }}
                   options={empresasQuery.data?.empresas ?? []}
                   getOptionLabel={(option) => option.nome_fantasia}
                   loading={empresasQuery.isLoading}
@@ -250,7 +257,6 @@ export function UsuarioFormDialog({ open, usuario, onClose }: UsuarioFormDialogP
                     <TextField
                       {...params}
                       label="Empresa"
-                      margin="normal"
                       fullWidth
                       error={!!fieldState.error}
                       helperText={fieldState.error?.message ?? 'Em qual empresa esse usuário vai ser criado'}
@@ -268,7 +274,6 @@ export function UsuarioFormDialog({ open, usuario, onClose }: UsuarioFormDialogP
                 {...field}
                 label="Nome"
                 fullWidth
-                margin="normal"
                 error={!!fieldState.error}
                 helperText={fieldState.error?.message}
                 autoFocus={!isSuperadmin || modoEdicao}
@@ -284,7 +289,6 @@ export function UsuarioFormDialog({ open, usuario, onClose }: UsuarioFormDialogP
                 label="E-mail"
                 type="email"
                 fullWidth
-                margin="normal"
                 error={!!fieldState.error}
                 helperText={fieldState.error?.message}
                 // "username" (não "email") é o valor que os navegadores reconhecem pra
@@ -304,7 +308,7 @@ export function UsuarioFormDialog({ open, usuario, onClose }: UsuarioFormDialogP
                 label={modoEdicao ? 'Nova senha' : 'Senha'}
                 type="password"
                 fullWidth
-                margin="normal"
+                sx={{ gridColumn: '1 / -1' }}
                 error={!!fieldState.error}
                 helperText={fieldState.error?.message ?? (modoEdicao ? 'Deixe em branco para manter a atual' : undefined)}
                 // Sem isso o navegador (Chrome principalmente) autopreenche este campo com uma
@@ -326,7 +330,6 @@ export function UsuarioFormDialog({ open, usuario, onClose }: UsuarioFormDialogP
                 select
                 label="Tipo de usuário"
                 fullWidth
-                margin="normal"
                 error={!!fieldState.error}
                 helperText={fieldState.error?.message}
               >
@@ -350,7 +353,6 @@ export function UsuarioFormDialog({ open, usuario, onClose }: UsuarioFormDialogP
                   select
                   label="Perfil"
                   fullWidth
-                  margin="normal"
                   error={!!fieldState.error}
                   helperText={
                     fieldState.error?.message ??
@@ -370,7 +372,7 @@ export function UsuarioFormDialog({ open, usuario, onClose }: UsuarioFormDialogP
             />
           )}
           {(userTypeAtual === 'GESTOR' || userTypeAtual === 'PROMOTOR') && isSuperadmin && !modoEdicao && (
-            <Alert severity="info" sx={{ mt: 1 }}>
+            <Alert severity="info" sx={{ gridColumn: '1 / -1' }}>
               O perfil (permissões) desse usuário precisa ser definido depois pelo ADMIN da
               empresa, editando o usuário.
             </Alert>
@@ -387,7 +389,6 @@ export function UsuarioFormDialog({ open, usuario, onClose }: UsuarioFormDialogP
                   select
                   label="Centro de custo"
                   fullWidth
-                  margin="normal"
                   error={!!fieldState.error}
                   helperText={fieldState.error?.message ?? 'Usado pro cálculo de custo/hora deste promotor'}
                 >
@@ -407,7 +408,7 @@ export function UsuarioFormDialog({ open, usuario, onClose }: UsuarioFormDialogP
               control={control}
               render={({ field }) => (
                 <FormControlLabel
-                  sx={{ mt: 1 }}
+                  sx={{ alignSelf: 'center' }}
                   control={<Switch checked={field.value} onChange={(e) => field.onChange(e.target.checked)} />}
                   label="Ativo"
                 />

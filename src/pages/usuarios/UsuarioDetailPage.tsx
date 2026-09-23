@@ -16,7 +16,6 @@ import {
   Button,
   Chip,
   CircularProgress,
-  Grid,
   IconButton,
   Pagination,
   Paper,
@@ -341,38 +340,43 @@ export function UsuarioDetailPage() {
         <Typography variant="h6" gutterBottom>
           Dados
         </Typography>
-        <Grid container spacing={3}>
-          <Grid size={{ xs: 12, sm: 6 }}>
+        {/* Flex-wrap (mesmo padrão da seção Dispositivo logo abaixo), não Grid de 2 colunas —
+            a maioria destes campos é condicional (Empresa só pra quem vê como SUPERADMIN,
+            Perfil/Centro de custo só se existirem), e um grid rígido deixava a metade do card
+            em branco pra quem só tinha "E-mail" pra mostrar (ex.: ver um ADMIN/GESTOR sem
+            perfil). Flex-wrap ocupa só o espaço que os campos que existem realmente precisam. */}
+        <Box sx={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+          <Box>
             <Typography variant="caption" color="text.secondary">
               E-mail
             </Typography>
             <Typography>{usuario.email}</Typography>
-          </Grid>
+          </Box>
           {isSuperadmin && (
-            <Grid size={{ xs: 12, sm: 6 }}>
+            <Box>
               <Typography variant="caption" color="text.secondary">
                 Empresa
               </Typography>
               <Typography>{usuario.empresa?.nome_fantasia ?? '—'}</Typography>
-            </Grid>
+            </Box>
           )}
           {usuario.perfil && (
-            <Grid size={{ xs: 12, sm: 6 }}>
+            <Box>
               <Typography variant="caption" color="text.secondary">
                 Perfil
               </Typography>
               <Typography>{usuario.perfil.nome}</Typography>
-            </Grid>
+            </Box>
           )}
           {usuario.centro_custo && (
-            <Grid size={{ xs: 12, sm: 6 }}>
+            <Box>
               <Typography variant="caption" color="text.secondary">
                 Centro de custo
               </Typography>
               <Typography>{usuario.centro_custo.descricao}</Typography>
-            </Grid>
+            </Box>
           )}
-        </Grid>
+        </Box>
       </Paper>
 
       {ehPromotor && (
@@ -564,8 +568,6 @@ export function UsuarioDetailPage() {
                     <TableCell>Data/hora</TableCell>
                     <TableCell>Evento</TableCell>
                     <TableCell>Ponto de venda</TableCell>
-                    <TableCell>Latitude</TableCell>
-                    <TableCell>Longitude</TableCell>
                     <TableCell align="right">Distância do PDV</TableCell>
                   </TableRow>
                 </TableHead>
@@ -593,8 +595,6 @@ export function UsuarioDetailPage() {
                           '—'
                         )}
                       </TableCell>
-                      <TableCell>{numero(evento.latitude)?.toFixed(6) ?? '—'}</TableCell>
-                      <TableCell>{numero(evento.longitude)?.toFixed(6) ?? '—'}</TableCell>
                       <TableCell align="right">
                         {numero(evento.distancia_metros) !== null ? `${numero(evento.distancia_metros)!.toFixed(0)} m` : '—'}
                       </TableCell>

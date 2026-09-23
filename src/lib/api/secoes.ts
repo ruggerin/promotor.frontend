@@ -8,13 +8,14 @@ export interface SecoesListResponse {
 
 export async function listarSecoes(
   // empresa_uuid só tem efeito pra quem chama como SUPERADMIN — ver docs/02-API-BACKEND.md.
-  params: { ativo?: boolean; departamento_uuid?: string; empresa_uuid?: string } = {},
+  params: { ativo?: boolean; departamento_uuid?: string; empresa_uuid?: string; busca?: string } = {},
 ): Promise<SecoesListResponse> {
   const { data } = await apiClient.get<SecoesListResponse>('/secoes-auditoria', {
     params: {
       ativo: params.ativo === undefined ? undefined : params.ativo ? 1 : 0,
       departamento_uuid: params.departamento_uuid,
       empresa_uuid: params.empresa_uuid,
+      busca: params.busca || undefined,
     },
   });
   return data;

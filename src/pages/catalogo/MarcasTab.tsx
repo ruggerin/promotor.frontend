@@ -9,6 +9,7 @@ import {
   Chip,
   CircularProgress,
   IconButton,
+  MenuItem,
   Paper,
   Table,
   TableBody,
@@ -16,12 +17,13 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TextField,
   Tooltip,
 } from '@mui/material';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { atualizarMarca, desativarMarca, listarMarcas } from '../../lib/api/marcas';
-import type { MarcaAuditoria } from '../../types/api';
+import type { MarcaAuditoria, Propriedade } from '../../types/api';
 import { MarcaFormDialog } from './MarcaFormDialog';
 
 interface MarcasTabProps {
@@ -31,13 +33,21 @@ interface MarcasTabProps {
 
 export function MarcasTab({ empresaUuid, isSuperadmin }: MarcasTabProps) {
   const queryClient = useQueryClient();
+  const [busca, setBusca] = useState('');
+  const [filtroPropriedade, setFiltroPropriedade] = useState<Propriedade | ''>('');
   const [dialogAberto, setDialogAberto] = useState(false);
   const [emEdicao, setEmEdicao] = useState<MarcaAuditoria | null>(null);
   const [erro, setErro] = useState<string | null>(null);
 
   const query = useQuery({
-    queryKey: ['marcas', { empresaUuid }],
-    queryFn: () => listarMarcas({ empresa_uuid: empresaUuid ?? undefined }),
+    queryKey: ['marcas', { empresaUuid, busca, filtroPropriedade }],
+    queryFn: () =>
+      listarMarcas({
+        empresa_uuid: empresaUuid ?? undefined,
+        busca: busca || undefined,
+        propriedade: filtroPropriedade || undefined,
+      }),
+    placeholderData: keepPreviousData,
   });
 
   const totalColunas = isSuperadmin ? 5 : 4;
@@ -72,8 +82,30 @@ export function MarcasTab({ empresaUuid, isSuperadmin }: MarcasTabProps) {
 
   return (
     <Box>
-      {!isSuperadmin && (
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2, gap: 1.5, flexWrap: 'wrap' }}>
+        <Paper sx={{ p: 1.5, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
+          <TextField
+            label="Buscar"
+            size="small"
+            sx={{ width: 240 }}
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+            placeholder="Descrição da marca"
+          />
+          <TextField
+            select
+            label="Propriedade"
+            size="small"
+            sx={{ width: 160 }}
+            value={filtroPropriedade}
+            onChange={(e) => setFiltroPropriedade(e.target.value as Propriedade | '')}
+          >
+            <MenuItem value="">Todas</MenuItem>
+            <MenuItem value="PROPRIA">Própria</MenuItem>
+            <MenuItem value="CONCORRENTE">Concorrente</MenuItem>
+          </TextField>
+        </Paper>
+        {!isSuperadmin && (
           <Button
             variant="contained"
             startIcon={<AddIcon />}
@@ -84,8 +116,8 @@ export function MarcasTab({ empresaUuid, isSuperadmin }: MarcasTabProps) {
           >
             Nova marca
           </Button>
-        </Box>
-      )}
+        )}
+      </Box>
 
       {erro && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setErro(null)}>

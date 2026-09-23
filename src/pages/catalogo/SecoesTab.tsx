@@ -20,7 +20,7 @@ import {
   TextField,
   Tooltip,
 } from '@mui/material';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { listarDepartamentos } from '../../lib/api/departamentos';
 import { atualizarSecao, desativarSecao, listarSecoes } from '../../lib/api/secoes';
@@ -35,6 +35,7 @@ interface SecoesTabProps {
 export function SecoesTab({ empresaUuid, isSuperadmin }: SecoesTabProps) {
   const queryClient = useQueryClient();
   const [filtroDepartamentoUuid, setFiltroDepartamentoUuid] = useState<string | null>(null);
+  const [busca, setBusca] = useState('');
   const [dialogAberto, setDialogAberto] = useState(false);
   const [emEdicao, setEmEdicao] = useState<SecaoAuditoria | null>(null);
   const [erro, setErro] = useState<string | null>(null);
@@ -45,9 +46,14 @@ export function SecoesTab({ empresaUuid, isSuperadmin }: SecoesTabProps) {
   });
 
   const query = useQuery({
-    queryKey: ['secoes', { filtroDepartamentoUuid, empresaUuid }],
+    queryKey: ['secoes', { filtroDepartamentoUuid, empresaUuid, busca }],
     queryFn: () =>
-      listarSecoes({ departamento_uuid: filtroDepartamentoUuid ?? undefined, empresa_uuid: empresaUuid ?? undefined }),
+      listarSecoes({
+        departamento_uuid: filtroDepartamentoUuid ?? undefined,
+        empresa_uuid: empresaUuid ?? undefined,
+        busca: busca || undefined,
+      }),
+    placeholderData: keepPreviousData,
   });
 
   const totalColunas = isSuperadmin ? 5 : 4;
@@ -82,15 +88,25 @@ export function SecoesTab({ empresaUuid, isSuperadmin }: SecoesTabProps) {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2, gap: 2, flexWrap: 'wrap' }}>
-        <Autocomplete
-          size="small"
-          sx={{ width: 260 }}
-          options={departamentosQuery.data?.departamentos ?? []}
-          getOptionLabel={(option) => option.descricao}
-          onChange={(_, value) => setFiltroDepartamentoUuid(value?.id ?? null)}
-          renderInput={(params) => <TextField {...params} label="Filtrar por departamento" />}
-        />
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2, gap: 1.5, flexWrap: 'wrap' }}>
+        <Paper sx={{ p: 1.5, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
+          <TextField
+            label="Buscar"
+            size="small"
+            sx={{ width: 240 }}
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+            placeholder="Descrição da seção"
+          />
+          <Autocomplete
+            size="small"
+            sx={{ width: 240 }}
+            options={departamentosQuery.data?.departamentos ?? []}
+            getOptionLabel={(option) => option.descricao}
+            onChange={(_, value) => setFiltroDepartamentoUuid(value?.id ?? null)}
+            renderInput={(params) => <TextField {...params} label="Departamento" />}
+          />
+        </Paper>
         {!isSuperadmin && (
           <Button
             variant="contained"
