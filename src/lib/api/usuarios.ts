@@ -84,6 +84,23 @@ export async function revogarDispositivoUsuario(uuid: string): Promise<void> {
   await apiClient.delete(`/usuarios/${uuid}/dispositivo`);
 }
 
+// ADMIN/GESTOR envia (ou substitui) a foto de outro usuário da empresa — distinto do
+// self-service do mobile (POST /auth/me/foto). Mesmo padrão de FormData de enviarFotoCapa em
+// lib/api/planogramas.ts.
+export async function enviarFotoUsuario(uuid: string, imagem: File): Promise<{ usuario: Usuario }> {
+  const formData = new FormData();
+  formData.append('imagem', imagem);
+  const { data } = await apiClient.post<{ usuario: Usuario }>(`/usuarios/${uuid}/foto`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return data;
+}
+
+export async function removerFotoUsuario(uuid: string): Promise<{ usuario: Usuario }> {
+  const { data } = await apiClient.delete<{ usuario: Usuario }>(`/usuarios/${uuid}/foto`);
+  return data;
+}
+
 export interface HistoricoUsuarioResponse {
   eventos: EventoHistorico[];
   meta: PaginatedMeta;
