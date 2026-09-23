@@ -17,6 +17,7 @@ import { EmpresasListPage } from './pages/empresas/EmpresasListPage';
 import { GaleriaFotosPage } from './pages/galeriaFotos/GaleriaFotosPage';
 import { ManualPage } from './pages/manual/ManualPage';
 import { ObjetivosVisitaListPage } from './pages/objetivosVisita/ObjetivosVisitaListPage';
+import { OperacaoDoDiaPage } from './pages/operacaoDoDia/OperacaoDoDiaPage';
 import { OrdensServicoListPage } from './pages/ordensServico/OrdensServicoListPage';
 import { ParametrosListPage } from './pages/parametros/ParametrosListPage';
 import { PerfisListPage } from './pages/perfis/PerfisListPage';
@@ -46,6 +47,7 @@ export function App() {
       <Route element={<RequireAuth />}>
         <Route element={<AppLayout />}>
           <Route path="/" element={<Navigate to="/visitas" replace />} />
+          <Route path="/operacao-do-dia" element={<OperacaoDoDiaPage />} />
           <Route path="/visitas" element={<VisitasListPage />} />
           <Route path="/visitas/:publicId" element={<VisitaDetailPage />} />
           <Route path="/pontos-venda" element={<PontosVendaListPage />} />
