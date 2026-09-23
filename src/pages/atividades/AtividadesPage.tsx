@@ -724,6 +724,9 @@ function useZoomSoComCtrl() {
   return { ctrlPressionado, mostrarDica, aoRolarSemCtrl };
 }
 
+// Mapa só monta sob demanda (docs/30-CRITICA-UX-ADMIN-WEB.md §2) — um feed com muitos eventos de
+// check-in não carrega mais um iframe de origem cruzada por card de cara; a distância em texto já
+// cobre a leitura rápida, o mapa interativo é pra quem clica querendo conferir de verdade.
 function MapaCheckin({
   latitude,
   longitude,
@@ -733,60 +736,74 @@ function MapaCheckin({
   longitude: number;
   distanciaMetros: number | null;
 }) {
+  const [mapaAberto, setMapaAberto] = useState(false);
   const { ctrlPressionado, mostrarDica, aoRolarSemCtrl } = useZoomSoComCtrl();
 
   return (
     <Box sx={{ px: 1.25, pb: 1.25 }}>
-      <Box sx={{ position: 'relative', borderRadius: 1, overflow: 'hidden' }}>
-        <Box
-          component="iframe"
-          title="Localização do check-in"
-          src={urlMapaEmbed(latitude, longitude)}
-          loading="lazy"
-          sx={{ width: '100%', height: 140, border: 0, display: 'block' }}
-        />
-        {/* pointerEvents 'none' com Ctrl pressionado deixa o wheel passar direto pro iframe por
-            baixo (o mapa some da hit-test do navegador nesse instante) — sem isso, todo scroll
-            vira zoom no mapa em vez de rolar a página. */}
-        <Box
-          onWheel={ctrlPressionado ? undefined : aoRolarSemCtrl}
-          sx={{ position: 'absolute', inset: 0, pointerEvents: ctrlPressionado ? 'none' : 'auto' }}
-        />
-        {mostrarDica && (
+      {mapaAberto && (
+        <Box sx={{ position: 'relative', borderRadius: 1, overflow: 'hidden', mb: 0.5 }}>
           <Box
-            sx={{
-              position: 'absolute',
-              inset: 0,
-              bgcolor: 'rgba(0,0,0,0.5)',
-              color: '#fff',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              textAlign: 'center',
-              px: 2,
-              fontSize: 13,
-              fontWeight: 600,
-              pointerEvents: 'none',
-            }}
-          >
-            Use Ctrl + scroll pra dar zoom no mapa
-          </Box>
-        )}
-      </Box>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 0.5 }}>
+            component="iframe"
+            title="Localização do check-in"
+            src={urlMapaEmbed(latitude, longitude)}
+            loading="lazy"
+            sx={{ width: '100%', height: 140, border: 0, display: 'block' }}
+          />
+          {/* pointerEvents 'none' com Ctrl pressionado deixa o wheel passar direto pro iframe por
+              baixo (o mapa some da hit-test do navegador nesse instante) — sem isso, todo scroll
+              vira zoom no mapa em vez de rolar a página. */}
+          <Box
+            onWheel={ctrlPressionado ? undefined : aoRolarSemCtrl}
+            sx={{ position: 'absolute', inset: 0, pointerEvents: ctrlPressionado ? 'none' : 'auto' }}
+          />
+          {mostrarDica && (
+            <Box
+              sx={{
+                position: 'absolute',
+                inset: 0,
+                bgcolor: 'rgba(0,0,0,0.5)',
+                color: '#fff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                textAlign: 'center',
+                px: 2,
+                fontSize: 13,
+                fontWeight: 600,
+                pointerEvents: 'none',
+              }}
+            >
+              Use Ctrl + scroll pra dar zoom no mapa
+            </Box>
+          )}
+        </Box>
+      )}
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
           <RoomIcon sx={{ fontSize: 14 }} />
           {distanciaMetros !== null ? `A ${distanciaMetros}m do ponto de venda` : 'Localização do check-in'}
         </Typography>
-        <MuiLink
-          href={urlMapaCompleto(latitude, longitude)}
-          target="_blank"
-          rel="noopener noreferrer"
-          variant="caption"
-          sx={{ display: 'flex', alignItems: 'center', gap: 0.3 }}
-        >
-          Abrir no mapa <OpenInNewIcon sx={{ fontSize: 12 }} />
-        </MuiLink>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <MuiLink
+            component="button"
+            type="button"
+            variant="caption"
+            onClick={() => setMapaAberto((atual) => !atual)}
+            sx={{ display: 'flex', alignItems: 'center', gap: 0.3 }}
+          >
+            {mapaAberto ? 'Ocultar mapa' : 'Ver no mapa'}
+          </MuiLink>
+          <MuiLink
+            href={urlMapaCompleto(latitude, longitude)}
+            target="_blank"
+            rel="noopener noreferrer"
+            variant="caption"
+            sx={{ display: 'flex', alignItems: 'center', gap: 0.3 }}
+          >
+            Abrir no mapa <OpenInNewIcon sx={{ fontSize: 12 }} />
+          </MuiLink>
+        </Box>
       </Box>
     </Box>
   );

@@ -117,11 +117,15 @@ export function VisitasListPage() {
   return (
     <Box>
       {cabecalho}
-      <Paper sx={{ p: 2, mb: 2, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+      {/* Larguras explícitas nos 5 campos (em vez de deixar o TextField de data ocupar o que
+          quiser) — sem isso a barra passava de ~1140px disponíveis em 1440px de tela e "Status"
+          quebrava sozinho pra uma segunda linha (docs/30-CRITICA-UX-ADMIN-WEB.md §4). */}
+      <Paper sx={{ p: 1.5, mb: 2, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
         <TextField
           label="Data início"
           type="date"
           size="small"
+          sx={{ width: 160 }}
           slotProps={{ inputLabel: { shrink: true } }}
           value={dataInicio}
           onChange={(e) => {
@@ -133,6 +137,7 @@ export function VisitasListPage() {
           label="Data fim"
           type="date"
           size="small"
+          sx={{ width: 160 }}
           slotProps={{ inputLabel: { shrink: true } }}
           value={dataFim}
           onChange={(e) => {

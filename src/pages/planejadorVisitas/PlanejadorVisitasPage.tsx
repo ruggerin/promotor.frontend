@@ -31,6 +31,7 @@ import {
   criarAgendaVisita,
   desativarAgendaVisita,
   listarAgendasVisita,
+  type AgendasVisitaListResponse,
 } from '../../lib/api/agendasVisita';
 import { hojeISO } from '../../components/relatorios/FiltroPeriodo';
 import { buscarOmitirDomingoPlanejador, buscarOmitirSabadoPlanejador } from '../../lib/api/parametros';
@@ -113,8 +114,13 @@ export function PlanejadorVisitasPage() {
   });
   const carteira = useMemo(() => carteiraQuery.data?.pontos_venda ?? [], [carteiraQuery.data]);
 
+  // Extraída pra variável (em vez de escrita solta no useQuery) porque as três mutations abaixo
+  // (criar/mover/remover) precisam apontar pra exatamente esta mesma chave — é nela que fazem o
+  // update otimista via setQueryData, não só invalidar depois.
+  const agendaQueryKey = ['agendas-visita', 'planejador-visitas', promotorUuid] as const;
+
   const agendaQuery = useQuery({
-    queryKey: ['agendas-visita', 'planejador-visitas', promotorUuid],
+    queryKey: agendaQueryKey,
     queryFn: () => listarAgendasVisita({ usuario_uuid: promotorUuid as string, ativo: true, por_pagina: 200 }),
     enabled: !!promotorUuid,
   });
@@ -196,6 +202,19 @@ export function PlanejadorVisitasPage() {
     [omitirDomingoQuery.data, omitirSabadoQuery.data],
   );
 
+  // As três mutations abaixo seguem o mesmo formato — onMutate escreve o resultado esperado
+  // direto no cache (setQueryData) ANTES da resposta da API chegar, onError desfaz voltando pra
+  // foto de antes (contexto.anterior), onSettled reconcilia com o servidor no final (sucesso ou
+  // erro). Sem isso, arrastar uma loja só refletia na tela depois do round-trip completo —
+  // travava a experiência por causa do invalidate+refetch acontecer só no onSuccess.
+  async function congelarAgendaAtual() {
+    await queryClient.cancelQueries({ queryKey: agendaQueryKey });
+    return queryClient.getQueryData<AgendasVisitaListResponse>(agendaQueryKey);
+  }
+  function reconciliar() {
+    void queryClient.invalidateQueries({ queryKey: agendaQueryKey });
+  }
+
   const criarMutation = useMutation({
     mutationFn: (variaveis: { pontoVenda: PontoVenda; dia: number }) =>
       criarAgendaVisita({
@@ -204,33 +223,93 @@ export function PlanejadorVisitasPage() {
         recorrencia: 'SEMANAL',
         dia_semana: variaveis.dia,
       }),
-    onSuccess: (_dados, variaveis) => {
-      void queryClient.invalidateQueries({ queryKey: ['agendas-visita'] });
-      const diaLabel = DIAS.find((d) => d.valor === variaveis.dia)?.label ?? '';
+    onMutate: async (variaveis) => {
+      const anterior = await congelarAgendaAtual();
+      // Guardado aqui (em vez de lido de `porLoja` no onSuccess) porque, por essa hora, o cache
+      // já foi escrito com o item otimista abaixo — ler `porLoja` no onSuccess contaria a visita
+      // nova duas vezes.
       const jaTinha = porLoja.get(variaveis.pontoVenda.id)?.length ?? 0;
+
+      const otimista: AgendaVisita = {
+        id: `temp-${crypto.randomUUID()}`,
+        ponto_venda: { id: variaveis.pontoVenda.id, fantasia: variaveis.pontoVenda.fantasia },
+        usuario: { id: promotorSelecionado!.id, nome: promotorSelecionado!.nome },
+        tipo_visita: null,
+        objetivo_visita: null,
+        prioridade: 'MEDIA',
+        recorrencia: 'SEMANAL',
+        dia_semana: variaveis.dia,
+        data: null,
+        horario_previsto: null,
+        obrigatoria: false,
+        ativo: true,
+        observacao: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      queryClient.setQueryData<AgendasVisitaListResponse | undefined>(agendaQueryKey, (atual) =>
+        atual ? { ...atual, agendas_visita: [...atual.agendas_visita, otimista] } : atual,
+      );
+
+      return { anterior, jaTinha };
+    },
+    onSuccess: (_dados, variaveis, contexto) => {
+      const diaLabel = DIAS.find((d) => d.valor === variaveis.dia)?.label ?? '';
+      const jaTinha = contexto?.jaTinha ?? 0;
       setAviso(
         jaTinha + 1 > LIMITE_SUGERIDO_POR_LOJA
           ? { texto: `${variaveis.pontoVenda.fantasia} já passou de ${LIMITE_SUGERIDO_POR_LOJA} visitas na semana — confira se é isso mesmo.`, severidade: 'warning' }
           : { texto: `${variaveis.pontoVenda.fantasia} agendada — toda ${diaLabel}.`, severidade: 'success' },
       );
     },
-    onError: () => setAviso({ texto: 'Não foi possível agendar essa visita agora.', severidade: 'error' }),
+    onError: (_erro, _variaveis, contexto) => {
+      if (contexto?.anterior) queryClient.setQueryData(agendaQueryKey, contexto.anterior);
+      setAviso({ texto: 'Não foi possível agendar essa visita agora.', severidade: 'error' });
+    },
+    onSettled: reconciliar,
   });
 
   const moverMutation = useMutation({
     mutationFn: (variaveis: { agenda: AgendaVisita; dia: number }) =>
       atualizarAgendaVisita(variaveis.agenda.id, { dia_semana: variaveis.dia }),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['agendas-visita'] }),
-    onError: () => setAviso({ texto: 'Não foi possível mover essa visita agora.', severidade: 'error' }),
+    onMutate: async (variaveis) => {
+      const anterior = await congelarAgendaAtual();
+      queryClient.setQueryData<AgendasVisitaListResponse | undefined>(agendaQueryKey, (atual) =>
+        atual
+          ? {
+              ...atual,
+              agendas_visita: atual.agendas_visita.map((a) =>
+                a.id === variaveis.agenda.id ? { ...a, dia_semana: variaveis.dia } : a,
+              ),
+            }
+          : atual,
+      );
+      return { anterior };
+    },
+    onError: (_erro, _variaveis, contexto) => {
+      if (contexto?.anterior) queryClient.setQueryData(agendaQueryKey, contexto.anterior);
+      setAviso({ texto: 'Não foi possível mover essa visita agora.', severidade: 'error' });
+    },
+    onSettled: reconciliar,
   });
 
   const removerMutation = useMutation({
     mutationFn: (agenda: AgendaVisita) => desativarAgendaVisita(agenda.id),
+    onMutate: async (agenda) => {
+      const anterior = await congelarAgendaAtual();
+      queryClient.setQueryData<AgendasVisitaListResponse | undefined>(agendaQueryKey, (atual) =>
+        atual ? { ...atual, agendas_visita: atual.agendas_visita.filter((a) => a.id !== agenda.id) } : atual,
+      );
+      return { anterior };
+    },
     onSuccess: (_dados, agenda) => {
-      void queryClient.invalidateQueries({ queryKey: ['agendas-visita'] });
       setAviso({ texto: `Visita removida de ${agenda.ponto_venda?.fantasia ?? 'PDV'}.`, severidade: 'success' });
     },
-    onError: () => setAviso({ texto: 'Não foi possível remover essa visita agora.', severidade: 'error' }),
+    onError: (_erro, _agenda, contexto) => {
+      if (contexto?.anterior) queryClient.setQueryData(agendaQueryKey, contexto.anterior);
+      setAviso({ texto: 'Não foi possível remover essa visita agora.', severidade: 'error' });
+    },
+    onSettled: reconciliar,
   });
 
   // Relatório de Rota impresso (PDF gerado no backend, ver docs/10-AGENDA-VISITA.md §9) — rota
