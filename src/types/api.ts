@@ -537,6 +537,9 @@ export interface VisitaRegistro {
   // true. Ver docs/19-PAINEL-ATIVIDADES.md.
   alerta_resolvido_em: string | null;
   resolvido_por: { id: string; nome: string } | null;
+  // Soft-cancel (nunca hard delete) — registro cancelado continua no histórico mas some das
+  // contagens/filtros da visita. Ver VisitaRegistro::cancelado_em no backend.
+  cancelado_em: string | null;
   created_at: string;
   updated_at: string;
 }
