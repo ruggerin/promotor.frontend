@@ -31,7 +31,6 @@ import {
   AppBar,
   Badge,
   Box,
-  Chip,
   Drawer,
   IconButton,
   List,
@@ -259,7 +258,7 @@ export function AppLayout() {
           </Typography>
         </Box>
         <List subheader={<ListSubheader>Operação</ListSubheader>}>
-          {/* Protótipo com dado mocado, só pra validar layout — ver
+          {/* KPIs + equipe em campo + fila de ações em tempo quase-real — ver
               docs/32-PAINEL-OPERACAO-DO-DIA.md. Mesmo gate de "Atividades" (ADMIN/GESTOR). */}
           {(usuario?.user_type === 'ADMIN' || usuario?.user_type === 'GESTOR') && (
             <ListItemButton component={NavLink} to="/operacao-do-dia" selected={emRota('/operacao-do-dia')}>
@@ -267,12 +266,6 @@ export function AppLayout() {
                 <InsightsIcon />
               </ListItemIcon>
               <ListItemText primary="Operação do dia" />
-              <Chip
-                label="protótipo"
-                size="small"
-                variant="outlined"
-                sx={{ height: 18, fontSize: '9.5px', color: SIDEBAR.textoFraco, borderColor: SIDEBAR.textoFraco }}
-              />
             </ListItemButton>
           )}
           <ListItemButton component={NavLink} to="/visitas" selected={emRota('/visitas')}>
