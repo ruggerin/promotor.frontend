@@ -23,14 +23,16 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { usePageHeader } from '../../components/layout/PageHeaderSlot';
 import { UsuarioAvatar } from '../../components/UsuarioAvatar';
+import { resolverAlerta } from '../../lib/api/atividades';
 import { baixarCsv } from '../../lib/csv';
 import {
   buscarOperacaoDoDia,
   type BlocoJornada,
+  type ItemFilaAcoes,
   type LinhaEquipeOperacaoDoDia,
   type SituacaoPromotor,
   type TipoItemFilaAcoes,
@@ -146,6 +148,11 @@ export function OperacaoDoDiaPage() {
     queryFn: buscarOperacaoDoDia,
     refetchInterval: POLLING_MS,
     placeholderData: keepPreviousData,
+  });
+
+  const resolverAlertaMutation = useMutation({
+    mutationFn: (item: ItemFilaAcoes) => resolverAlerta(item.registro!.visita_id, item.registro!.id),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['operacao-do-dia'] }),
   });
 
   if (query.isLoading) {
@@ -354,6 +361,19 @@ export function OperacaoDoDiaPage() {
                   <Typography variant="caption" color="text.secondary">
                     {[item.ponto_venda?.fantasia, item.usuario?.nome].filter(Boolean).join(' · ')}
                   </Typography>
+                  {item.tipo === 'ALERTA' && item.registro && (
+                    <Box sx={{ mt: 0.5 }}>
+                      <Button
+                        size="small"
+                        variant="text"
+                        sx={{ minWidth: 0, p: '2px 6px', fontSize: 12 }}
+                        disabled={resolverAlertaMutation.isPending}
+                        onClick={() => resolverAlertaMutation.mutate(item)}
+                      >
+                        Resolver
+                      </Button>
+                    </Box>
+                  )}
                 </Box>
               ))}
             </Box>

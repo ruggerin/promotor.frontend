@@ -32,7 +32,9 @@ export interface ItemFilaAcoes {
   titulo: string;
   ponto_venda: { id: string; fantasia: string } | null;
   usuario: { id: string; nome: string } | null;
-  registro: { id: string } | null;
+  // Só presente em tipo ALERTA — visita_id junto do id pra poder chamar resolverAlerta (mesmo
+  // endpoint do Painel de Atividades, ver lib/api/atividades.ts).
+  registro: { id: string; visita_id: string } | null;
 }
 
 export interface LinhaRupturaPorSku {
