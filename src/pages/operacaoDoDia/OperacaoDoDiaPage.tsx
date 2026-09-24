@@ -1,4 +1,3 @@
-import CameraAltIcon from '@mui/icons-material/CameraAlt';
 import DownloadIcon from '@mui/icons-material/Download';
 import ForumIcon from '@mui/icons-material/Forum';
 import InventoryIcon from '@mui/icons-material/Inventory';
