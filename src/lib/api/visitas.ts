@@ -7,6 +7,9 @@ export interface VisitasFiltros {
   usuario_uuid?: string;
   ponto_venda_uuid?: string;
   status?: StatusVisita;
+  // Drill-down do "Rupturas por SKU" da Operação do Dia — ver docs/32-PAINEL-OPERACAO-DO-DIA.md.
+  produto_auditoria_uuid?: string;
+  ruptura?: boolean;
   page?: number;
 }
 

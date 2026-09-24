@@ -3,7 +3,7 @@ import { usePageHeader } from '../../components/layout/PageHeaderSlot';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { createColumnHelper } from '@tanstack/react-table';
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { DataTable } from '../../components/DataTable';
 import { listarPontosVenda } from '../../lib/api/pontosVenda';
 import { listarUsuarios } from '../../lib/api/usuarios';
@@ -30,13 +30,34 @@ const coluna = createColumnHelper<Visita>();
 
 export function VisitasListPage() {
   const navigate = useNavigate();
+  // Drill-down do "Rupturas por SKU" da Operação do Dia chega aqui via link
+  // (?produto_auditoria_uuid=&produto_descricao=&ruptura=1) — lido só uma vez, no primeiro
+  // carregamento (ver useState abaixo, tudo com inicializador lazy). Não existe controle nenhum
+  // pra esse filtro na barra hoje (não é um caso de uso comum o bastante pra virar
+  // Autocomplete própria); dá pra limpar pelo × do chip.
+  const [searchParams] = useSearchParams();
+  const [produtoFiltro, setProdutoFiltro] = useState(() => {
+    const uuid = searchParams.get('produto_auditoria_uuid');
+    if (!uuid) return null;
+    return { uuid, descricao: searchParams.get('produto_descricao') ?? uuid };
+  });
+  const [rupturaFiltro, setRupturaFiltro] = useState(() => searchParams.get('ruptura') === '1');
+
+  function limparFiltroOrigem() {
+    setPage(0);
+    setProdutoFiltro(null);
+    setRupturaFiltro(false);
+  }
+
   // MUI TablePagination é 0-indexed, a API é 1-indexed — a conversão acontece na hora de
   // montar a query.
   const [page, setPage] = useState(0);
   // Padrão "hoje" nas duas pontas — sem isso a tela carrega com TODA visita já feita, ficando
-  // cheia demais pra ser útil de cara (mesmo raciocínio do Painel de Atividades).
-  const [dataInicio, setDataInicio] = useState(hojeISO());
-  const [dataFim, setDataFim] = useState(hojeISO());
+  // cheia demais pra ser útil de cara (mesmo raciocínio do Painel de Atividades). Exceção: veio
+  // via drill-down de produto/ruptura — aí a data some (a ruptura pode ser de qualquer dia, o
+  // usuário quer ver todas as visitas de origem, não só as de hoje).
+  const [dataInicio, setDataInicio] = useState(() => (produtoFiltro || rupturaFiltro ? '' : hojeISO()));
+  const [dataFim, setDataFim] = useState(() => (produtoFiltro || rupturaFiltro ? '' : hojeISO()));
   const [usuarioUuid, setUsuarioUuid] = useState<string | null>(null);
   const [pontoVendaUuid, setPontoVendaUuid] = useState<string | null>(null);
   const [status, setStatus] = useState<StatusVisita | ''>('');
@@ -55,7 +76,7 @@ export function VisitasListPage() {
   });
 
   const visitasQuery = useQuery({
-    queryKey: ['visitas', { page, dataInicio, dataFim, usuarioUuid, pontoVendaUuid, status }],
+    queryKey: ['visitas', { page, dataInicio, dataFim, usuarioUuid, pontoVendaUuid, status, produtoFiltro, rupturaFiltro }],
     queryFn: () =>
       listarVisitas({
         page: page + 1,
@@ -64,6 +85,8 @@ export function VisitasListPage() {
         usuario_uuid: usuarioUuid ?? undefined,
         ponto_venda_uuid: pontoVendaUuid ?? undefined,
         status: status || undefined,
+        produto_auditoria_uuid: produtoFiltro?.uuid,
+        ruptura: rupturaFiltro || undefined,
       }),
     placeholderData: keepPreviousData,
   });
@@ -117,6 +140,19 @@ export function VisitasListPage() {
   return (
     <Box>
       {cabecalho}
+      {(produtoFiltro || rupturaFiltro) && (
+        <Paper sx={{ p: 1, mb: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Typography variant="body2" color="text.secondary">
+            Filtrando pela Operação do dia:
+          </Typography>
+          <Chip
+            size="small"
+            color="warning"
+            label={produtoFiltro ? `${produtoFiltro.descricao} · ruptura aberta` : 'Ruptura aberta'}
+            onDelete={limparFiltroOrigem}
+          />
+        </Paper>
+      )}
       {/* Larguras explícitas nos 5 campos (em vez de deixar o TextField de data ocupar o que
           quiser) — sem isso a barra passava de ~1140px disponíveis em 1440px de tela e "Status"
           quebrava sozinho pra uma segunda linha (docs/30-CRITICA-UX-ADMIN-WEB.md §4). */}

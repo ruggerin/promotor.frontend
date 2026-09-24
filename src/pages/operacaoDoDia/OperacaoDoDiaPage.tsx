@@ -19,11 +19,13 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TextField,
   Tooltip,
   Typography,
 } from '@mui/material';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { usePageHeader } from '../../components/layout/PageHeaderSlot';
 import { UsuarioAvatar } from '../../components/UsuarioAvatar';
 import { resolverAlerta } from '../../lib/api/atividades';
@@ -97,6 +99,21 @@ function formatarHora(iso: string | null): string | null {
   return `${String(data.getHours()).padStart(2, '0')}:${String(data.getMinutes()).padStart(2, '0')}`;
 }
 
+function tituloBlocoJornada(bloco: BlocoJornada): string {
+  const pdv = bloco.ponto_venda?.fantasia ?? 'PDV não identificado';
+  const chegou = formatarHora(bloco.inicio);
+  switch (bloco.status) {
+    case 'FEITA':
+      return `${pdv} · chegou ${chegou} · saiu ${formatarHora(bloco.fim)}`;
+    case 'ATUAL':
+      return `${pdv} · chegou ${chegou} · ainda no PDV`;
+    case 'ATRASO_INICIO':
+      return `${pdv} · previsto ${chegou} · atrasado`;
+    case 'PREVISTA':
+      return `${pdv} · previsto ${chegou}`;
+  }
+}
+
 function minutosDesde(iso: string | null): number | null {
   if (!iso) return null;
   return Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60_000));
@@ -109,13 +126,24 @@ function formatarDataHoraAgora(): string {
   return `${dias[agora.getDay()]} ${pad(agora.getDate())}/${pad(agora.getMonth() + 1)} · ${pad(agora.getHours())}:${pad(agora.getMinutes())}`;
 }
 
+function hojeISO(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function formatarDataSelecionada(iso: string): string {
+  const [ano, mes, dia] = iso.split('-').map(Number);
+  const data = new Date(ano, mes - 1, dia);
+  const dias = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+  return `${dias[data.getDay()]} ${String(dia).padStart(2, '0')}/${String(mes).padStart(2, '0')}`;
+}
+
 function faixaHoras(inicio: number, fim: number): number[] {
   const horas: number[] = [];
   for (let h = Math.floor(inicio); h <= Math.ceil(fim); h++) horas.push(h);
   return horas;
 }
 
-function exportarEquipeCsv(equipe: LinhaEquipeOperacaoDoDia[]): void {
+function exportarEquipeCsv(equipe: LinhaEquipeOperacaoDoDia[], data: string): void {
   const linhas = equipe.map((linha) => [
     linha.usuario.nome,
     SITUACAO_LABEL[linha.status],
@@ -126,15 +154,21 @@ function exportarEquipeCsv(equipe: LinhaEquipeOperacaoDoDia[]): void {
     linha.ultima_localizacao_em ? `${minutosDesde(linha.ultima_localizacao_em)} min` : 'sem sinal',
   ]);
   baixarCsv(
-    `operacao-do-dia-${new Date().toISOString().slice(0, 10)}.csv`,
+    `operacao-do-dia-${data}.csv`,
     ['Promotor', 'Situação', 'PDV atual', 'Check-in', 'Visitas', 'Rupturas', 'Sinal'],
     linhas,
   );
 }
 
 export function OperacaoDoDiaPage() {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [novaTarefaAberta, setNovaTarefaAberta] = useState(false);
+  // "Puxar o realizado de ontem" — docs/32-PAINEL-OPERACAO-DO-DIA.md. Comparado com hojeISO() em
+  // vez de esperar a resposta pra saber se é histórico, porque decide o refetchInterval abaixo
+  // (não faz sentido dar polling num dia parado).
+  const [dataSelecionada, setDataSelecionada] = useState(hojeISO());
+  const historicoLocal = dataSelecionada !== hojeISO();
 
   const cabecalho = usePageHeader(
     <Typography variant="h6" noWrap sx={{ fontWeight: 700 }}>
@@ -143,15 +177,15 @@ export function OperacaoDoDiaPage() {
   );
 
   const query = useQuery({
-    queryKey: ['operacao-do-dia'],
-    queryFn: buscarOperacaoDoDia,
-    refetchInterval: POLLING_MS,
+    queryKey: ['operacao-do-dia', dataSelecionada],
+    queryFn: () => buscarOperacaoDoDia(dataSelecionada),
+    refetchInterval: historicoLocal ? false : POLLING_MS,
     placeholderData: keepPreviousData,
   });
 
   const resolverAlertaMutation = useMutation({
     mutationFn: (item: ItemFilaAcoes) => resolverAlerta(item.registro!.visita_id, item.registro!.id),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['operacao-do-dia'] }),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['operacao-do-dia', dataSelecionada] }),
   });
 
   if (query.isLoading) {
@@ -167,13 +201,15 @@ export function OperacaoDoDiaPage() {
   }
 
   const dados = query.data;
-  const { kpis, equipe, fila_acoes: filaAcoes, rupturas_por_sku: rupturasPorSku } = dados;
+  const { kpis, equipe, fila_acoes: filaAcoes, rupturas_por_sku: rupturasPorSku, historico } = dados;
 
   const jornadaInicioHora = horaFracionaria(dados.jornada.inicio);
   const jornadaFimHora = horaFracionaria(dados.jornada.fim);
   const totalHoras = Math.max(1, jornadaFimHora - jornadaInicioHora);
   const agoraHora = new Date().getHours() + new Date().getMinutes() / 60;
-  const ritmoDia = Math.min(100, Math.max(0, Math.round(((agoraHora - jornadaInicioHora) / totalHoras) * 100)));
+  // Sem sentido "ritmo do dia" num dia passado (a conta usa a hora real de agora) — nesse caso o
+  // dia já encerrou por definição.
+  const ritmoDia = historico ? 100 : Math.min(100, Math.max(0, Math.round(((agoraHora - jornadaInicioHora) / totalHoras) * 100)));
   const pctVisitas = kpis.visitas_realizadas.total
     ? Math.round((kpis.visitas_realizadas.feitas / kpis.visitas_realizadas.total) * 100)
     : 0;
@@ -183,11 +219,27 @@ export function OperacaoDoDiaPage() {
       {cabecalho}
 
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5, flexWrap: 'wrap', gap: 1.5 }}>
-        <Typography variant="body2" color="text.secondary">
-          {formatarDataHoraAgora()} · jornada {dados.jornada.inicio}–{dados.jornada.fim}
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <TextField
+            type="date"
+            size="small"
+            value={dataSelecionada}
+            slotProps={{ inputLabel: { shrink: true }, htmlInput: { max: hojeISO() } }}
+            onChange={(e) => e.target.value && setDataSelecionada(e.target.value)}
+            sx={{ width: 160 }}
+          />
+          {historicoLocal && (
+            <Button size="small" onClick={() => setDataSelecionada(hojeISO())}>
+              Hoje
+            </Button>
+          )}
+          <Typography variant="body2" color="text.secondary">
+            {historico ? `${formatarDataSelecionada(dados.data)} (histórico)` : formatarDataHoraAgora()} · jornada{' '}
+            {dados.jornada.inicio}–{dados.jornada.fim}
+          </Typography>
+        </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button variant="outlined" size="small" startIcon={<DownloadIcon />} onClick={() => exportarEquipeCsv(equipe)}>
+          <Button variant="outlined" size="small" startIcon={<DownloadIcon />} onClick={() => exportarEquipeCsv(equipe, dados.data)}>
             Exportar
           </Button>
           <Tooltip title="Ainda não implementado — depende de fechar o desenho da Fase 4 (ver docs/32-PAINEL-OPERACAO-DO-DIA.md)">
@@ -239,16 +291,20 @@ export function OperacaoDoDiaPage() {
             SEM SINAL
           </Typography>
           <Typography variant="h5" sx={{ fontWeight: 700, color: kpis.sem_sinal > 0 ? '#dc2626' : undefined }}>
-            {kpis.sem_sinal}
+            {historico ? '—' : kpis.sem_sinal}
           </Typography>
-          <Typography variant="caption" color="text.secondary">sem GPS recente</Typography>
+          <Typography variant="caption" color="text.secondary">
+            {historico ? 'estado atual, não daquele dia' : 'sem GPS recente'}
+          </Typography>
         </Paper>
         <Paper sx={{ p: 1.5 }}>
           <Typography variant="caption" color="text.secondary">
             RUPTURAS ABERTAS
           </Typography>
-          <Typography variant="h5" sx={{ fontWeight: 700 }}>{kpis.rupturas_abertas.total}</Typography>
-          <Typography variant="caption" color="text.secondary">em {kpis.rupturas_abertas.pdvs} PDVs</Typography>
+          <Typography variant="h5" sx={{ fontWeight: 700 }}>{historico ? '—' : kpis.rupturas_abertas.total}</Typography>
+          <Typography variant="caption" color="text.secondary">
+            {historico ? 'estado atual, não daquele dia' : `em ${kpis.rupturas_abertas.pdvs} PDVs`}
+          </Typography>
         </Paper>
         <Paper sx={{ p: 1.5 }}>
           <Typography variant="caption" color="text.secondary">
@@ -257,7 +313,7 @@ export function OperacaoDoDiaPage() {
           <Typography variant="h5" sx={{ fontWeight: 700 }}>
             {kpis.formularios_emitidos.preenchidos}/{kpis.formularios_emitidos.expedidos}
           </Typography>
-          <Typography variant="caption" color="text.secondary">preenchidos hoje</Typography>
+          <Typography variant="caption" color="text.secondary">{historico ? 'preenchidos nesse dia' : 'preenchidos hoje'}</Typography>
         </Paper>
       </Box>
 
@@ -268,7 +324,9 @@ export function OperacaoDoDiaPage() {
             Equipe em campo <Chip label={equipe.length} size="small" sx={{ ml: 1 }} />
           </Typography>
           {equipe.length === 0 ? (
-            <Typography variant="body2" color="text.secondary">Nenhum compromisso pra hoje.</Typography>
+            <Typography variant="body2" color="text.secondary">
+              {historico ? 'Nenhum compromisso nesse dia.' : 'Nenhum compromisso pra hoje.'}
+            </Typography>
           ) : (
             <TableContainer sx={{ maxHeight: 300, overflowY: 'auto' }}>
               <Table size="small" stickyHeader>
@@ -335,7 +393,9 @@ export function OperacaoDoDiaPage() {
             Fila de ações <Chip label={filaAcoes.length} size="small" sx={{ ml: 1 }} />
           </Typography>
           {filaAcoes.length === 0 ? (
-            <Typography variant="body2" color="text.secondary">Nada pendente agora.</Typography>
+            <Typography variant="body2" color="text.secondary">
+              {historico ? 'Fila de ações é sempre o estado atual — volte pra hoje pra ver.' : 'Nada pendente agora.'}
+            </Typography>
           ) : (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, maxHeight: 300, overflowY: 'auto', pr: 0.5 }}>
               {filaAcoes.map((item, i) => (
@@ -387,7 +447,9 @@ export function OperacaoDoDiaPage() {
             Jornada
           </Typography>
           {equipe.length === 0 ? (
-            <Typography variant="body2" color="text.secondary">Nenhum compromisso pra hoje.</Typography>
+            <Typography variant="body2" color="text.secondary">
+              {historico ? 'Nenhum compromisso nesse dia.' : 'Nenhum compromisso pra hoje.'}
+            </Typography>
           ) : (
             <>
               <Box sx={{ minWidth: 640 }}>
@@ -410,8 +472,9 @@ export function OperacaoDoDiaPage() {
                         const esquerda = ((inicioHora - jornadaInicioHora) / totalHoras) * 100;
                         const largura = Math.max(0.5, ((fimHora - inicioHora) / totalHoras) * 100);
                         return (
-                          <Tooltip key={i} title={bloco.status.replaceAll('_', ' ')}>
+                          <Tooltip key={i} title={tituloBlocoJornada(bloco)}>
                             <Box
+                              onDoubleClick={() => bloco.visita_id && navigate(`/visitas/${bloco.visita_id}`)}
                               sx={{
                                 position: 'absolute',
                                 left: `${esquerda}%`,
@@ -421,6 +484,7 @@ export function OperacaoDoDiaPage() {
                                 bgcolor: BLOCO_COR[bloco.status],
                                 border: bloco.status === 'PREVISTA' ? '1px dashed #9ca3af' : 'none',
                                 borderRadius: 0.5,
+                                cursor: bloco.visita_id ? 'pointer' : 'default',
                               }}
                             />
                           </Tooltip>
@@ -439,6 +503,7 @@ export function OperacaoDoDiaPage() {
                 prevista
                 <Box component="span" sx={{ display: 'inline-block', width: 10, height: 10, bgcolor: '#dc2626', borderRadius: 0.5, mx: 0.5, ml: 1.5 }} />
                 atraso no início
+                <Box component="span" sx={{ ml: 1.5 }}>· passe o mouse pra ver a loja e o horário, duplo clique abre a visita</Box>
               </Typography>
             </>
           )}
@@ -450,7 +515,9 @@ export function OperacaoDoDiaPage() {
             <InventoryIcon fontSize="small" /> Rupturas por SKU
           </Typography>
           {rupturasPorSku.length === 0 ? (
-            <Typography variant="body2" color="text.secondary">Nenhuma ruptura aberta.</Typography>
+            <Typography variant="body2" color="text.secondary">
+              {historico ? 'Rupturas por SKU é sempre o estado atual — volte pra hoje pra ver.' : 'Nenhuma ruptura aberta.'}
+            </Typography>
           ) : (
             <TableContainer>
               <Table size="small">
@@ -464,7 +531,16 @@ export function OperacaoDoDiaPage() {
                 </TableHead>
                 <TableBody>
                   {rupturasPorSku.map((linha) => (
-                    <TableRow key={linha.produto.id} hover>
+                    <TableRow
+                      key={linha.produto.id}
+                      hover
+                      sx={{ cursor: 'pointer' }}
+                      onClick={() =>
+                        navigate(
+                          `/visitas?produto_auditoria_uuid=${linha.produto.id}&produto_descricao=${encodeURIComponent(linha.produto.descricao)}&ruptura=1`,
+                        )
+                      }
+                    >
                       <TableCell>
                         <Typography variant="caption" color="text.secondary">{linha.produto.codigo_barras ?? '—'}</Typography>
                       </TableCell>

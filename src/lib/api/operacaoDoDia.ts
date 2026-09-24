@@ -10,6 +10,10 @@ export interface BlocoJornada {
   inicio: string;
   fim: string;
   status: 'FEITA' | 'ATUAL' | 'PREVISTA' | 'ATRASO_INICIO';
+  ponto_venda: { id: string; fantasia: string } | null;
+  // Só presente em FEITA/ATUAL (bloco real, já virou Visita) — null num bloco nominal
+  // (PREVISTA/ATRASO_INICIO), que ainda não tem visita pra detalhar.
+  visita_id: string | null;
 }
 
 export interface LinhaEquipeOperacaoDoDia {
@@ -44,6 +48,11 @@ export interface LinhaRupturaPorSku {
 }
 
 export interface OperacaoDoDiaResponse {
+  data: string;
+  // true quando `data` não é hoje — sinal/fila de ações/rupturas por SKU somem da resposta
+  // nesse caso (são sempre o estado atual, nunca "daquele dia" — ver
+  // docs/32-PAINEL-OPERACAO-DO-DIA.md).
+  historico: boolean;
   jornada: { inicio: string; fim: string };
   kpis: {
     visitas_realizadas: { feitas: number; total: number };
@@ -58,7 +67,7 @@ export interface OperacaoDoDiaResponse {
   rupturas_por_sku: LinhaRupturaPorSku[];
 }
 
-export async function buscarOperacaoDoDia(): Promise<OperacaoDoDiaResponse> {
-  const { data } = await apiClient.get<OperacaoDoDiaResponse>('/operacao-do-dia');
-  return data;
+export async function buscarOperacaoDoDia(data?: string): Promise<OperacaoDoDiaResponse> {
+  const { data: resposta } = await apiClient.get<OperacaoDoDiaResponse>('/operacao-do-dia', { params: { data } });
+  return resposta;
 }
