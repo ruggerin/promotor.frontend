@@ -14,7 +14,6 @@ import {
   Button,
   Chip,
   CircularProgress,
-  Grid,
   IconButton,
   MenuItem,
   Pagination,
@@ -115,13 +114,15 @@ function FachadaCard({ pontoVenda, onErro }: { pontoVenda: PontoVenda; onErro: (
     if (arquivo) enviarMutation.mutate(arquivo);
   }
 
+  // Sem Paper própria de propósito — vive dentro do card "Dados" (ver PontoVendaDetailPage),
+  // não é mais uma seção inteira só pra uma foto pequena.
   return (
-    <Paper sx={{ p: 3, mb: 3, display: 'flex', gap: 2, alignItems: 'center' }}>
+    <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
       <Box
         sx={{
-          width: 88,
-          height: 88,
-          borderRadius: 1,
+          width: 64,
+          height: 64,
+          borderRadius: 1.5,
           overflow: 'hidden',
           bgcolor: 'action.hover',
           flexShrink: 0,
@@ -133,35 +134,34 @@ function FachadaCard({ pontoVenda, onErro }: { pontoVenda: PontoVenda; onErro: (
         {blobUrl ? (
           <Box component="img" src={blobUrl} sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         ) : (
-          <Typography variant="caption" color="text.secondary" sx={{ px: 1, textAlign: 'center' }}>
-            Sem fachada
+          <Typography variant="caption" color="text.secondary" sx={{ fontSize: 10, textAlign: 'center' }}>
+            Sem foto
           </Typography>
         )}
       </Box>
-      <Box sx={{ flex: 1 }}>
-        <Typography variant="subtitle2">Foto da fachada</Typography>
-        <Typography variant="body2" color="text.secondary">
-          Ajuda o promotor a reconhecer a loja em campo.
+      <Box>
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+          Fachada
         </Typography>
-        <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
-          <Button size="small" variant="outlined" component="label" disabled={enviarMutation.isPending}>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button size="small" component="label" disabled={enviarMutation.isPending} sx={{ minWidth: 0, p: '2px 6px' }}>
             Enviar foto
             <input type="file" accept="image/png,image/jpeg" hidden onChange={handleArquivoSelecionado} />
           </Button>
           {pontoVenda.fachada_url && (
             <Button
               size="small"
-              variant="outlined"
               color="error"
               onClick={() => removerMutation.mutate()}
               disabled={removerMutation.isPending}
+              sx={{ minWidth: 0, p: '2px 6px' }}
             >
               Remover
             </Button>
           )}
         </Box>
       </Box>
-    </Paper>
+    </Box>
   );
 }
 
@@ -441,26 +441,29 @@ export function PontoVendaDetailPage() {
         <Typography variant="h6" gutterBottom>
           Dados
         </Typography>
-        <Grid container spacing={3}>
-          <Grid size={{ xs: 12, sm: 6 }}>
+
+        <Box sx={{ mb: 2.5 }}>
+          <FachadaCard pontoVenda={pdv} onErro={setErro} />
+        </Box>
+
+        {/* Flex-wrap, não Grid de 2 colunas fixas (mesmo padrão de UsuarioDetailPage, doc 30
+            §7) — metade destes campos costuma ficar vazia (código externo, telefone, e-mail,
+            rede, ramo, checkouts), e um grid rígido deixava a página cheia de "—" ocupando
+            linha inteira à toa. Flex-wrap só gasta o espaço que o valor real precisa. */}
+        <Box sx={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+          <Box>
             <Typography variant="caption" color="text.secondary">
               Razão social
             </Typography>
             <Typography>{pdv.razao_social}</Typography>
-          </Grid>
-          <Grid size={{ xs: 12, sm: 6 }}>
-            <Typography variant="caption" color="text.secondary">
-              Código externo
-            </Typography>
-            <Typography>{pdv.codigo_externo ?? '—'}</Typography>
-          </Grid>
-          <Grid size={{ xs: 12, sm: 6 }}>
+          </Box>
+          <Box>
             <Typography variant="caption" color="text.secondary">
               CNPJ
             </Typography>
             <Typography>{pdv.cnpj ?? '—'}</Typography>
-          </Grid>
-          <Grid size={{ xs: 12, sm: 6 }}>
+          </Box>
+          <Box>
             <Typography variant="caption" color="text.secondary">
               Endereço
             </Typography>
@@ -469,8 +472,8 @@ export function PontoVendaDetailPage() {
               {pdv.numero ? `, ${pdv.numero}` : ''}
               {pdv.bairro ? ` — ${pdv.bairro}` : ''}
             </Typography>
-          </Grid>
-          <Grid size={{ xs: 12, sm: 6 }}>
+          </Box>
+          <Box>
             <Typography variant="caption" color="text.secondary">
               Cidade / CEP
             </Typography>
@@ -478,43 +481,63 @@ export function PontoVendaDetailPage() {
               {pdv.cidade}
               {pdv.cep ? ` — ${pdv.cep}` : ''}
             </Typography>
-          </Grid>
-          <Grid size={{ xs: 12, sm: 6 }}>
-            <Typography variant="caption" color="text.secondary">
-              Telefone
-            </Typography>
-            <Typography>{pdv.telefone ?? '—'}</Typography>
-          </Grid>
-          <Grid size={{ xs: 12, sm: 6 }}>
-            <Typography variant="caption" color="text.secondary">
-              E-mail
-            </Typography>
-            <Typography>{pdv.email ?? '—'}</Typography>
-          </Grid>
-          <Grid size={{ xs: 12, sm: 6 }}>
-            <Typography variant="caption" color="text.secondary">
-              Rede de lojas
-            </Typography>
-            <Typography>{pdv.rede_loja?.descricao ?? '—'}</Typography>
-          </Grid>
-          <Grid size={{ xs: 12, sm: 6 }}>
-            <Typography variant="caption" color="text.secondary">
-              Ramo de atividade
-            </Typography>
-            <Typography>{pdv.ramo_atividade?.descricao ?? '—'}</Typography>
-          </Grid>
-          <Grid size={{ xs: 12, sm: 6 }}>
-            <Typography variant="caption" color="text.secondary">
-              Número de checkouts
-            </Typography>
-            <Typography>{pdv.numero_checkouts ?? '—'}</Typography>
-          </Grid>
-        </Grid>
+          </Box>
+          {pdv.codigo_externo && (
+            <Box>
+              <Typography variant="caption" color="text.secondary">
+                Código externo
+              </Typography>
+              <Typography>{pdv.codigo_externo}</Typography>
+            </Box>
+          )}
+          {pdv.telefone && (
+            <Box>
+              <Typography variant="caption" color="text.secondary">
+                Telefone
+              </Typography>
+              <Typography>{pdv.telefone}</Typography>
+            </Box>
+          )}
+          {pdv.email && (
+            <Box>
+              <Typography variant="caption" color="text.secondary">
+                E-mail
+              </Typography>
+              <Typography>{pdv.email}</Typography>
+            </Box>
+          )}
+          {pdv.rede_loja && (
+            <Box>
+              <Typography variant="caption" color="text.secondary">
+                Rede de lojas
+              </Typography>
+              <Typography>{pdv.rede_loja.descricao}</Typography>
+            </Box>
+          )}
+          {pdv.ramo_atividade && (
+            <Box>
+              <Typography variant="caption" color="text.secondary">
+                Ramo de atividade
+              </Typography>
+              <Typography>{pdv.ramo_atividade.descricao}</Typography>
+            </Box>
+          )}
+          {pdv.numero_checkouts !== null && (
+            <Box>
+              <Typography variant="caption" color="text.secondary">
+                Número de checkouts
+              </Typography>
+              <Typography>{pdv.numero_checkouts}</Typography>
+            </Box>
+          )}
+        </Box>
       </Paper>
 
-      <FachadaCard pontoVenda={pdv} onErro={setErro} />
-
-      <Paper sx={{ p: 3, mb: 3 }}>
+      {/* Lado a lado — as duas costumam ser curtas (poucos promotores, poucas agendas), ficavam
+          empilhadas sem necessidade. Ver docs/34-REMODELACAO-VISITA-DETALHE-ADMIN.md pro mesmo
+          racional de declutter aplicado no detalhe de visita. */}
+      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 3, mb: 3, alignItems: 'start' }}>
+      <Paper sx={{ p: 3 }}>
         <Typography variant="h6" gutterBottom>
           Promotores
         </Typography>
@@ -565,7 +588,7 @@ export function PontoVendaDetailPage() {
         </Box>
       </Paper>
 
-      <Paper sx={{ p: 3, mt: 3 }}>
+      <Paper sx={{ p: 3 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
           <Typography variant="h6">Agenda de visitas</Typography>
           <Button
@@ -634,10 +657,11 @@ export function PontoVendaDetailPage() {
           </Table>
         )}
       </Paper>
+      </Box>
 
       {/* Pedidos do ERP (docs/28 §4.2) — só aparece quando o integrador já gravou algum. */}
       {(pedidosQuery.data?.pedidos.length ?? 0) > 0 && (
-        <Paper sx={{ p: 3, mt: 3 }}>
+        <Paper sx={{ p: 3, mb: 3 }}>
           <Typography variant="h6" gutterBottom>
             Pedidos
           </Typography>

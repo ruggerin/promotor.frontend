@@ -490,6 +490,18 @@ export interface CampanhaAuditoria {
   updated_at: string;
 }
 
+export interface CampoRespondido {
+  chave: string;
+  rotulo: string;
+  tipo_campo: TipoCampoRegistro;
+  // null quando tipo_campo = SORTIMENTO (usar o campo sortimento abaixo nesse caso).
+  valor: string | null;
+  sortimento: {
+    presentes: { id: string; descricao: string }[];
+    ausentes: { id: string; descricao: string }[];
+  } | null;
+}
+
 export interface VisitaRegistro {
   id: string;
   tipo_registro: { id: string; descricao: string; icone: string | null };
@@ -503,7 +515,12 @@ export interface VisitaRegistro {
   ruptura: boolean;
   observacao: string | null;
   // Valores dos campos customizados do tipo_registro (ex.: { quantidade: "5", valor: "199.90" }).
+  // Cru — pra exibir, usar campos_respondidos (já com rótulo e valor formatado).
   valores_campos: Record<string, string> | null;
+  // Mesmo dado de valores_campos, com rótulo resolvido e valor formatado por tipo_campo
+  // (BOOLEANO vira Sim/Não, SORTIMENTO resolve os uuids de produto pra descrição) — ver
+  // App\Support\FormatadorValoresCampos no backend. Só os campos que têm valor entram na lista.
+  campos_respondidos: CampoRespondido[];
   // % de compliance (campos BOOLEANO/SORTIMENTO que "passaram") — só quando
   // tipo_registro.usa_pontuacao = true, ver docs/20-FORMULARIO-DINAMICO-CAMPANHA.md decisão 5.
   pontuacao: number | null;
