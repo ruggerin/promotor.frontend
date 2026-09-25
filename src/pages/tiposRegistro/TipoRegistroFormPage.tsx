@@ -94,6 +94,12 @@ const campoSchema = z.object({
   // envio (payload.campos[].opcoes), mais simples que uma mini-lista editável dentro do array.
   opcoesTexto: z.string(),
   obrigatorio: z.boolean(),
+  // Só tem efeito quando tipo_campo = DATA (docs/35-LIMITE-RETROATIVO-CAMPO-DATA.md) — string
+  // vazia = sem limite, mesmo padrão de "numero_checkouts" (PontoVendaFormDialog): convertido
+  // pra número (ou null) só no payload de envio.
+  limiteDiasRetroativosTexto: z
+    .string()
+    .refine((v) => v === '' || (!Number.isNaN(Number(v)) && Number.isInteger(Number(v)) && Number(v) >= 0), 'Deve ser um número inteiro positivo'),
   // Campo condicional (docs/20-FORMULARIO-DINAMICO-CAMPANHA.md decisão 7) — `depende_de_chave`
   // referencia a `chave` de outro campo deste MESMO array (não um uuid, o campo pai pode ser
   // novo, ainda sem id). `null` = sempre aparece, sem condição.
@@ -234,6 +240,7 @@ function campoVazio(): FormData['campos'][number] {
     tipo_campo: 'TEXTO',
     opcoesTexto: '',
     obrigatorio: false,
+    limiteDiasRetroativosTexto: '',
     depende_de_chave: null,
     depende_de_valor: null,
     sortimento_origem: null,
@@ -265,6 +272,7 @@ function mapearCampoParaImportar(campo: CampoTipoRegistro): FormData['campos'][n
     tipo_campo: campo.tipo_campo,
     opcoesTexto: campo.opcoes?.join(', ') ?? '',
     obrigatorio: campo.obrigatorio,
+    limiteDiasRetroativosTexto: campo.limite_dias_retroativos === null ? '' : String(campo.limite_dias_retroativos),
     depende_de_chave: null,
     depende_de_valor: null,
     sortimento_origem: campo.sortimento_origem,
@@ -359,6 +367,7 @@ export function TipoRegistroFormPage() {
           tipo_campo: c.tipo_campo,
           opcoesTexto: c.opcoes?.join(', ') ?? '',
           obrigatorio: c.obrigatorio,
+          limiteDiasRetroativosTexto: c.limite_dias_retroativos === null ? '' : String(c.limite_dias_retroativos),
           depende_de_chave: c.depende_de_chave,
           depende_de_valor: c.depende_de_valor,
           sortimento_origem: c.sortimento_origem,
@@ -395,6 +404,8 @@ export function TipoRegistroFormPage() {
           rotulo: c.rotulo,
           tipo_campo: c.tipo_campo,
           obrigatorio: c.obrigatorio,
+          limite_dias_retroativos:
+            c.tipo_campo === 'DATA' && c.limiteDiasRetroativosTexto !== '' ? Number(c.limiteDiasRetroativosTexto) : null,
           opcoes:
             c.tipo_campo === 'MULTIPLA_ESCOLHA'
               ? c.opcoesTexto
@@ -1062,26 +1073,50 @@ function ExcecaoGranularidadeRow({
 function FieldTipoCampoWatcher({ control, indice }: { control: Control<FormData>; indice: number }) {
   const tipoCampo = useWatch({ control, name: `campos.${indice}.tipo_campo` });
 
-  if (tipoCampo !== 'MULTIPLA_ESCOLHA') return null;
+  if (tipoCampo === 'MULTIPLA_ESCOLHA') {
+    return (
+      <Controller
+        name={`campos.${indice}.opcoesTexto`}
+        control={control}
+        render={({ field, fieldState }) => (
+          <TextField
+            {...field}
+            label="Opções (separadas por vírgula)"
+            placeholder="Ex.: Boa, Regular, Ruim"
+            size="small"
+            fullWidth
+            sx={{ mt: 1 }}
+            error={!!fieldState.error}
+            helperText={fieldState.error?.message}
+          />
+        )}
+      />
+    );
+  }
 
-  return (
-    <Controller
-      name={`campos.${indice}.opcoesTexto`}
-      control={control}
-      render={({ field, fieldState }) => (
-        <TextField
-          {...field}
-          label="Opções (separadas por vírgula)"
-          placeholder="Ex.: Boa, Regular, Ruim"
-          size="small"
-          fullWidth
-          sx={{ mt: 1 }}
-          error={!!fieldState.error}
-          helperText={fieldState.error?.message}
-        />
-      )}
-    />
-  );
+  if (tipoCampo === 'DATA') {
+    return (
+      <Controller
+        name={`campos.${indice}.limiteDiasRetroativosTexto`}
+        control={control}
+        render={({ field, fieldState }) => (
+          <TextField
+            {...field}
+            label="Limite de dias no passado"
+            placeholder="Deixe vazio para sem limite"
+            type="number"
+            size="small"
+            sx={{ mt: 1, maxWidth: 260 }}
+            slotProps={{ htmlInput: { min: 0 } }}
+            error={!!fieldState.error}
+            helperText={fieldState.error?.message ?? 'Datas mais antigas que isso não são aceitas. Deixe vazio para sem limite (ex.: campo de validade de produto vencido).'}
+          />
+        )}
+      />
+    );
+  }
+
+  return null;
 }
 
 // Campo SORTIMENTO (docs/20-FORMULARIO-DINAMICO-CAMPANHA.md decisão 3) — origem (dinâmica/fixa),

@@ -1,40 +1,48 @@
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import AssignmentTurnedInOutlinedIcon from '@mui/icons-material/AssignmentTurnedInOutlined';
+import CampaignOutlinedIcon from '@mui/icons-material/CampaignOutlined';
 import ChatBubbleOutlinedIcon from '@mui/icons-material/ChatBubbleOutlined';
 import CloseIcon from '@mui/icons-material/Close';
+import EventNoteOutlinedIcon from '@mui/icons-material/EventNoteOutlined';
 import ImageOutlinedIcon from '@mui/icons-material/ImageOutlined';
+import InsightsOutlinedIcon from '@mui/icons-material/InsightsOutlined';
+import FactCheckOutlinedIcon from '@mui/icons-material/FactCheckOutlined';
+import MapOutlinedIcon from '@mui/icons-material/MapOutlined';
+import PlaceOutlinedIcon from '@mui/icons-material/PlaceOutlined';
+import RemoveShoppingCartOutlinedIcon from '@mui/icons-material/RemoveShoppingCartOutlined';
+import StorefrontOutlinedIcon from '@mui/icons-material/StorefrontOutlined';
 import { usePageHeader } from '../../components/layout/PageHeaderSlot';
 import {
   Alert,
   Box,
   Button,
-  Card,
-  CardActionArea,
   Chip,
   CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
+  Divider,
   IconButton,
+  Link as MuiLink,
   Paper,
   Skeleton,
   Stack,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   TextField,
   ToggleButton,
   ToggleButtonGroup,
   Typography,
 } from '@mui/material';
+import { alpha } from '@mui/material/styles';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
-import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
 import { ComentariosRegistro } from '../../components/ComentariosRegistro';
+import { AutenticatedImage } from '../../components/fotos/AutenticatedImage';
+import { CORES_MAPA_VISITA } from '../../components/mapa/coresMapaVisita';
+import { MapaVisita } from '../../components/mapa/MapaVisita';
+import { UsuarioAvatar } from '../../components/UsuarioAvatar';
 import { apiClient } from '../../lib/api/client';
 import { useAuth } from '../../lib/auth/AuthContext';
 import {
@@ -43,7 +51,7 @@ import {
   corrigirHorariosVisita,
   forcarCheckoutVisita,
 } from '../../lib/api/visitas';
-import type { AcaoIntervencaoVisita, CampoRespondido, StatusVisita, VisitaRegistro } from '../../types/api';
+import type { AcaoIntervencaoVisita, CampoRespondido, StatusVisita, Visita, VisitaRegistro } from '../../types/api';
 
 const STATUS_COLORS: Record<StatusVisita, 'warning' | 'success' | 'default'> = {
   ABERTA: 'warning',
@@ -52,7 +60,7 @@ const STATUS_COLORS: Record<StatusVisita, 'warning' | 'success' | 'default'> = {
 };
 
 const STATUS_LABELS: Record<StatusVisita, string> = {
-  ABERTA: 'Aberta',
+  ABERTA: 'Em andamento',
   FINALIZADA: 'Finalizada',
   CANCELADA: 'Cancelada',
 };
@@ -62,6 +70,9 @@ const ACAO_LABELS: Record<AcaoIntervencaoVisita, string> = {
   CHECKOUT_FORCADO: 'Checkout forçado',
   CORRECAO_HORARIO: 'Correção de horário',
 };
+
+// Card "chapado" (sem sombra, só borda) — padrão visual desta tela.
+const CARD_SX = { borderRadius: 1.25, boxShadow: 'none' } as const;
 
 // <input type="datetime-local"> trabalha em horário local sem fuso; o backend guarda tudo em
 // UTC. Converte nas duas pontas pra o gestor trabalhar no mesmo horário que vê no resto da tela.
@@ -79,15 +90,20 @@ function formatarHora(iso: string): string {
   return new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 }
 
-function formatarData(iso: string): string {
-  return new Date(iso).toLocaleDateString('pt-BR');
+function formatarDataLonga(iso: string): string {
+  return new Date(iso).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-function formatarDuracao(inicioIso: string, fimIso: string): string {
-  const seg = Math.max(0, Math.floor((new Date(fimIso).getTime() - new Date(inicioIso).getTime()) / 1000));
+function formatarDuracao(inicioIso: string, fimIso: string | null): string {
+  const fim = fimIso ? new Date(fimIso).getTime() : Date.now();
+  const seg = Math.max(0, Math.floor((fim - new Date(inicioIso).getTime()) / 1000));
   const h = Math.floor(seg / 3600);
   const min = Math.floor(seg / 60) % 60;
   return h > 0 ? `${h}h ${String(min).padStart(2, '0')}min` : `${min}min`;
+}
+
+function formatarDistancia(metros: number): string {
+  return metros >= 1000 ? `${(metros / 1000).toFixed(1).replace('.', ',')} km` : `${Math.round(metros)} m`;
 }
 
 function mensagemDeErro(err: unknown): string {
@@ -207,76 +223,91 @@ function RegistroCard({ registro, onAbrir }: { registro: VisitaRegistro; onAbrir
     .join(' · ');
 
   return (
-    <Card variant="outlined">
-      <CardActionArea onClick={onAbrir} sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, p: 1.5 }}>
-        <Box
-          sx={{
-            width: 56,
-            height: 56,
-            borderRadius: 1.5,
-            bgcolor: 'action.hover',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
-            overflow: 'hidden',
-            position: 'relative',
-          }}
-        >
-          {registro.imagens.length > 0 ? (
-            <>
-              <ImagemThumb url={registro.imagens[0].url} alt={tituloRegistro(registro)} />
-              {registro.imagens.length > 1 && (
-                <Box
-                  sx={{
-                    position: 'absolute',
-                    right: 2,
-                    bottom: 2,
-                    bgcolor: 'rgba(17,24,39,0.72)',
-                    color: '#fff',
-                    fontSize: 10,
-                    fontWeight: 700,
-                    borderRadius: 0.75,
-                    px: 0.5,
-                  }}
-                >
-                  +{registro.imagens.length - 1}
-                </Box>
-              )}
-            </>
-          ) : (
-            <ImageOutlinedIcon fontSize="small" sx={{ color: 'text.disabled' }} />
-          )}
-        </Box>
-        <Box sx={{ minWidth: 0, flexGrow: 1 }}>
-          <Typography variant="body2" sx={{ fontWeight: 700 }} noWrap>
-            {tituloRegistro(registro)}
-          </Typography>
-          <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block' }}>
-            {registro.tipo_registro.descricao}
-            {vinculo && vinculo !== tituloRegistro(registro) ? ` · ${vinculo}` : ''}
-          </Typography>
-          {previaValores && (
-            <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block' }}>
-              {previaValores}
-            </Typography>
-          )}
-          <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
-            {registro.ruptura && <Chip label="Ruptura" color="error" size="small" />}
-            {registro.pontuacao !== null && <Chip label={`${registro.pontuacao}% compliance`} color="warning" size="small" variant="outlined" />}
-            {(registro.comentarios_count ?? 0) > 0 && (
-              <Chip
-                icon={<ChatBubbleOutlinedIcon sx={{ fontSize: 14 }} />}
-                label={registro.comentarios_count}
-                size="small"
-                variant="outlined"
-                color={(registro.comentarios_novos ?? 0) > 0 ? 'primary' : 'default'}
-              />
+    <Paper
+      variant="outlined"
+      onClick={onAbrir}
+      sx={{
+        ...CARD_SX,
+        p: 1.5,
+        display: 'flex',
+        alignItems: 'flex-start',
+        gap: 1.5,
+        cursor: 'pointer',
+        transition: 'border-color .15s, background-color .15s',
+        borderColor: registro.ruptura ? (t) => alpha(t.palette.error.main, 0.35) : undefined,
+        '&:hover': { borderColor: 'primary.light', bgcolor: (t) => alpha(t.palette.primary.main, 0.03) },
+      }}
+    >
+      <Box
+        sx={{
+          width: 64,
+          height: 64,
+          borderRadius: 1,
+          bgcolor: 'action.hover',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+          overflow: 'hidden',
+          position: 'relative',
+        }}
+      >
+        {registro.imagens.length > 0 ? (
+          <>
+            <ImagemThumb url={registro.imagens[0].url} alt={tituloRegistro(registro)} />
+            {registro.imagens.length > 1 && (
+              <Box
+                sx={{
+                  position: 'absolute',
+                  right: 3,
+                  bottom: 3,
+                  bgcolor: 'rgba(17,24,39,0.72)',
+                  color: '#fff',
+                  fontSize: 10,
+                  fontWeight: 700,
+                  borderRadius: 0.75,
+                  px: 0.5,
+                }}
+              >
+                +{registro.imagens.length - 1}
+              </Box>
             )}
-          </Box>
+          </>
+        ) : (
+          <ImageOutlinedIcon fontSize="small" sx={{ color: 'text.disabled' }} />
+        )}
+      </Box>
+      <Box sx={{ minWidth: 0, flexGrow: 1 }}>
+        <Typography variant="body2" sx={{ fontWeight: 700 }} noWrap title={tituloRegistro(registro)}>
+          {tituloRegistro(registro)}
+        </Typography>
+        <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block' }}>
+          {registro.tipo_registro.descricao}
+          {vinculo && vinculo !== tituloRegistro(registro) ? ` · ${vinculo}` : ''}
+        </Typography>
+        {previaValores && (
+          <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block' }}>
+            {previaValores}
+          </Typography>
+        )}
+        <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.75 }}>
+          {registro.ruptura && <Chip label="Ruptura" color="error" size="small" sx={{ height: 22 }} />}
+          {registro.pontuacao !== null && (
+            <Chip label={`${registro.pontuacao}% compliance`} color="warning" size="small" variant="outlined" sx={{ height: 22 }} />
+          )}
+          {(registro.comentarios_count ?? 0) > 0 && (
+            <Chip
+              icon={<ChatBubbleOutlinedIcon sx={{ fontSize: 14 }} />}
+              label={registro.comentarios_count}
+              size="small"
+              variant="outlined"
+              sx={{ height: 22 }}
+              color={(registro.comentarios_novos ?? 0) > 0 ? 'primary' : 'default'}
+            />
+          )}
         </Box>
-      </CardActionArea>
-    </Card>
+      </Box>
+    </Paper>
   );
 }
 
@@ -390,6 +421,294 @@ function RegistroDetalheDialog({
   );
 }
 
+// Título de seção dentro de um card — ícone + rótulo, mesmo peso visual em todos os blocos.
+function TituloCard({ icone, titulo, acao }: { icone: ReactNode; titulo: string; acao?: ReactNode }) {
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 2, py: 1.5 }}>
+      <Box sx={{ color: 'text.secondary', display: 'flex' }}>{icone}</Box>
+      <Typography variant="subtitle2" sx={{ fontWeight: 700, flexGrow: 1 }}>
+        {titulo}
+      </Typography>
+      {acao}
+    </Box>
+  );
+}
+
+function Legenda({ cor, rotulo }: { cor: string; rotulo: string }) {
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+      <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: cor }} />
+      <Typography variant="caption" color="text.secondary">
+        {rotulo}
+      </Typography>
+    </Box>
+  );
+}
+
+// Selo de distância até a loja — verde dentro do raio de check-in, âmbar fora. Sem raio (empresa
+// desativou o limite), só mostra a distância.
+function SeloDistancia({ metros, raio }: { metros: number; raio: number | null | undefined }) {
+  if (raio == null) {
+    return <Chip size="small" variant="outlined" label={`${formatarDistancia(metros)} da loja`} sx={{ height: 22 }} />;
+  }
+  const dentro = metros <= raio;
+  return (
+    <Chip
+      size="small"
+      color={dentro ? 'success' : 'warning'}
+      variant="outlined"
+      label={`${formatarDistancia(metros)} · ${dentro ? 'dentro do raio' : 'fora do raio'}`}
+      title={`Raio de check-in atual da empresa: ${Math.round(raio)} m`}
+      sx={{ height: 22 }}
+    />
+  );
+}
+
+// Jornada — linha do tempo vertical check-in → permanência → checkout.
+function Jornada({ visita, raio }: { visita: Visita; raio: number | null | undefined }) {
+  const finalizada = !!visita.fim_data;
+  const cancelada = visita.status === 'CANCELADA';
+
+  const etapa = (cor: string, ativo: boolean, conteudo: ReactNode, ultimo = false) => (
+    <Box sx={{ display: 'grid', gridTemplateColumns: '20px 1fr', columnGap: 1.5 }}>
+      <Box sx={{ position: 'relative', display: 'flex', justifyContent: 'center' }}>
+        {!ultimo && <Box sx={{ position: 'absolute', top: 18, bottom: -6, width: '2px', bgcolor: 'divider' }} />}
+        <Box
+          sx={{
+            mt: 0.5,
+            width: 14,
+            height: 14,
+            borderRadius: '50%',
+            bgcolor: ativo ? cor : 'background.paper',
+            border: '3px solid',
+            borderColor: ativo ? alpha(cor, 0.3) : 'divider',
+            boxSizing: 'content-box',
+            zIndex: 1,
+          }}
+        />
+      </Box>
+      <Box sx={{ pb: ultimo ? 0 : 2 }}>{conteudo}</Box>
+    </Box>
+  );
+
+  return (
+    <Box sx={{ px: 2, pb: 2 }}>
+      {etapa(
+        CORES_MAPA_VISITA.checkin,
+        true,
+        <>
+          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.4 }}>
+            Check-in
+          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, flexWrap: 'wrap' }}>
+            <Typography variant="h5" sx={{ fontWeight: 800, lineHeight: 1.2 }}>
+              {formatarHora(visita.inicio_data)}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {formatarDataLonga(visita.inicio_data)}
+            </Typography>
+          </Box>
+          <Box sx={{ mt: 0.5 }}>
+            <SeloDistancia metros={visita.inicio_distancia_metros} raio={raio} />
+          </Box>
+        </>,
+      )}
+      {etapa(
+        '#94a3b8',
+        false,
+        <Box
+          sx={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 0.75,
+            px: 1.25,
+            py: 0.5,
+            borderRadius: 5,
+            bgcolor: (t) => alpha(t.palette.primary.main, 0.08),
+            color: 'primary.dark',
+          }}
+        >
+          <Typography variant="body2" sx={{ fontWeight: 700 }}>
+            {cancelada && !finalizada ? '—' : formatarDuracao(visita.inicio_data, visita.fim_data)}
+          </Typography>
+          <Typography variant="caption">
+            {finalizada ? 'de permanência' : cancelada ? 'visita cancelada' : 'em andamento'}
+          </Typography>
+        </Box>,
+      )}
+      {etapa(
+        CORES_MAPA_VISITA.checkout,
+        finalizada,
+        <>
+          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.4 }}>
+            Check-out
+          </Typography>
+          {visita.fim_data ? (
+            <>
+              <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, flexWrap: 'wrap' }}>
+                <Typography variant="h5" sx={{ fontWeight: 800, lineHeight: 1.2 }}>
+                  {formatarHora(visita.fim_data)}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {formatarDataLonga(visita.fim_data)}
+                </Typography>
+              </Box>
+              <Box sx={{ mt: 0.5 }}>
+                {visita.checkout_tipo === 'ADMIN' ? (
+                  <Chip size="small" color="info" variant="outlined" label="Forçado pelo admin (sem GPS)" sx={{ height: 22 }} />
+                ) : visita.fim_distancia_metros != null ? (
+                  <SeloDistancia metros={visita.fim_distancia_metros} raio={raio} />
+                ) : null}
+              </Box>
+            </>
+          ) : (
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
+              {cancelada ? 'Sem checkout' : 'Ainda não finalizada'}
+            </Typography>
+          )}
+        </>,
+        true,
+      )}
+    </Box>
+  );
+}
+
+function Indicador({
+  icone,
+  valor,
+  rotulo,
+  cor,
+}: {
+  icone: ReactNode;
+  valor: string | number;
+  rotulo: string;
+  cor?: 'error' | 'warning' | 'primary';
+}) {
+  return (
+    <Paper variant="outlined" sx={{ ...CARD_SX, p: 1.5, display: 'flex', alignItems: 'center', gap: 1.25 }}>
+      <Box
+        sx={{
+          width: 36,
+          height: 36,
+          borderRadius: 1,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+          color: cor ? `${cor}.main` : 'text.secondary',
+          bgcolor: (t) => (cor ? alpha(t.palette[cor].main, 0.1) : t.palette.action.hover),
+        }}
+      >
+        {icone}
+      </Box>
+      <Box sx={{ minWidth: 0 }}>
+        <Typography variant="h6" sx={{ fontWeight: 800, lineHeight: 1.1, color: cor ? `${cor}.main` : undefined }}>
+          {valor}
+        </Typography>
+        <Typography variant="caption" color="text.secondary" noWrap>
+          {rotulo}
+        </Typography>
+      </Box>
+    </Paper>
+  );
+}
+
+// Respostas dos formulários direto na página (sem abrir registro por registro) — agrupadas por
+// formulário (TipoRegistro); um formulário respondido pra vários produtos vira um bloco por
+// produto dentro do mesmo card. Só entram registros com ao menos uma pergunta respondida.
+function FormulariosRespondidos({
+  registros,
+  onAbrir,
+}: {
+  registros: VisitaRegistro[];
+  onAbrir: (registro: VisitaRegistro) => void;
+}) {
+  const grupos = useMemo(() => {
+    const porFormulario = new Map<string, { nome: string; registros: VisitaRegistro[] }>();
+    for (const r of registros) {
+      if (r.campos_respondidos.length === 0) continue;
+      const grupo = porFormulario.get(r.tipo_registro.id) ?? { nome: r.tipo_registro.descricao, registros: [] };
+      grupo.registros.push(r);
+      porFormulario.set(r.tipo_registro.id, grupo);
+    }
+    return [...porFormulario.entries()];
+  }, [registros]);
+
+  if (grupos.length === 0) return null;
+
+  return (
+    <Box sx={{ mb: 3 }}>
+      <Typography variant="h6" sx={{ fontWeight: 700, mb: 1.5 }}>
+        Respostas dos formulários
+      </Typography>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: 'repeat(2, minmax(0, 1fr))' }, gap: 2, alignItems: 'start' }}>
+        {grupos.map(([id, grupo]) => {
+          const pontuados = grupo.registros.filter((r) => r.pontuacao !== null);
+          const media = pontuados.length
+            ? Math.round(pontuados.reduce((s, r) => s + (r.pontuacao ?? 0), 0) / pontuados.length)
+            : null;
+
+          return (
+            <Paper key={id} variant="outlined" sx={CARD_SX}>
+              <TituloCard
+                icone={<FactCheckOutlinedIcon fontSize="small" />}
+                titulo={grupo.nome}
+                acao={
+                  <Box sx={{ display: 'flex', gap: 0.75 }}>
+                    {grupo.registros.length > 1 && (
+                      <Chip size="small" variant="outlined" label={`${grupo.registros.length} respostas`} sx={{ height: 22 }} />
+                    )}
+                    {media !== null && (
+                      <Chip size="small" color="warning" variant="outlined" label={`${media}% compliance`} sx={{ height: 22 }} />
+                    )}
+                  </Box>
+                }
+              />
+              <Divider />
+              <Stack spacing={2} sx={{ p: 2 }}>
+                {grupo.registros.map((r) => {
+                  const titulo = tituloRegistro(r);
+                  return (
+                    <Box key={r.id}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, flexWrap: 'wrap' }}>
+                        {titulo !== grupo.nome && (
+                          <Typography variant="body2" sx={{ fontWeight: 700, flexGrow: 1 }}>
+                            {titulo}
+                          </Typography>
+                        )}
+                        {r.ruptura && <Chip label="Ruptura" color="error" size="small" sx={{ height: 22 }} />}
+                        {grupo.registros.length > 1 && r.pontuacao !== null && (
+                          <Chip label={`${r.pontuacao}%`} color="warning" size="small" variant="outlined" sx={{ height: 22 }} />
+                        )}
+                        <Box sx={{ flexGrow: titulo !== grupo.nome ? 0 : 1 }} />
+                        <Button
+                          size="small"
+                          sx={{ textTransform: 'none' }}
+                          startIcon={(r.comentarios_count ?? 0) > 0 ? <ChatBubbleOutlinedIcon fontSize="small" /> : <ImageOutlinedIcon fontSize="small" />}
+                          onClick={() => onAbrir(r)}
+                        >
+                          {r.imagens.length > 0 ? `${r.imagens.length} foto(s)` : 'Detalhes'}
+                          {(r.comentarios_count ?? 0) > 0 ? ` · ${r.comentarios_count} coment.` : ''}
+                        </Button>
+                      </Box>
+                      <CamposRespondidos campos={r.campos_respondidos} />
+                      {r.observacao && (
+                        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                          <strong>Obs.:</strong> {r.observacao}
+                        </Typography>
+                      )}
+                    </Box>
+                  );
+                })}
+              </Stack>
+            </Paper>
+          );
+        })}
+      </Box>
+    </Box>
+  );
+}
+
 type DialogAberto = 'cancelar' | 'forcar' | 'corrigir' | null;
 type Filtro = 'todos' | 'ruptura' | 'comentarios';
 
@@ -414,20 +733,25 @@ export function VisitaDetailPage() {
   const [registroAberto, setRegistroAberto] = useState<VisitaRegistro | null>(null);
 
   const visita = visitaQuery.data?.visita;
+  const raio = visitaQuery.data?.raio_checkin_metros;
 
   // Hook sempre chamado, mesmo antes de saber se a visita carregou — Rules of Hooks não
   // permite pular a chamada num render e chamar no outro.
   const cabecalho = usePageHeader(
-    visita ? (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+      <IconButton size="small" onClick={() => navigate('/visitas')} title="Voltar para Visitas">
+        <ArrowBackIcon fontSize="small" />
+      </IconButton>
       <Typography variant="h6" noWrap sx={{ fontWeight: 700 }}>
-        {visita.ponto_venda?.fantasia}
+        Detalhe da visita
       </Typography>
-    ) : null,
+    </Box>,
   );
 
   const registrosValidos = useMemo(() => (visita?.registros ?? []).filter((r) => !r.cancelado_em), [visita?.registros]);
   const nRupturas = useMemo(() => registrosValidos.filter((r) => r.ruptura).length, [registrosValidos]);
   const nComComentarios = useMemo(() => registrosValidos.filter((r) => (r.comentarios_count ?? 0) > 0).length, [registrosValidos]);
+  const nFotos = useMemo(() => registrosValidos.reduce((soma, r) => soma + r.imagens.length, 0), [registrosValidos]);
   const compliance = useMemo(() => {
     const pontuados = registrosValidos.filter((r) => r.pontuacao !== null);
     if (pontuados.length === 0) return null;
@@ -495,104 +819,217 @@ export function VisitaDetailPage() {
   if (visitaQuery.isLoading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+        {cabecalho}
         <CircularProgress />
       </Box>
     );
   }
 
   if (visitaQuery.isError || !visita) {
-    return <Typography color="error">Visita não encontrada.</Typography>;
+    return (
+      <Box>
+        {cabecalho}
+        <Typography color="error">Visita não encontrada.</Typography>
+      </Box>
+    );
   }
 
   // Gating só por user_type (mesmo padrão do AppLayout) — o backend é a trava real da permissão
   // visitas.intervir; um GESTOR sem ela no perfil vê os botões mas recebe 403 no diálogo.
   const podeIntervir = usuario?.user_type === 'ADMIN' || usuario?.user_type === 'GESTOR';
   const intervencoes = visita.intervencoes ?? [];
+  const pdv = visita.ponto_venda;
+
+  const pontoLoja =
+    pdv?.latitude != null && pdv.longitude != null
+      ? { latitude: pdv.latitude, longitude: pdv.longitude, rotulo: pdv.fantasia, detalhe: pdv.endereco ?? undefined }
+      : null;
+  const pontoCheckin = {
+    latitude: visita.inicio_latitude,
+    longitude: visita.inicio_longitude,
+    rotulo: `Check-in · ${formatarHora(visita.inicio_data)}`,
+    detalhe: `${formatarDistancia(visita.inicio_distancia_metros)} da loja`,
+  };
+  // Checkout forçado pelo admin não tem GPS — sem pino.
+  const pontoCheckout =
+    visita.fim_data && visita.fim_latitude != null && visita.fim_longitude != null
+      ? {
+          latitude: visita.fim_latitude,
+          longitude: visita.fim_longitude,
+          rotulo: `Check-out · ${formatarHora(visita.fim_data)}`,
+          detalhe: visita.fim_distancia_metros != null ? `${formatarDistancia(visita.fim_distancia_metros)} da loja` : undefined,
+        }
+      : null;
 
   return (
-    <Box>
+    <Box sx={{ maxWidth: 1400, mx: 'auto' }}>
       {cabecalho}
-      <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/visitas')} sx={{ mb: 2 }}>
-        Voltar
-      </Button>
 
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2, flexWrap: 'wrap' }}>
-        <Chip label={STATUS_LABELS[visita.status]} color={STATUS_COLORS[visita.status]} />
-        {visita.checkout_tipo === 'ADMIN' && (
-          <Chip label="Checkout feito pelo admin" color="info" size="small" variant="outlined" />
-        )}
-        <Box sx={{ flexGrow: 1 }} />
-        {podeIntervir && visita.status === 'ABERTA' && (
-          <>
-            <Button variant="outlined" onClick={() => abrirDialog('forcar')}>
-              Forçar checkout
-            </Button>
-            <Button variant="outlined" color="error" onClick={() => abrirDialog('cancelar')}>
-              Cancelar visita
-            </Button>
-          </>
-        )}
-        {podeIntervir && visita.status === 'FINALIZADA' && (
-          <>
-            <Button variant="outlined" onClick={() => abrirDialog('corrigir')}>
-              Corrigir horários
-            </Button>
-            <Button variant="outlined" color="error" onClick={() => abrirDialog('cancelar')}>
-              Cancelar visita
-            </Button>
-          </>
-        )}
-      </Box>
-
-      {/* Timeline check-in/checkout, estilo do app mobile — ver mobile/src/screens/VisitaDetalheScreen.tsx */}
-      <Paper sx={{ p: 2.5, mb: 2, display: 'flex', alignItems: 'center' }}>
-        <Box sx={{ flex: 1 }}>
-          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>Check-in</Typography>
-          <Typography variant="h5" sx={{ fontWeight: 800, lineHeight: 1.2 }}>{formatarHora(visita.inicio_data)}</Typography>
-          <Typography variant="caption" color="text.secondary">
-            {formatarData(visita.inicio_data)} · {Math.round(visita.inicio_distancia_metros)}m do PDV
-          </Typography>
-        </Box>
-        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5, px: 2 }}>
-          {visita.fim_data && (
-            <Chip label={formatarDuracao(visita.inicio_data, visita.fim_data)} size="small" color="primary" sx={{ fontWeight: 700 }} />
+      {/* Cabeçalho da visita — loja, promotor, status e ações. */}
+      <Paper variant="outlined" sx={{ ...CARD_SX, p: 2.5, mb: 2, display: 'flex', alignItems: 'center', gap: 2.5, flexWrap: 'wrap' }}>
+        <Box
+          sx={{
+            width: 72,
+            height: 72,
+            borderRadius: 1.25,
+            overflow: 'hidden',
+            flexShrink: 0,
+            bgcolor: (t) => alpha(t.palette.primary.main, 0.08),
+            color: 'primary.main',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          {pdv?.fachada_url ? (
+            <AutenticatedImage url={pdv.fachada_url} alt={pdv.fantasia} sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          ) : (
+            <StorefrontOutlinedIcon sx={{ fontSize: 34 }} />
           )}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: 'primary.main' }} />
-            <Box sx={{ width: 32, height: 2, bgcolor: 'primary.light' }} />
-            <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: visita.fim_data ? 'primary.main' : 'divider' }} />
+        </Box>
+
+        <Box sx={{ flex: '1 1 320px', minWidth: 0 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+            {pdv ? (
+              <MuiLink
+                component={RouterLink}
+                to={`/pontos-venda/${pdv.id}`}
+                underline="hover"
+                color="inherit"
+                variant="h5"
+                sx={{ fontWeight: 800, lineHeight: 1.2 }}
+              >
+                {pdv.fantasia}
+              </MuiLink>
+            ) : (
+              <Typography variant="h5" sx={{ fontWeight: 800 }}>—</Typography>
+            )}
+            <Chip label={STATUS_LABELS[visita.status]} color={STATUS_COLORS[visita.status]} size="small" />
           </Box>
+          {pdv?.razao_social && (
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
+              {pdv.razao_social}
+            </Typography>
+          )}
+          {/* Endereço inteiro, quebrando linha se precisar — nunca cortado com reticências. */}
+          {pdv?.endereco && (
+            <Typography variant="body2" color="text.secondary" sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5 }}>
+              <PlaceOutlinedIcon sx={{ fontSize: 16, mt: '2px', flexShrink: 0 }} />
+              {pdv.endereco}
+            </Typography>
+          )}
+          {(visita.ordem_servico || visita.campanha || visita.checkout_tipo === 'ADMIN') && (
+            <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap', mt: 1 }}>
+              {visita.ordem_servico && (
+                <Chip size="small" variant="outlined" icon={<EventNoteOutlinedIcon />} label="Veio de uma Ordem de Serviço" />
+              )}
+              {visita.campanha && (
+                <Chip size="small" variant="outlined" icon={<CampaignOutlinedIcon />} label={visita.campanha.descricao} />
+              )}
+              {visita.checkout_tipo === 'ADMIN' && (
+                <Chip size="small" variant="outlined" color="info" label="Checkout feito pelo admin" />
+              )}
+            </Box>
+          )}
         </Box>
-        <Box sx={{ flex: 1, textAlign: 'right' }}>
-          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>Check-out</Typography>
-          <Typography variant="h5" sx={{ fontWeight: 800, lineHeight: 1.2 }}>
-            {visita.fim_data ? formatarHora(visita.fim_data) : '—'}
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            {visita.fim_data
-              ? visita.checkout_tipo === 'ADMIN'
-                ? 'forçado pelo admin (sem GPS)'
-                : `${formatarData(visita.fim_data)} · ${Math.round(visita.fim_distancia_metros ?? 0)}m do PDV`
-              : 'Ainda não finalizada'}
-          </Typography>
-        </Box>
+
+        {visita.usuario && (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, pr: 1 }}>
+            <UsuarioAvatar nome={visita.usuario.nome} fotoUrl={visita.usuario.foto_url} size={40} />
+            <Box>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1.2 }}>
+                Promotor
+              </Typography>
+              <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                {visita.usuario.nome}
+              </Typography>
+            </Box>
+          </Box>
+        )}
+
+        {podeIntervir && visita.status !== 'CANCELADA' && (
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            {visita.status === 'ABERTA' && (
+              <Button variant="outlined" onClick={() => abrirDialog('forcar')}>
+                Forçar checkout
+              </Button>
+            )}
+            {visita.status === 'FINALIZADA' && (
+              <Button variant="outlined" onClick={() => abrirDialog('corrigir')}>
+                Corrigir horários
+              </Button>
+            )}
+            <Button variant="text" color="error" onClick={() => abrirDialog('cancelar')}>
+              Cancelar visita
+            </Button>
+          </Box>
+        )}
       </Paper>
 
-      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 1.5, mb: 2 }}>
-        <Paper sx={{ p: 1.5 }}>
-          <Typography variant="h5" sx={{ fontWeight: 800 }}>{registrosValidos.length}</Typography>
-          <Typography variant="caption" color="text.secondary">Registros</Typography>
+      {/* Mapa (esquerda) + jornada e indicadores (direita). */}
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 1.6fr) minmax(320px, 1fr)' },
+          gap: 2,
+          mb: 3,
+        }}
+      >
+        <Paper variant="outlined" sx={{ ...CARD_SX, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          <TituloCard
+            icone={<MapOutlinedIcon fontSize="small" />}
+            titulo="Localização"
+            acao={
+              <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
+                {pontoLoja && <Legenda cor={CORES_MAPA_VISITA.loja} rotulo="Loja" />}
+                <Legenda cor={CORES_MAPA_VISITA.checkin} rotulo="Check-in" />
+                {pontoCheckout && <Legenda cor={CORES_MAPA_VISITA.checkout} rotulo="Check-out" />}
+              </Box>
+            }
+          />
+          <Divider />
+          <Box sx={{ flexGrow: 1 }}>
+            <MapaVisita loja={pontoLoja} checkin={pontoCheckin} checkout={pontoCheckout} raioMetros={raio} altura={400} />
+          </Box>
+          {(raio != null || !pontoLoja) && (
+            <>
+              <Divider />
+              <Typography variant="caption" color="text.secondary" sx={{ px: 2, py: 1 }}>
+                {!pontoLoja
+                  ? 'A loja não tem localização cadastrada — só os pontos de check-in/checkout aparecem no mapa.'
+                  : `Círculo tracejado = raio de check-in atual da empresa (${Math.round(raio!)} m). Role com Ctrl para dar zoom.`}
+              </Typography>
+            </>
+          )}
         </Paper>
-        <Paper sx={{ p: 1.5, bgcolor: compliance !== null ? '#fffbeb' : undefined }}>
-          <Typography variant="h5" sx={{ fontWeight: 800 }}>{compliance !== null ? `${compliance}%` : '—'}</Typography>
-          <Typography variant="caption" color="text.secondary">Compliance</Typography>
-        </Paper>
-        <Paper sx={{ p: 1.5, bgcolor: nRupturas > 0 ? '#fef2f2' : undefined }}>
-          <Typography variant="h5" sx={{ fontWeight: 800, color: nRupturas > 0 ? 'error.main' : undefined }}>{nRupturas}</Typography>
-          <Typography variant="caption" color="text.secondary">Rupturas</Typography>
-        </Paper>
+
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Paper variant="outlined" sx={CARD_SX}>
+            <TituloCard icone={<InsightsOutlinedIcon fontSize="small" />} titulo="Jornada" />
+            <Jornada visita={visita} raio={raio} />
+          </Paper>
+          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5 }}>
+            <Indicador icone={<AssignmentTurnedInOutlinedIcon fontSize="small" />} valor={registrosValidos.length} rotulo="Registros" cor="primary" />
+            <Indicador icone={<ImageOutlinedIcon fontSize="small" />} valor={nFotos} rotulo="Fotos" />
+            <Indicador
+              icone={<InsightsOutlinedIcon fontSize="small" />}
+              valor={compliance !== null ? `${compliance}%` : '—'}
+              rotulo="Compliance"
+              cor={compliance !== null ? 'warning' : undefined}
+            />
+            <Indicador
+              icone={<RemoveShoppingCartOutlinedIcon fontSize="small" />}
+              valor={nRupturas}
+              rotulo="Rupturas"
+              cor={nRupturas > 0 ? 'error' : undefined}
+            />
+          </Box>
+        </Box>
       </Box>
 
+      <FormulariosRespondidos registros={registrosValidos} onAbrir={setRegistroAberto} />
+
+      {/* Registros */}
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5, flexWrap: 'wrap', gap: 1 }}>
         <Typography variant="h6" sx={{ fontWeight: 700 }}>
           Registros
@@ -602,6 +1039,7 @@ export function VisitaDetailPage() {
           exclusive
           value={filtro}
           onChange={(_, valor) => valor && setFiltro(valor)}
+          sx={{ '& .MuiToggleButton-root': { textTransform: 'none', px: 1.5 } }}
         >
           <ToggleButton value="todos">Todos ({registrosValidos.length})</ToggleButton>
           <ToggleButton value="ruptura">Rupturas ({nRupturas})</ToggleButton>
@@ -609,45 +1047,48 @@ export function VisitaDetailPage() {
         </ToggleButtonGroup>
       </Box>
 
-      {registrosFiltrados.length === 0 && (
-        <Typography color="text.secondary" sx={{ mb: 2 }}>Nenhum registro nesse filtro.</Typography>
+      {registrosFiltrados.length === 0 ? (
+        <Paper variant="outlined" sx={{ ...CARD_SX, p: 4, mb: 3, textAlign: 'center', borderStyle: 'dashed' }}>
+          <Typography color="text.secondary">Nenhum registro nesse filtro.</Typography>
+        </Paper>
+      ) : (
+        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 1.5, mb: 3 }}>
+          {registrosFiltrados.map((registro) => (
+            <RegistroCard key={registro.id} registro={registro} onAbrir={() => setRegistroAberto(registro)} />
+          ))}
+        </Box>
       )}
 
-      <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 1.5, mb: 3 }}>
-        {registrosFiltrados.map((registro) => (
-          <RegistroCard key={registro.id} registro={registro} onAbrir={() => setRegistroAberto(registro)} />
-        ))}
-      </Box>
-
+      {/* Intervenções administrativas — log de auditoria (docs/15). */}
       {intervencoes.length > 0 && (
-        <Paper sx={{ p: 3, mb: 3 }}>
-          <Typography variant="h6" gutterBottom>
-            Intervenções administrativas
-          </Typography>
-          <TableContainer>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Quando</TableCell>
-                  <TableCell>Ação</TableCell>
-                  <TableCell>Por</TableCell>
-                  <TableCell>O que mudou</TableCell>
-                  <TableCell>Motivo</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {intervencoes.map((i) => (
-                  <TableRow key={i.id}>
-                    <TableCell>{new Date(i.created_at).toLocaleString('pt-BR')}</TableCell>
-                    <TableCell>{ACAO_LABELS[i.acao]}</TableCell>
-                    <TableCell>{i.usuario?.nome ?? '—'}</TableCell>
-                    <TableCell>{i.descricao}</TableCell>
-                    <TableCell>{i.motivo}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
+        <Paper variant="outlined" sx={{ ...CARD_SX, mb: 3 }}>
+          <TituloCard
+            icone={<EventNoteOutlinedIcon fontSize="small" />}
+            titulo="Intervenções administrativas"
+            acao={<Chip size="small" label={intervencoes.length} sx={{ height: 20 }} />}
+          />
+          <Divider />
+          {intervencoes.map((i, idx) => (
+            <Box key={i.id}>
+              {idx > 0 && <Divider />}
+              <Box sx={{ px: 2, py: 1.5, display: 'grid', gridTemplateColumns: { xs: '1fr', md: '180px 1fr' }, gap: 1 }}>
+                <Box>
+                  <Chip size="small" label={ACAO_LABELS[i.acao]} variant="outlined" sx={{ height: 22, mb: 0.5 }} />
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                    {new Date(i.created_at).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
+                    {' · '}
+                    {i.usuario?.nome ?? '—'}
+                  </Typography>
+                </Box>
+                <Box>
+                  <Typography variant="body2">{i.descricao}</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Motivo: {i.motivo}
+                  </Typography>
+                </Box>
+              </Box>
+            </Box>
+          ))}
         </Paper>
       )}
 

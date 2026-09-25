@@ -22,6 +22,8 @@ import { OrdensServicoListPage } from './pages/ordensServico/OrdensServicoListPa
 import { ParametrosListPage } from './pages/parametros/ParametrosListPage';
 import { PerfisListPage } from './pages/perfis/PerfisListPage';
 import { PlanejadorVisitasPage } from './pages/planejadorVisitas/PlanejadorVisitasPage';
+import { PlanoAcaoDetailPage } from './pages/planosAcao/PlanoAcaoDetailPage';
+import { PlanosAcaoListPage } from './pages/planosAcao/PlanosAcaoListPage';
 import { RespostasFormularioPage } from './pages/relatorios/RespostasFormularioPage';
 import { VisitasPlanejadasPage } from './pages/relatorios/VisitasPlanejadasPage';
 import { RastreamentoPage } from './pages/rastreamento/RastreamentoPage';
@@ -53,6 +55,10 @@ export function App() {
           <Route path="/pontos-venda" element={<PontosVendaListPage />} />
           <Route path="/atividades" element={<AtividadesPage />} />
           <Route path="/galeria-fotos" element={<GaleriaFotosPage />} />
+          {/* Planos de Ação (docs/37-PLANOS-DE-ACAO.md) — nascem de um alerta no Painel de
+              Atividades; a criação é um diálogo lá, não uma rota própria. */}
+          <Route path="/planos-acao" element={<PlanosAcaoListPage />} />
+          <Route path="/planos-acao/:publicId" element={<PlanoAcaoDetailPage />} />
           <Route path="/pontos-venda/:publicId" element={<PontoVendaDetailPage />} />
           <Route path="/catalogo" element={<CatalogoPage />} />
           <Route path="/redes-lojas" element={<RedesLojasListPage />} />
