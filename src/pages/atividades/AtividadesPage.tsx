@@ -6,6 +6,7 @@ import LogoutIcon from '@mui/icons-material/Logout';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import RoomIcon from '@mui/icons-material/Room';
+import TaskAltIcon from '@mui/icons-material/TaskAlt';
 import {
   Autocomplete,
   Box,
@@ -38,6 +39,7 @@ import { listarPontosVenda } from '../../lib/api/pontosVenda';
 import { listarTiposRegistro } from '../../lib/api/tiposRegistro';
 import { listarUsuarios } from '../../lib/api/usuarios';
 import type { AtividadeEvento } from '../../types/api';
+import { NovoPlanoAcaoDialog, type AlertaOrigem } from '../planosAcao/NovoPlanoAcaoDialog';
 
 function hojeISO(): string {
   return new Date().toISOString().slice(0, 10);
@@ -70,6 +72,8 @@ export function AtividadesPage() {
   // (achatadas — ver achatarFotos) daquele evento específico + o índice atual (pra navegar
   // prev/próxima e mostrar a informação do registro junto da imagem).
   const [galeria, setGaleria] = useState<{ fotos: FotoComRegistro[]; indice: number } | null>(null);
+  // Alerta pra qual o diálogo "Abrir Plano de Ação" está aberto (docs/37-PLANOS-DE-ACAO.md).
+  const [alertaPlano, setAlertaPlano] = useState<AlertaOrigem | null>(null);
 
   const usuariosQuery = useQuery({
     queryKey: ['usuarios', 'promotores'],
@@ -367,6 +371,16 @@ export function AtividadesPage() {
                   requerResolucao={requerResolucao}
                   resolvendo={resolverMutation.isPending}
                   onResolver={(visitaUuid, registroUuid) => resolverMutation.mutate({ visitaUuid, registroUuid })}
+                  onAbrirPlano={(e) =>
+                    e.registro &&
+                    setAlertaPlano({
+                      registroUuid: e.registro.id,
+                      tipo: e.registro.tipo_registro.descricao,
+                      produto: e.registro.produto_auditoria?.descricao,
+                      pontoVenda: e.ponto_venda?.fantasia,
+                      observacao: e.registro.observacao,
+                    })
+                  }
                   onAbrirImagem={(fotos, indiceImagem) => setGaleria({ fotos, indice: indiceImagem })}
                 />
               ))}
@@ -374,6 +388,8 @@ export function AtividadesPage() {
           ))}
         </Box>
       </InfiniteScroll>
+
+      <NovoPlanoAcaoDialog open={!!alertaPlano} alerta={alertaPlano} onClose={() => setAlertaPlano(null)} />
 
       {galeria && (
         <GaleriaDialog
@@ -438,6 +454,7 @@ function EventoLinha(props: {
   requerResolucao: boolean;
   resolvendo: boolean;
   onResolver: (visitaUuid: string, registroUuid: string) => void;
+  onAbrirPlano: (evento: AtividadeEvento) => void;
   onAbrirImagem: (fotos: FotoComRegistro[], indice: number) => void;
 }) {
   const { evento } = props;
@@ -478,6 +495,7 @@ function EventoCard({
   requerResolucao,
   resolvendo,
   onResolver,
+  onAbrirPlano,
   onAbrirImagem,
   cores,
 }: {
@@ -485,6 +503,7 @@ function EventoCard({
   requerResolucao: boolean;
   resolvendo: boolean;
   onResolver: (visitaUuid: string, registroUuid: string) => void;
+  onAbrirPlano: (evento: AtividadeEvento) => void;
   onAbrirImagem: (fotos: FotoComRegistro[], indice: number) => void;
   cores: CorEvento;
 }) {
@@ -638,7 +657,25 @@ function EventoCard({
             />
           )}
           {evento.tipo_evento === 'ALERTA' && registro && (
-            <>
+            // Convivência (docs/37-PLANOS-DE-ACAO.md §4.8): "Abrir Plano de Ação" é a ação
+            // primária pro que precisa de acompanhamento multi-etapa; "Marcar como resolvido" (o
+            // boolean de sempre, já loga quem clicou) continua pro alerta trivial.
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+              {registro.plano_acao_ativo ? (
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={<TaskAltIcon />}
+                  component={RouterLink}
+                  to={`/planos-acao/${registro.plano_acao_ativo.id}`}
+                >
+                  Ver plano de ação
+                </Button>
+              ) : !resolvido ? (
+                <Button size="small" variant="contained" disableElevation onClick={() => onAbrirPlano(evento)}>
+                  Abrir Plano de Ação
+                </Button>
+              ) : null}
               {resolvido ? (
                 <Chip
                   icon={<CheckCircleIcon />}
@@ -646,18 +683,18 @@ function EventoCard({
                   color="success"
                   size="small"
                 />
-              ) : requerResolucao ? (
+              ) : requerResolucao && !registro.plano_acao_ativo ? (
                 <Button
                   size="small"
-                  variant="outlined"
-                  color="error"
+                  color="inherit"
+                  sx={{ color: 'text.secondary' }}
                   disabled={resolvendo}
                   onClick={() => onResolver(evento.visita.id, registro.id)}
                 >
-                  Resolver
+                  Marcar como resolvido
                 </Button>
               ) : null}
-            </>
+            </Box>
           )}
         </Box>
         <Button size="small" component={RouterLink} to={`/visitas/${evento.visita.id}`} endIcon={<ArrowForwardIcon fontSize="small" />}>

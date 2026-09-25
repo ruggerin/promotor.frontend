@@ -1,4 +1,6 @@
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutlined';
 import DownloadIcon from '@mui/icons-material/Download';
+import TaskAltIcon from '@mui/icons-material/TaskAlt';
 import ForumIcon from '@mui/icons-material/Forum';
 import InventoryIcon from '@mui/icons-material/Inventory';
 import PlaylistAddIcon from '@mui/icons-material/PlaylistAdd';
@@ -11,6 +13,10 @@ import {
   Button,
   Chip,
   CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   LinearProgress,
   Paper,
   Table,
@@ -24,7 +30,7 @@ import {
   Typography,
 } from '@mui/material';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePageHeader } from '../../components/layout/PageHeaderSlot';
 import { UsuarioAvatar } from '../../components/UsuarioAvatar';
@@ -39,6 +45,7 @@ import {
   type TipoItemFilaAcoes,
 } from '../../lib/api/operacaoDoDia';
 import { OrdemServicoFormDialog } from '../ordensServico/OrdemServicoFormDialog';
+import { NovoPlanoAcaoDialog, type AlertaOrigem } from '../planosAcao/NovoPlanoAcaoDialog';
 
 // Painel "Operação do dia" — docs/32-PAINEL-OPERACAO-DO-DIA.md. Fase 2 (esta tela) consome o
 // endpoint agregador da Fase 1 (GET /operacao-do-dia). "Mensagem à equipe" (Fase 4) segue
@@ -185,8 +192,26 @@ export function OperacaoDoDiaPage() {
 
   const resolverAlertaMutation = useMutation({
     mutationFn: (item: ItemFilaAcoes) => resolverAlerta(item.registro!.visita_id, item.registro!.id),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['operacao-do-dia', dataSelecionada] }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['operacao-do-dia', dataSelecionada] });
+      setAlertaEscolha(null);
+    },
   });
+  // "Resolver" pergunta antes: abrir um Plano de Ação (acompanhamento multi-etapa) ou só marcar
+  // como resolvido (o boolean de sempre) — docs/37-PLANOS-DE-ACAO.md §4.8.
+  const [alertaEscolha, setAlertaEscolha] = useState<ItemFilaAcoes | null>(null);
+  const [alertaPlano, setAlertaPlano] = useState<AlertaOrigem | null>(null);
+
+  function abrirPlanoDoAlerta(item: ItemFilaAcoes) {
+    setAlertaEscolha(null);
+    setAlertaPlano({
+      registroUuid: item.registro!.id,
+      tipo: item.registro!.tipo ?? item.titulo,
+      produto: item.registro!.produto,
+      pontoVenda: item.ponto_venda?.fantasia,
+      observacao: item.registro!.observacao,
+    });
+  }
 
   if (query.isLoading) {
     return (
@@ -422,15 +447,28 @@ export function OperacaoDoDiaPage() {
                   </Typography>
                   {item.tipo === 'ALERTA' && item.registro && (
                     <Box sx={{ mt: 0.5 }}>
-                      <Button
-                        size="small"
-                        variant="text"
-                        sx={{ minWidth: 0, p: '2px 6px', fontSize: 12 }}
-                        disabled={resolverAlertaMutation.isPending}
-                        onClick={() => resolverAlertaMutation.mutate(item)}
-                      >
-                        Resolver
-                      </Button>
+                      {item.registro.plano_acao_ativo ? (
+                        // Já tem plano em andamento — quem fecha o alerta é o plano (docs/37 §13).
+                        <Button
+                          size="small"
+                          variant="text"
+                          startIcon={<TaskAltIcon sx={{ fontSize: '16px !important' }} />}
+                          sx={{ minWidth: 0, p: '2px 6px', fontSize: 12 }}
+                          onClick={() => navigate(`/planos-acao/${item.registro!.plano_acao_ativo!.id}`)}
+                        >
+                          Ver plano de ação
+                        </Button>
+                      ) : (
+                        <Button
+                          size="small"
+                          variant="text"
+                          sx={{ minWidth: 0, p: '2px 6px', fontSize: 12 }}
+                          disabled={resolverAlertaMutation.isPending}
+                          onClick={() => setAlertaEscolha(item)}
+                        >
+                          Resolver
+                        </Button>
+                      )}
                     </Box>
                   )}
                 </Box>
@@ -568,6 +606,89 @@ export function OperacaoDoDiaPage() {
           void queryClient.invalidateQueries({ queryKey: ['operacao-do-dia'] });
         }}
       />
+
+      {/* Resolver alerta: escolha entre abrir Plano de Ação ou só marcar resolvido. */}
+      <Dialog open={!!alertaEscolha} onClose={() => setAlertaEscolha(null)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ pb: 0.5 }}>Como resolver este alerta?</DialogTitle>
+        <DialogContent>
+          {alertaEscolha && (
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              {alertaEscolha.titulo}
+              {alertaEscolha.ponto_venda ? ` · ${alertaEscolha.ponto_venda.fantasia}` : ''}
+            </Typography>
+          )}
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
+            <OpcaoResolucao
+              icone={<TaskAltIcon color="primary" />}
+              titulo="Abrir Plano de Ação"
+              descricao="Precisa de acompanhamento: várias etapas, responsáveis e prazo até resolver de verdade."
+              destaque
+              onClick={() => alertaEscolha && abrirPlanoDoAlerta(alertaEscolha)}
+            />
+            <OpcaoResolucao
+              icone={<CheckCircleOutlineIcon color="success" />}
+              titulo="Só marcar como resolvido"
+              descricao="Já foi resolvido ou é algo simples — some da fila na hora."
+              desabilitado={resolverAlertaMutation.isPending}
+              onClick={() => alertaEscolha && resolverAlertaMutation.mutate(alertaEscolha)}
+            />
+          </Box>
+          {resolverAlertaMutation.isError && (
+            <Alert severity="error" sx={{ mt: 2 }}>
+              Não foi possível marcar como resolvido.
+            </Alert>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setAlertaEscolha(null)}>Voltar</Button>
+        </DialogActions>
+      </Dialog>
+
+      <NovoPlanoAcaoDialog open={!!alertaPlano} alerta={alertaPlano} onClose={() => setAlertaPlano(null)} />
     </Box>
+  );
+}
+
+function OpcaoResolucao({
+  icone,
+  titulo,
+  descricao,
+  destaque,
+  desabilitado,
+  onClick,
+}: {
+  icone: ReactNode;
+  titulo: string;
+  descricao: string;
+  destaque?: boolean;
+  desabilitado?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <Paper
+      variant="outlined"
+      onClick={desabilitado ? undefined : onClick}
+      sx={{
+        p: 1.5,
+        display: 'flex',
+        gap: 1.5,
+        alignItems: 'flex-start',
+        cursor: desabilitado ? 'default' : 'pointer',
+        opacity: desabilitado ? 0.6 : 1,
+        borderColor: destaque ? 'primary.light' : undefined,
+        transition: 'background-color .15s, border-color .15s',
+        '&:hover': desabilitado ? undefined : { borderColor: 'primary.main', bgcolor: 'action.hover' },
+      }}
+    >
+      <Box sx={{ mt: '2px', display: 'flex' }}>{icone}</Box>
+      <Box>
+        <Typography variant="body2" sx={{ fontWeight: 700 }}>
+          {titulo}
+        </Typography>
+        <Typography variant="caption" color="text.secondary">
+          {descricao}
+        </Typography>
+      </Box>
+    </Paper>
   );
 }

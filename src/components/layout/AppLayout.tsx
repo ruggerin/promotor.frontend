@@ -25,6 +25,7 @@ import PeopleIcon from '@mui/icons-material/People';
 import PhotoLibraryIcon from '@mui/icons-material/PhotoLibrary';
 import SecurityIcon from '@mui/icons-material/Security';
 import StoreIcon from '@mui/icons-material/Store';
+import TaskAltIcon from '@mui/icons-material/TaskAlt';
 import TuneIcon from '@mui/icons-material/Tune';
 import WorkIcon from '@mui/icons-material/Work';
 import {
@@ -291,6 +292,17 @@ export function AppLayout() {
                 </Badge>
               </ListItemIcon>
               <ListItemText primary="Atividades" />
+            </ListItemButton>
+          )}
+          {/* Acompanhamento multi-etapa de alertas (docs/37-PLANOS-DE-ACAO.md) — mesmo gate de
+              ADMIN/GESTOR; GESTOR sem planos_acao.visualizar vê o item e a tela trata o 403
+              (o /auth/me não expõe as permissões do perfil, mesmo critério do Mapa ao vivo). */}
+          {(usuario?.user_type === 'ADMIN' || usuario?.user_type === 'GESTOR') && (
+            <ListItemButton component={NavLink} to="/planos-acao" selected={emRota('/planos-acao')}>
+              <ListItemIcon>
+                <TaskAltIcon />
+              </ListItemIcon>
+              <ListItemText primary="Planos de Ação" />
             </ListItemButton>
           )}
           {/* Grade só de fotos (diferente do Atividades, que é timeline de eventos) — mesmo

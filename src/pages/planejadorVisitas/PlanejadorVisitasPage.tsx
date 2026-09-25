@@ -113,9 +113,6 @@ export function PlanejadorVisitasPage() {
     enabled: !!promotorUuid,
   });
   const carteira = useMemo(() => carteiraQuery.data?.pontos_venda ?? [], [carteiraQuery.data]);
-  // AgendaVisita.ponto_venda só traz {id, fantasia} — endereço e mix (sortimento_count) só vêm
-  // no PontoVenda completo da carteira, daí o lookup em vez de usar o objeto aninhado direto.
-  const pdvPorId = useMemo(() => new Map(carteira.map((pdv) => [pdv.id, pdv])), [carteira]);
 
   // Extraída pra variável (em vez de escrita solta no useQuery) porque as três mutations abaixo
   // (criar/mover/remover) precisam apontar pra exatamente esta mesma chave — é nela que fazem o

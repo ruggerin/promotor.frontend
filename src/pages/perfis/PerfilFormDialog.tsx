@@ -47,6 +47,13 @@ const PERMISSOES: { value: Permissao; label: string }[] = [
     value: 'pedidos.gerenciar',
     label: 'Gravar pedidos do ERP (pensada pro integrador externo) — só tem efeito em Gestor',
   },
+  // Planos de Ação (docs/37-PLANOS-DE-ACAO.md §6) — fatiadas por ação: quem movimenta etapa no dia
+  // a dia não é necessariamente quem pode dar o problema como resolvido (concluir).
+  { value: 'planos_acao.visualizar', label: 'Planos de Ação — visualizar lista e detalhe' },
+  { value: 'planos_acao.criar', label: 'Planos de Ação — abrir plano a partir de um alerta' },
+  { value: 'planos_acao.movimentar_etapa', label: 'Planos de Ação — movimentar etapa (marcar feita, anexar evidência, bloquear)' },
+  { value: 'planos_acao.concluir', label: 'Planos de Ação — concluir o plano (confirmar que o problema foi resolvido)' },
+  { value: 'planos_acao.cancelar', label: 'Planos de Ação — cancelar o plano' },
 ];
 
 const schema = z.object({

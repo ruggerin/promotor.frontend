@@ -38,7 +38,16 @@ export interface ItemFilaAcoes {
   usuario: { id: string; nome: string } | null;
   // Só presente em tipo ALERTA — visita_id junto do id pra poder chamar resolverAlerta (mesmo
   // endpoint do Painel de Atividades, ver lib/api/atividades.ts).
-  registro: { id: string; visita_id: string } | null;
+  // tipo/produto/observacao pré-preenchem o "Abrir Plano de Ação"; plano_acao_ativo troca o
+  // "Resolver" por "Ver plano" (docs/37-PLANOS-DE-ACAO.md).
+  registro: {
+    id: string;
+    visita_id: string;
+    tipo?: string;
+    produto?: string | null;
+    observacao?: string | null;
+    plano_acao_ativo?: { id: string; status: string } | null;
+  } | null;
 }
 
 export interface LinhaRupturaPorSku {

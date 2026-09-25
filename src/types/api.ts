@@ -14,7 +14,12 @@ export type Permissao =
   | 'pontos_venda.visualizar_todos'
   | 'visitas.intervir'
   | 'rastreamento.visualizar'
-  | 'pedidos.gerenciar';
+  | 'pedidos.gerenciar'
+  | 'planos_acao.visualizar'
+  | 'planos_acao.criar'
+  | 'planos_acao.movimentar_etapa'
+  | 'planos_acao.concluir'
+  | 'planos_acao.cancelar';
 export type PlanoEmpresa = 'GRATUITO' | 'START' | 'PRO' | 'BUSINESS';
 export type StatusVisita = 'ABERTA' | 'FINALIZADA' | 'CANCELADA';
 // PROMOTOR = checkout normal pelo app (com GPS); ADMIN = forçado por um gestor (sem GPS);
@@ -356,6 +361,9 @@ export interface CampoTipoRegistro {
   opcoes: string[] | null;
   obrigatorio: boolean;
   ordem: number;
+  // Só tem efeito quando tipo_campo = DATA (docs/35-LIMITE-RETROATIVO-CAMPO-DATA.md) — `null` =
+  // sem limite, aceita qualquer data passada (comportamento padrão).
+  limite_dias_retroativos: number | null;
   // Campo condicional (docs/20-FORMULARIO-DINAMICO-CAMPANHA.md decisão 7) — `depende_de_chave` é
   // a `chave` de outro campo do mesmo tipo_registro (não um uuid), só aparece/é obrigatório
   // quando esse campo pai tiver o valor `depende_de_valor`.
@@ -537,9 +545,93 @@ export interface VisitaRegistro {
   // true. Ver docs/19-PAINEL-ATIVIDADES.md.
   alerta_resolvido_em: string | null;
   resolvido_por: { id: string; nome: string } | null;
+  // Plano de Ação em andamento nascido deste alerta — só vem no feed do Painel de Atividades
+  // (docs/37-PLANOS-DE-ACAO.md §5).
+  plano_acao_ativo?: { id: string; status: StatusPlanoAcao } | null;
   // Soft-cancel (nunca hard delete) — registro cancelado continua no histórico mas some das
   // contagens/filtros da visita. Ver VisitaRegistro::cancelado_em no backend.
   cancelado_em: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// Planos de Ação — ver docs/37-PLANOS-DE-ACAO.md e App\Http\Resources\PlanoAcaoResource.
+export type StatusPlanoAcao = 'ABERTO' | 'EM_ANDAMENTO' | 'CONCLUIDO' | 'CANCELADO';
+export type StatusEtapaPlanoAcao = 'PENDENTE' | 'EM_ANDAMENTO' | 'FEITA' | 'CANCELADA' | 'BLOQUEADA';
+export type AcaoHistoricoPlanoAcao =
+  | 'PLANO_CRIADO'
+  | 'PLANO_CONCLUIDO'
+  | 'PLANO_CANCELADO'
+  | 'ETAPA_ADICIONADA'
+  | 'ETAPA_STATUS_ALTERADO';
+
+export interface PlanoAcaoEtapa {
+  id: string;
+  ordem: number;
+  titulo: string;
+  descricao: string | null;
+  prazo: string | null;
+  status: StatusEtapaPlanoAcao;
+  // Calculado no backend (prazo vencido e ainda não FEITA/CANCELADA), nunca gravado.
+  atrasada: boolean;
+  responsavel?: { id: string; nome: string } | null;
+  responsavel_externo_nome: string | null;
+  responsavel_externo_contato: string | null;
+  evidencia_obrigatoria: boolean;
+  evidencia_texto: string | null;
+  evidencia_arquivo_url: string | null;
+  // Motivo do bloqueio/cancelamento atual — o histórico guarda todos.
+  motivo: string | null;
+  feita_em: string | null;
+  feita_por?: { id: string; nome: string } | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PlanoAcaoHistorico {
+  id: string;
+  acao: AcaoHistoricoPlanoAcao;
+  etapa_id: string | null;
+  status_anterior: string | null;
+  status_novo: string | null;
+  motivo: string | null;
+  descricao: string;
+  usuario: { id: string; nome: string } | null;
+  created_at: string;
+}
+
+export interface PlanoAcao {
+  id: string;
+  titulo: string;
+  descricao: string | null;
+  origem_tipo: 'ALERTA' | 'LIVRE';
+  origem?: {
+    registro_id: string;
+    visita_id: string | null;
+    tipo_registro: { descricao: string; icone: string | null } | null;
+    produto: string | null;
+    observacao: string | null;
+    ponto_venda: { id: string; fantasia: string } | null;
+    promotor: string | null;
+    registrado_em: string;
+    alerta_resolvido_em: string | null;
+  } | null;
+  // Escopo opcional — loja (própria ou herdada do alerta) OU rede, ou nenhum.
+  ponto_venda?: { id: string; fantasia: string; rede: { id: string; descricao: string } | null } | null;
+  rede_loja?: { id: string; descricao: string } | null;
+  status: StatusPlanoAcao;
+  prazo: string | null;
+  atrasado: boolean;
+  etapas_resumo: { total: number; feitas: number; atrasadas: number; bloqueadas: number } | null;
+  etapa_atual: PlanoAcaoEtapa | null;
+  etapas?: PlanoAcaoEtapa[];
+  historico?: PlanoAcaoHistorico[];
+  criado_por?: { id: string; nome: string };
+  concluido_em: string | null;
+  concluido_por?: { id: string; nome: string } | null;
+  cancelado_em: string | null;
+  cancelado_por?: { id: string; nome: string } | null;
+  motivo_cancelamento: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -593,11 +685,21 @@ export interface AtividadeEvento {
 
 export interface Visita {
   id: string;
-  ponto_venda?: { id: string; razao_social: string; fantasia: string };
-  usuario?: { id: string; nome: string };
+  ponto_venda?: {
+    id: string;
+    razao_social: string;
+    fantasia: string;
+    latitude?: number;
+    longitude?: number;
+    endereco?: string | null;
+    fachada_url?: string | null;
+  };
+  usuario?: { id: string; nome: string; foto_url?: string | null };
   // Presente só quando a visita nasceu de uma OrdemServico direcionada — null/ausente pra
   // visita espontânea, que é o caso comum. Ver docs/07-ORDEM-DE-SERVICO.md.
   ordem_servico?: { id: string } | null;
+  // Só quando havia exatamente uma campanha vigente no check-in (VisitaController::resolverCampanhaUnica).
+  campanha?: { id: string; descricao: string } | null;
   status: StatusVisita;
   inicio_data: string;
   inicio_latitude: number;

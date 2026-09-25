@@ -23,8 +23,9 @@ export async function listarVisitas(filtros: VisitasFiltros = {}): Promise<Visit
   return data;
 }
 
-export async function buscarVisita(uuid: string): Promise<{ visita: Visita }> {
-  const { data } = await apiClient.get<{ visita: Visita }>(`/visitas/${uuid}`);
+// raio_checkin_metros = raio ATUAL da empresa (não gravado por visita); null = sem limite.
+export async function buscarVisita(uuid: string): Promise<{ visita: Visita; raio_checkin_metros?: number | null }> {
+  const { data } = await apiClient.get<{ visita: Visita; raio_checkin_metros?: number | null }>(`/visitas/${uuid}`);
   return data;
 }
 

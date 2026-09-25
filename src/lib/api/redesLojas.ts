@@ -10,6 +10,9 @@ export interface RedesLojasListParams {
   ativo?: boolean;
   // Só tem efeito pra quem chama como SUPERADMIN — ver docs/02-API-BACKEND.md.
   empresa_uuid?: string;
+  // Opt-in pra listar mais que os 15 padrão (capado em 200 no backend) — seletores que precisam
+  // da lista inteira, ex. Plano de Ação.
+  por_pagina?: number;
 }
 
 export async function listarRedesLojas(params: RedesLojasListParams = {}): Promise<RedesLojasListResponse> {
@@ -17,6 +20,7 @@ export async function listarRedesLojas(params: RedesLojasListParams = {}): Promi
     params: {
       ativo: params.ativo === undefined ? undefined : params.ativo ? 1 : 0,
       empresa_uuid: params.empresa_uuid,
+      por_pagina: params.por_pagina,
     },
   });
   return data;
