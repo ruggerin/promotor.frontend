@@ -16,6 +16,15 @@ export interface PontosVendaListParams {
   // Só tem efeito pra SUPERADMIN (ver docs/02-API-BACKEND.md) — escolhe de qual empresa listar
   // PDVs, ex.: pra cadastrar um contrato de uma empresa que não é a própria.
   empresa_uuid?: string;
+  // Filtros da lista de PDVs do admin — `busca` também acha por código externo e CNPJ.
+  rede_loja_uuid?: string;
+  cidade?: string;
+  sem_promotor?: boolean;
+  // Período por data de cadastro (created_at, default) ou de última alteração (updated_at).
+  data_campo?: 'created_at' | 'updated_at';
+  data_inicio?: string;
+  data_fim?: string;
+  ordenar?: 'fantasia' | 'recentes';
   // Opt-in pra listar mais que os 15 padrão de uma vez (capado em 200 no backend) — usado pelo
   // Planejador de Visitas, que precisa da carteira inteira de um promotor. Ver
   // PontoVendaController::index.
@@ -38,6 +47,13 @@ export async function listarPontosVenda(params: PontosVendaListParams = {}): Pro
       fantasia: params.fantasia || undefined,
       cnpj: params.cnpj || undefined,
       empresa_uuid: params.empresa_uuid || undefined,
+      rede_loja_uuid: params.rede_loja_uuid || undefined,
+      cidade: params.cidade || undefined,
+      sem_promotor: params.sem_promotor ? 1 : undefined,
+      data_campo: params.data_inicio || params.data_fim || params.ordenar === 'recentes' ? params.data_campo : undefined,
+      data_inicio: params.data_inicio || undefined,
+      data_fim: params.data_fim || undefined,
+      ordenar: params.ordenar === 'recentes' ? 'recentes' : undefined,
       por_pagina: params.por_pagina,
     },
   });

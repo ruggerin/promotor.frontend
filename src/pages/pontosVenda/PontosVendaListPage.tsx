@@ -3,7 +3,9 @@ import { usePageHeader } from '../../components/layout/PageHeaderSlot';
 import BlockIcon from '@mui/icons-material/Block';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import EditIcon from '@mui/icons-material/Edit';
+import FilterAltOffIcon from '@mui/icons-material/FilterAltOff';
 import GroupIcon from '@mui/icons-material/Group';
+import UploadFileIcon from '@mui/icons-material/UploadFile';
 import {
   Alert,
   Autocomplete,
@@ -20,7 +22,7 @@ import {
 } from '@mui/material';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createColumnHelper } from '@tanstack/react-table';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DataTable } from '../../components/DataTable';
 import {
@@ -30,6 +32,7 @@ import {
   listarPontosVenda,
   removerPromotorPontoVenda,
 } from '../../lib/api/pontosVenda';
+import { listarRedesLojas } from '../../lib/api/redesLojas';
 import { listarUsuarios } from '../../lib/api/usuarios';
 import type { PontoVenda } from '../../types/api';
 import { AtribuirPromotorDialog } from './AtribuirPromotorDialog';
@@ -37,13 +40,38 @@ import { PontoVendaFormDialog } from './PontoVendaFormDialog';
 
 const coluna = createColumnHelper<PontoVenda>();
 
+// "Sem promotor" é uma opção do mesmo seletor de promotor — loja ainda sem carteira.
+const SEM_PROMOTOR = '__sem_promotor__';
+
+function formatarDataHora(iso: string): string {
+  return new Date(iso).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+}
+
 export function PontosVendaListPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [page, setPage] = useState(0);
   const [filtroAtivo, setFiltroAtivo] = useState<'todos' | 'ativos' | 'inativos'>('ativos');
   const [busca, setBusca] = useState('');
+  const [buscaDebounced, setBuscaDebounced] = useState('');
   const [filtroPromotorUuid, setFiltroPromotorUuid] = useState<string | null>(null);
+  const [filtroRedeUuid, setFiltroRedeUuid] = useState<string | null>(null);
+  const [cidade, setCidade] = useState('');
+  const [cidadeDebounced, setCidadeDebounced] = useState('');
+  // Período: por data de cadastro (quem entrou na base) ou de última alteração do cadastro.
+  const [dataCampo, setDataCampo] = useState<'created_at' | 'updated_at'>('created_at');
+  const [dataInicio, setDataInicio] = useState('');
+  const [dataFim, setDataFim] = useState('');
+  const [ordenar, setOrdenar] = useState<'fantasia' | 'recentes'>('fantasia');
+
+  // Espera parar de digitar — antes cada tecla disparava uma busca.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setBuscaDebounced(busca.trim());
+      setCidadeDebounced(cidade.trim());
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [busca, cidade]);
   const [dialogAberto, setDialogAberto] = useState(false);
   const [pdvEmEdicao, setPdvEmEdicao] = useState<PontoVenda | null>(null);
   // Map (não Set) pra guardar o objeto inteiro, não só o uuid — a seleção precisa sobreviver
@@ -62,17 +90,51 @@ export function PontosVendaListPage() {
   });
   const promotores = promotoresQuery.data?.usuarios ?? [];
 
+  const redesQuery = useQuery({
+    queryKey: ['redes-lojas', 'filtro-pdv'],
+    queryFn: () => listarRedesLojas({ ativo: true, por_pagina: 200 }),
+  });
+  const redes = redesQuery.data?.redes_lojas ?? [];
+
+  const filtros = {
+    ativo: filtroAtivo === 'todos' ? undefined : filtroAtivo === 'ativos',
+    busca: buscaDebounced || undefined,
+    promotor_uuid: filtroPromotorUuid && filtroPromotorUuid !== SEM_PROMOTOR ? filtroPromotorUuid : undefined,
+    sem_promotor: filtroPromotorUuid === SEM_PROMOTOR || undefined,
+    rede_loja_uuid: filtroRedeUuid ?? undefined,
+    cidade: cidadeDebounced || undefined,
+    data_campo: dataCampo,
+    data_inicio: dataInicio || undefined,
+    data_fim: dataFim || undefined,
+    ordenar,
+  };
+  const temFiltro =
+    filtroAtivo !== 'ativos' || !!busca || !!filtroPromotorUuid || !!filtroRedeUuid || !!cidade || !!dataInicio || !!dataFim || ordenar !== 'fantasia';
+
   const pdvQuery = useQuery({
-    queryKey: ['pontos-venda', { page, filtroAtivo, busca, filtroPromotorUuid }],
-    queryFn: () =>
-      listarPontosVenda({
-        page: page + 1,
-        ativo: filtroAtivo === 'todos' ? undefined : filtroAtivo === 'ativos',
-        busca: busca || undefined,
-        promotor_uuid: filtroPromotorUuid ?? undefined,
-      }),
+    queryKey: ['pontos-venda', { page, ...filtros }],
+    queryFn: () => listarPontosVenda({ page: page + 1, ...filtros }),
     placeholderData: keepPreviousData,
   });
+
+  function mudarFiltro(atualizar: () => void) {
+    atualizar();
+    setPage(0);
+  }
+
+  function limparFiltros() {
+    mudarFiltro(() => {
+      setFiltroAtivo('ativos');
+      setBusca('');
+      setFiltroPromotorUuid(null);
+      setFiltroRedeUuid(null);
+      setCidade('');
+      setDataCampo('created_at');
+      setDataInicio('');
+      setDataFim('');
+      setOrdenar('fantasia');
+    });
+  }
   const pdvs = pdvQuery.data?.pontos_venda ?? [];
 
   const alternarAtivoMutation = useMutation({
@@ -184,11 +246,25 @@ export function PontosVendaListPage() {
           </Box>
         ),
       }),
+      coluna.accessor((pdv) => pdv.codigo_externo ?? '—', { id: 'codigo_externo', header: 'Código' }),
       coluna.accessor('fantasia', { header: 'Fantasia' }),
       coluna.accessor('razao_social', { header: 'Razão social' }),
       coluna.accessor('cidade', { header: 'Cidade' }),
       coluna.accessor((pdv) => pdv.bairro ?? '—', { id: 'bairro', header: 'Bairro' }),
       coluna.accessor((pdv) => pdv.telefone ?? '—', { id: 'telefone', header: 'Telefone' }),
+      // Última alteração do cadastro; a data de cadastro vai embaixo, menor — as duas datas que o
+      // filtro de período usa.
+      coluna.accessor('updated_at', {
+        header: 'Atualizado em',
+        cell: (info) => (
+          <Box sx={{ whiteSpace: 'nowrap' }}>
+            <Typography variant="body2">{formatarDataHora(info.getValue())}</Typography>
+            <Typography variant="caption" color="text.secondary">
+              cadastro {new Date(info.row.original.created_at).toLocaleDateString('pt-BR')}
+            </Typography>
+          </Box>
+        ),
+      }),
       coluna.display({
         id: 'promotores',
         header: 'Promotores',
@@ -260,7 +336,11 @@ export function PontosVendaListPage() {
   return (
     <Box>
       {cabecalho}
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', mb: 2 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 1, mb: 2 }}>
+        {/* Importação em lote mudou pra tela própria (docs/42) — o atalho continua aqui pra quem procura. */}
+        <Button variant="outlined" startIcon={<UploadFileIcon />} onClick={() => navigate('/importacao-dados')}>
+          Importar CSV
+        </Button>
         <Button
           variant="contained"
           startIcon={<AddIcon />}
@@ -279,45 +359,108 @@ export function PontosVendaListPage() {
         </Alert>
       )}
 
-      <Paper sx={{ p: 1.5, mb: 2, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
-        <TextField
-          label="Buscar"
-          size="small"
-          sx={{ width: 280 }}
-          value={busca}
-          onChange={(e) => {
-            setPage(0);
-            setBusca(e.target.value);
-          }}
-          placeholder="Razão social, fantasia ou bairro"
-        />
-        <TextField
-          select
-          label="Status"
-          size="small"
-          sx={{ width: 160 }}
-          value={filtroAtivo}
-          onChange={(e) => {
-            setPage(0);
-            setFiltroAtivo(e.target.value as 'todos' | 'ativos' | 'inativos');
-          }}
-        >
-          <MenuItem value="ativos">Ativos</MenuItem>
-          <MenuItem value="inativos">Inativos</MenuItem>
-          <MenuItem value="todos">Todos</MenuItem>
-        </TextField>
-        <Autocomplete
-          size="small"
-          sx={{ width: 240 }}
-          options={promotores}
-          getOptionLabel={(option) => option.nome}
-          loading={promotoresQuery.isLoading}
-          onChange={(_, value) => {
-            setPage(0);
-            setFiltroPromotorUuid(value?.id ?? null);
-          }}
-          renderInput={(params) => <TextField {...params} label="Promotor" placeholder="Todos os promotores" />}
-        />
+      <Paper sx={{ p: 1.5, mb: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+        <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
+          <TextField
+            label="Buscar"
+            size="small"
+            sx={{ width: 300 }}
+            value={busca}
+            onChange={(e) => mudarFiltro(() => setBusca(e.target.value))}
+            placeholder="Fantasia, razão social, bairro, código ou CNPJ"
+          />
+          <TextField
+            select
+            label="Status"
+            size="small"
+            sx={{ width: 140 }}
+            value={filtroAtivo}
+            onChange={(e) => mudarFiltro(() => setFiltroAtivo(e.target.value as 'todos' | 'ativos' | 'inativos'))}
+          >
+            <MenuItem value="ativos">Ativos</MenuItem>
+            <MenuItem value="inativos">Inativos</MenuItem>
+            <MenuItem value="todos">Todos</MenuItem>
+          </TextField>
+          <Autocomplete
+            size="small"
+            sx={{ width: 220 }}
+            options={[{ id: SEM_PROMOTOR, nome: 'Sem promotor atribuído' }, ...promotores]}
+            getOptionLabel={(option) => option.nome}
+            loading={promotoresQuery.isLoading}
+            value={
+              filtroPromotorUuid === SEM_PROMOTOR
+                ? { id: SEM_PROMOTOR, nome: 'Sem promotor atribuído' }
+                : (promotores.find((p) => p.id === filtroPromotorUuid) ?? null)
+            }
+            isOptionEqualToValue={(a, b) => a.id === b.id}
+            onChange={(_, value) => mudarFiltro(() => setFiltroPromotorUuid(value?.id ?? null))}
+            renderInput={(params) => <TextField {...params} label="Promotor" placeholder="Todos os promotores" />}
+          />
+          <Autocomplete
+            size="small"
+            sx={{ width: 200 }}
+            options={redes}
+            getOptionLabel={(r) => r.descricao}
+            loading={redesQuery.isLoading}
+            value={redes.find((r) => r.id === filtroRedeUuid) ?? null}
+            onChange={(_, r) => mudarFiltro(() => setFiltroRedeUuid(r?.id ?? null))}
+            renderInput={(params) => <TextField {...params} label="Rede" placeholder="Todas as redes" />}
+          />
+          <TextField
+            label="Cidade"
+            size="small"
+            sx={{ width: 160 }}
+            value={cidade}
+            onChange={(e) => mudarFiltro(() => setCidade(e.target.value))}
+          />
+        </Box>
+        <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
+          <TextField
+            select
+            label="Período por"
+            size="small"
+            sx={{ width: 170 }}
+            value={dataCampo}
+            onChange={(e) => mudarFiltro(() => setDataCampo(e.target.value as 'created_at' | 'updated_at'))}
+          >
+            <MenuItem value="created_at">Data de cadastro</MenuItem>
+            <MenuItem value="updated_at">Última atualização</MenuItem>
+          </TextField>
+          <TextField
+            type="date"
+            label="De"
+            size="small"
+            value={dataInicio}
+            onChange={(e) => mudarFiltro(() => setDataInicio(e.target.value))}
+            slotProps={{ inputLabel: { shrink: true } }}
+          />
+          <TextField
+            type="date"
+            label="Até"
+            size="small"
+            value={dataFim}
+            onChange={(e) => mudarFiltro(() => setDataFim(e.target.value))}
+            slotProps={{ inputLabel: { shrink: true } }}
+          />
+          <TextField
+            select
+            label="Ordenar"
+            size="small"
+            sx={{ width: 180 }}
+            value={ordenar}
+            onChange={(e) => mudarFiltro(() => setOrdenar(e.target.value as 'fantasia' | 'recentes'))}
+          >
+            <MenuItem value="fantasia">Fantasia (A–Z)</MenuItem>
+            <MenuItem value="recentes">{dataCampo === 'created_at' ? 'Cadastro mais recente' : 'Atualização mais recente'}</MenuItem>
+          </TextField>
+          {temFiltro && (
+            <Button size="small" startIcon={<FilterAltOffIcon />} onClick={limparFiltros}>
+              Limpar filtros
+            </Button>
+          )}
+          <Typography variant="caption" color="text.secondary" sx={{ ml: 'auto' }}>
+            {pdvQuery.data ? `${pdvQuery.data.meta.total} loja(s)` : ''}
+          </Typography>
         {selecionados.size > 0 && (
           <Button
             variant="outlined"
@@ -328,6 +471,7 @@ export function PontosVendaListPage() {
             Atribuir promotor ({selecionados.size})
           </Button>
         )}
+        </Box>
       </Paper>
 
       <DataTable

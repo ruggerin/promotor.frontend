@@ -24,6 +24,7 @@ export interface CriarEmpresaPayload {
   limite_usuarios?: number | null;
   limite_pontos_venda?: number | null;
   limite_licencas?: number | null;
+  pedidos_venda_habilitado?: boolean;
   admin_nome: string;
   admin_email: string;
   admin_senha: string;
@@ -44,6 +45,7 @@ export interface AtualizarEmpresaPayload {
   limite_usuarios?: number | null;
   limite_pontos_venda?: number | null;
   limite_licencas?: number | null;
+  pedidos_venda_habilitado?: boolean;
   ativo?: boolean;
 }
 

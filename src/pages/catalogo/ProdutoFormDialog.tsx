@@ -43,10 +43,22 @@ const schema = z.object({
   produto_chave: z.boolean(),
   gerar_via_secoes_marcas: z.boolean(),
   peso_kg: z.string().refine((v) => v === '' || !Number.isNaN(Number(v)), 'Deve ser um número'),
+  // Pedido de Venda (docs/38-PEDIDO-VENDEDOR.md §6) — aceita vírgula decimal (10,50).
+  preco_tabela: z.string().refine((v) => v === '' || numeroBr(v) > 0, 'Deve ser um número maior que zero'),
+  desconto_maximo_pct: z
+    .string()
+    .refine((v) => v === '' || (numeroBr(v) >= 0 && numeroBr(v) <= 100), 'Entre 0 e 100'),
   propriedade: z.enum(['PROPRIA', 'CONCORRENTE']),
   ativo: z.boolean(),
 });
 type FormData = z.infer<typeof schema>;
+
+// "1.234,56" e "10,5" (pt-BR) ou "10.5" — ponto só é separador de milhar quando há vírgula.
+function numeroBr(v: string): number {
+  const t = v.trim();
+  return Number(t.includes(',') ? t.replace(/\./g, '').replace(',', '.') : t);
+}
+
 const DEFAULT_VALUES: FormData = {
   descricao: '',
   codigo_barras: '',
@@ -60,6 +72,8 @@ const DEFAULT_VALUES: FormData = {
   produto_chave: false,
   gerar_via_secoes_marcas: false,
   peso_kg: '',
+  preco_tabela: '',
+  desconto_maximo_pct: '',
   propriedade: 'PROPRIA',
   ativo: true,
 };
@@ -115,6 +129,9 @@ export function ProdutoFormDialog({ open, produto, onClose }: ProdutoFormDialogP
               produto_chave: produto.produto_chave,
               gerar_via_secoes_marcas: produto.gerar_via_secoes_marcas,
               peso_kg: produto.peso_kg === null ? '' : String(produto.peso_kg),
+              preco_tabela: produto.preco_tabela === null ? '' : String(produto.preco_tabela).replace('.', ','),
+              desconto_maximo_pct:
+                produto.desconto_maximo_pct === null ? '' : String(produto.desconto_maximo_pct).replace('.', ','),
               propriedade: produto.propriedade,
               ativo: produto.ativo,
             }
@@ -138,6 +155,8 @@ export function ProdutoFormDialog({ open, produto, onClose }: ProdutoFormDialogP
         produto_chave: data.produto_chave,
         gerar_via_secoes_marcas: data.gerar_via_secoes_marcas,
         peso_kg: data.peso_kg === '' ? null : Number(data.peso_kg),
+        preco_tabela: data.preco_tabela === '' ? null : numeroBr(data.preco_tabela),
+        desconto_maximo_pct: data.desconto_maximo_pct === '' ? null : numeroBr(data.desconto_maximo_pct),
         propriedade: data.propriedade,
       };
 
@@ -338,6 +357,41 @@ export function ProdutoFormDialog({ open, produto, onClose }: ProdutoFormDialogP
                   margin="normal"
                   error={!!fieldState.error}
                   helperText={fieldState.error?.message}
+                />
+              )}
+            />
+          </Box>
+          {/* Pedido de Venda (docs/38-PEDIDO-VENDEDOR.md §6) — sem preço, o produto aparece
+              bloqueado pro vendedor no app. Preço digitado abaixo de tabela × (1 − desconto
+              máximo) exige autorização de quem tem "Pedidos de Venda — autorizar". */}
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <Controller
+              name="preco_tabela"
+              control={control}
+              render={({ field, fieldState }) => (
+                <TextField
+                  {...field}
+                  label="Preço de tabela (R$)"
+                  sx={{ flex: 1 }}
+                  margin="normal"
+                  inputMode="decimal"
+                  error={!!fieldState.error}
+                  helperText={fieldState.error?.message ?? 'Vazio = não pode entrar em pedido de venda'}
+                />
+              )}
+            />
+            <Controller
+              name="desconto_maximo_pct"
+              control={control}
+              render={({ field, fieldState }) => (
+                <TextField
+                  {...field}
+                  label="Desconto máximo (%)"
+                  sx={{ flex: 1 }}
+                  margin="normal"
+                  inputMode="decimal"
+                  error={!!fieldState.error}
+                  helperText={fieldState.error?.message ?? 'Abaixo disso, o pedido pede autorização'}
                 />
               )}
             />

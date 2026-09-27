@@ -19,7 +19,10 @@ export type Permissao =
   | 'planos_acao.criar'
   | 'planos_acao.movimentar_etapa'
   | 'planos_acao.concluir'
-  | 'planos_acao.cancelar';
+  | 'planos_acao.cancelar'
+  | 'pedidos_venda.visualizar'
+  | 'pedidos_venda.criar'
+  | 'pedidos_venda.aprovar';
 export type PlanoEmpresa = 'GRATUITO' | 'START' | 'PRO' | 'BUSINESS';
 export type StatusVisita = 'ABERTA' | 'FINALIZADA' | 'CANCELADA';
 // PROMOTOR = checkout normal pelo app (com GPS); ADMIN = forçado por um gestor (sem GPS);
@@ -77,6 +80,8 @@ export interface Empresa {
   // por vez), separado de limite_usuarios (headcount geral do plano). Ver
   // docs/02-API-BACKEND.md, regra de negócio 5.
   limite_licencas: number | null;
+  // Módulo pago Pedido de Venda — só SUPERADMIN edita (docs/38-PEDIDO-VENDEDOR.md §12).
+  pedidos_venda_habilitado: boolean;
   ativo: boolean;
   created_at: string;
   updated_at: string;
@@ -176,7 +181,7 @@ export interface Usuario {
   empresa?: Empresa;
   // Só tem valor pra user_type GESTOR — ADMIN sempre tem acesso total, PROMOTOR/SUPERADMIN
   // não usam perfil.
-  perfil?: { id: string; nome: string } | null;
+  perfil?: { id: string; nome: string; permissoes?: Permissao[] } | null;
   // Só tem valor pra user_type PROMOTOR — nome do perfil de custo, nunca os valores (que
   // exigem a permissão centros_custo.gerenciar). Ver docs/08-CENTRO-DE-CUSTO.md.
   centro_custo?: { id: string; descricao: string } | null;
@@ -384,7 +389,8 @@ export interface CampoTipoRegistro {
 // Substitui o antigo enum fixo TipoRegistroVisita (FOTO/RUPTURA/OBSERVACAO) — lista
 // customizável por empresa, com campos extras próprios (ex.: "Ponto extra" pede quantidade e
 // valor além da foto). Ver docs/01-MODELO-DE-DADOS.md#tipos-de-registro.
-export type EscopoAcaoTipoRegistro = 'SEMPRE' | 'CAMPANHA' | 'CONTRATO';
+// LOJA_REDE = só nas lojas/redes escolhidas no tipo (docs/40-ACAO-OBRIGATORIA-LOJA-REDE.md).
+export type EscopoAcaoTipoRegistro = 'SEMPRE' | 'CAMPANHA' | 'CONTRATO' | 'LOJA_REDE';
 export type GranularidadeResposta = 'LINHA' | 'PRODUTO';
 
 export interface TipoRegistro {
@@ -403,6 +409,13 @@ export interface TipoRegistro {
   acao_obrigatoria: boolean;
   escopo_acao: EscopoAcaoTipoRegistro | null;
   campanha_auditoria_uuid: string | null;
+  // Escopo LOJA_REDE (docs/40) — loja OU rede basta; as duas vazias = todas as lojas.
+  pontos_venda_uuids?: string[];
+  redes_lojas_uuids?: string[];
+  // Lista predefinida de produtos (granularidade PRODUTO) — com ela, o promotor só vincula a estes.
+  produtos_predefinidos?: { id: string; descricao: string; codigo_barras: string | null; codigo_externo: string | null }[];
+  pontos_venda_escopo?: { id: string; fantasia: string }[];
+  redes_lojas_escopo?: { id: string; descricao: string }[];
   // Granularidade da resposta (linha/seção inteira vs. produto individual) — ver
   // docs/16-GRANULARIDADE-CHECKLIST-AUDITORIA.md §4. `null` = sem regra, comportamento livre.
   granularidade_padrao: GranularidadeResposta | null;
@@ -441,6 +454,9 @@ export interface ProdutoAuditoria {
   produto_chave: boolean;
   gerar_via_secoes_marcas: boolean;
   peso_kg: number | null;
+  // Preço de venda (docs/38-PEDIDO-VENDEDOR.md §6) — null = produto não entra em Pedido de Venda.
+  preco_tabela: number | null;
+  desconto_maximo_pct: number | null;
   propriedade: Propriedade;
   empresa?: Empresa;
   ativo: boolean;
@@ -655,23 +671,43 @@ export interface FotoGaleria {
 
 // Feed do Painel de Atividades — mistura Visita (check-in/checkout) e VisitaRegistro-alerta
 // num shape comum, discriminado por tipo_evento. Ver docs/19-PAINEL-ATIVIDADES.md.
-export type TipoEventoAtividade = 'VISITA_INICIADA' | 'VISITA_FINALIZADA' | 'ALERTA' | 'COMENTARIO';
+export type TipoEventoAtividade = 'VISITA_INICIADA' | 'VISITA_FINALIZADA' | 'ALERTA' | 'FORMULARIO' | 'COMENTARIO';
+
+// Mensagem da prévia de conversa embutida no card (docs/43 §4 item 3) — vem com o feed e NÃO
+// marca como lido; `novo` segue a mesma regra do badge.
+export interface MensagemConversa {
+  id: string;
+  texto: string;
+  criado_em: string;
+  autor: { id: string; nome: string; foto_url: string | null } | null;
+  meu: boolean;
+  novo: boolean;
+}
 
 export interface AtividadeEvento {
+  // Estável entre recargas ("chegada:{visita}", "alerta:{registro}"...) — base da pílula de
+  // "novas atividades" e da rolagem até o card a partir da coluna lateral.
+  id: string;
   tipo_evento: TipoEventoAtividade;
   ocorrido_em: string;
   visita: { id: string };
   ponto_venda: { id: string; fantasia: string } | null;
   usuario: { id: string; nome: string; foto_url: string | null } | null;
-  // Só em VISITA_INICIADA.
-  localizacao?: { latitude: number; longitude: number; distancia_metros: number | null };
-  // Só em VISITA_FINALIZADA — registros com foto coletados na visita, pro mosaico do card
+  // Só em VISITA_INICIADA. fora_do_raio usa o raio ATUAL da empresa.
+  localizacao?: { latitude: number; longitude: number; distancia_metros: number | null; fora_do_raio: boolean };
+  // Só em VISITA_FINALIZADA — registros com foto coletados na visita, pro álbum do post
   // (mesmo shape de VisitaRegistro, pra galeria mostrar a informação junto da imagem).
-  resumo?: { registros: number; rupturas: number };
+  resumo?: { registros: number; rupturas: number; duracao_minutos: number; total_fotos: number };
   imagens?: VisitaRegistro[];
   // Só em ALERTA.
   registro?: VisitaRegistro;
-  // Só em COMENTARIO — resposta do promotor num feedback (docs/28 §3).
+  conversa?: MensagemConversa[];
+  // Só em FORMULARIO — todas as respostas do mesmo formulário na mesma visita, num post só;
+  // `conversas` = prévia da conversa por registro (uuid => mensagens), só os que têm conversa.
+  tipo_registro?: { id: string; descricao: string };
+  registros?: VisitaRegistro[];
+  conversas?: Record<string, MensagemConversa[]>;
+  // Só em COMENTARIO — resposta do promotor num registro que não é card do feed (docs/28 §3).
   comentario?: {
     id: string;
     texto: string;
@@ -934,6 +970,85 @@ export interface Planograma {
   prateleiras: PlanogramaPrateleira[];
   // Só vem preenchido pra quem pede como SUPERADMIN.
   empresa?: Empresa;
+  created_at: string;
+  updated_at: string;
+}
+
+// Pedido de Venda digitado pelo vendedor (docs/38-PEDIDO-VENDEDOR.md) — espelha
+// App\Http\Resources\PedidoVendaResource. Diferente de `Pedido` (somente leitura, espelho do ERP).
+export type StatusPedidoVenda = 'RASCUNHO' | 'PENDENTE_AUTORIZACAO' | 'APROVADO' | 'CONCLUIDO' | 'CANCELADO';
+export type AcaoHistoricoPedidoVenda =
+  | 'CRIADO'
+  | 'ITEM_ALTERADO'
+  | 'AUTORIZACAO_SOLICITADA'
+  | 'APROVADO'
+  | 'REJEITADO'
+  | 'CONCLUIDO'
+  | 'CANCELADO';
+
+export interface PedidoVendaItem {
+  id: string;
+  // Só vem no detalhe.
+  produto: {
+    id: string;
+    descricao: string;
+    codigo_barras: string | null;
+    codigo_externo: string | null;
+    imagem_url: string | null;
+  } | null;
+  quantidade: number;
+  // Snapshot do catálogo no momento da inclusão (revalidado no envio).
+  preco_tabela: number;
+  desconto_maximo_pct: number | null;
+  preco_minimo: number;
+  preco: number;
+  // Desconto efetivo sobre a tabela (negativo = acima da tabela).
+  desconto_pct: number;
+  subtotal: number;
+  requer_autorizacao: boolean;
+}
+
+export interface PedidoVendaSnapshotItem {
+  produto_id: string | null;
+  descricao: string | null;
+  quantidade: number;
+  preco_tabela: number;
+  desconto_maximo_pct: number | null;
+  preco_minimo: number;
+  preco: number;
+  requer_autorizacao: boolean;
+}
+
+export interface PedidoVendaHistorico {
+  id: string;
+  acao: AcaoHistoricoPedidoVenda;
+  descricao: string;
+  motivo: string | null;
+  snapshot: { total: number; itens: PedidoVendaSnapshotItem[] } | null;
+  usuario: { id: string; nome: string } | null;
+  created_at: string;
+}
+
+export interface PedidoVenda {
+  id: string;
+  status: StatusPedidoVenda;
+  ponto_venda?: {
+    id: string;
+    fantasia: string;
+    razao_social: string | null;
+    cnpj: string | null;
+    codigo_externo: string | null;
+  } | null;
+  vendedor?: { id: string; nome: string } | null;
+  visita_id?: string | null;
+  observacao: string | null;
+  total: number | null;
+  total_itens: number | null;
+  requer_autorizacao: boolean | null;
+  itens: PedidoVendaItem[] | null;
+  historico?: PedidoVendaHistorico[];
+  concluido_em: string | null;
+  concluido_por?: { id: string; nome: string } | null;
   created_at: string;
   updated_at: string;
 }

@@ -15,10 +15,13 @@ export function UsuarioAvatar({
   nome,
   fotoUrl,
   size = 32,
+  cor,
 }: {
   nome: string;
   fotoUrl?: string | null;
   size?: number;
+  /** Cor fixa da pessoa (Painel de Atividades, docs/43) — com ela, as iniciais viram 2 letras. */
+  cor?: { bg: string; fg: string };
 }) {
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
 
@@ -51,11 +54,20 @@ export function UsuarioAvatar({
     };
   }, [fotoUrl]);
 
-  const sx: SxProps<Theme> = { width: size, height: size, fontSize: size * 0.42 };
+  const sx: SxProps<Theme> = cor
+    ? { width: size, height: size, fontSize: size * 0.36, fontWeight: 700, bgcolor: cor.bg, color: cor.fg }
+    : { width: size, height: size, fontSize: size * 0.42 };
+
+  const partes = nome.trim().split(/\s+/).filter(Boolean);
+  const iniciais = cor && partes.length > 1
+    ? `${partes[0].charAt(0)}${partes[partes.length - 1].charAt(0)}`
+    : cor
+      ? nome.trim().slice(0, 2)
+      : nome.trim().charAt(0);
 
   return (
     <Avatar src={blobUrl ?? undefined} sx={sx}>
-      {nome.trim().charAt(0).toUpperCase() || '?'}
+      {iniciais.toUpperCase() || '?'}
     </Avatar>
   );
 }

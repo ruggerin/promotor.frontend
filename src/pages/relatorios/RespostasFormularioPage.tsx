@@ -1,5 +1,5 @@
 import DownloadIcon from '@mui/icons-material/Download';
-import { Alert, Autocomplete, Box, Button, CircularProgress, LinearProgress, Paper, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography } from '@mui/material';
+import { Alert, Autocomplete, Box, Button, CircularProgress, LinearProgress, Paper, Tab, Table, TableBody, TableCell, TableHead, TableRow, Tabs, TextField, Typography } from '@mui/material';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import axios from 'axios';
@@ -17,6 +17,7 @@ import { baixarBlob, baixarCsv } from '../../lib/csv';
 import { listarRedesLojas } from '../../lib/api/redesLojas';
 import { listarTiposRegistro } from '../../lib/api/tiposRegistro';
 import { listarUsuarios } from '../../lib/api/usuarios';
+import { ColetaFormulario } from './ColetaFormulario';
 
 const formatar = (n: number) => n.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
 
@@ -134,7 +135,7 @@ function exportar(dados: RelatorioRespostasFormulario) {
 }
 
 /**
- * Relatório "Respostas por pergunta" (docs/28 §2.2): escolhe um formulário e vê cada pergunta
+ * Relatório "Coleta por Formulário" (antes "Respostas por pergunta", docs/28 §2.2 e docs/39): escolhe um formulário e vê cada pergunta
  * agregada — contagem (Sim/Não, múltipla escolha), estatística (número/moeda), ausências do Mix,
  * listagem (texto/data) e, nos formulários de ruptura, o total e o ranking por produto.
  */
@@ -145,10 +146,12 @@ export function RespostasFormularioPage() {
   const [promotorUuid, setPromotorUuid] = useState<string | null>(null);
   const [redeUuid, setRedeUuid] = useState<string | null>(null);
   const [pontoVendaUuid, setPontoVendaUuid] = useState<string | null>(null);
+  // "Coleta por Formulário" = matriz Loja × Produto (docs/39-RELATORIO-ANALITICO-PIVOT.md), mesmos filtros.
+  const [aba, setAba] = useState<'sintetico' | 'coleta'>('sintetico');
 
   const cabecalho = usePageHeader(
     <Typography variant="h6" sx={{ fontWeight: 700 }}>
-      Respostas por pergunta
+      Coleta por Formulário
     </Typography>,
   );
 
@@ -171,7 +174,7 @@ export function RespostasFormularioPage() {
   const query = useQuery({
     queryKey: ['relatorio-respostas', { tipoUuid, inicio, fim, promotorUuid, redeUuid, pontoVendaUuid }],
     queryFn: () => buscarRespostasFormulario(filtros),
-    enabled: Boolean(tipoUuid && inicio && fim),
+    enabled: Boolean(tipoUuid && inicio && fim) && aba === 'sintetico',
   });
 
   const pdfMutation = useMutation({
@@ -224,14 +227,23 @@ export function RespostasFormularioPage() {
       {!tipoUuid && (
         <Alert severity="info">Selecione um formulário para gerar o relatório.</Alert>
       )}
-      {erro && (
+      {tipoUuid && (
+        <Tabs value={aba} onChange={(_, v: 'sintetico' | 'coleta') => setAba(v)} sx={{ mb: 2, borderBottom: 1, borderColor: 'divider' }}>
+          <Tab value="sintetico" label="Sintético" />
+          <Tab value="coleta" label="Analítico" />
+        </Tabs>
+      )}
+
+      {aba === 'coleta' && tipoUuid && inicio && fim && <ColetaFormulario filtros={filtros} />}
+
+      {aba === 'sintetico' && erro && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {erro}
         </Alert>
       )}
-      {query.isLoading && tipoUuid && <CircularProgress size={24} />}
+      {aba === 'sintetico' && query.isLoading && tipoUuid && <CircularProgress size={24} />}
 
-      {dados && (
+      {aba === 'sintetico' && dados && (
         <>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
             <Typography variant="subtitle2">

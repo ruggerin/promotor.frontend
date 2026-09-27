@@ -69,6 +69,7 @@ export function TiposRegistroListPage() {
     SEMPRE: 'Sempre',
     CAMPANHA: 'Campanha',
     CONTRATO: 'Contrato ativo',
+    LOJA_REDE: 'Lojas/redes',
   };
 
   const reativarMutation = useMutation({

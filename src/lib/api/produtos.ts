@@ -17,6 +17,9 @@ export async function listarProdutos(
     empresa_uuid?: string;
     busca?: string;
     page?: number;
+    // "Colar lista de códigos": código externo OU de barras, casamento exato.
+    codigos?: string[];
+    por_pagina?: number;
   } = {},
 ): Promise<ProdutosListResponse> {
   const { data } = await apiClient.get<ProdutosListResponse>('/produtos-auditoria', {
@@ -29,6 +32,8 @@ export async function listarProdutos(
       page: params.page,
       empresa_uuid: params.empresa_uuid,
       busca: params.busca || undefined,
+      codigos: params.codigos?.length ? params.codigos.join(',') : undefined,
+      por_pagina: params.por_pagina,
     },
   });
   return data;
@@ -47,6 +52,8 @@ export interface ProdutoPayload {
   produto_chave?: boolean;
   gerar_via_secoes_marcas?: boolean;
   peso_kg?: number | null;
+  preco_tabela?: number | null;
+  desconto_maximo_pct?: number | null;
   propriedade: Propriedade;
   ativo?: boolean;
 }

@@ -20,17 +20,24 @@ import { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { atualizarPerfil, criarPerfil } from '../../lib/api/perfis';
+import { useAuth } from '../../lib/auth/AuthContext';
 import type { Perfil, Permissao } from '../../types/api';
 
 const PERMISSOES: { value: Permissao; label: string }[] = [
   { value: 'pontos_venda.gerenciar', label: 'Pontos de venda' },
-  { value: 'catalogo.gerenciar', label: 'Catálogo (departamentos, seções, marcas, produtos)' },
+  {
+    value: 'catalogo.gerenciar',
+    label: 'Catálogo (departamentos, seções, marcas, produtos)',
+  },
   { value: 'campanhas.gerenciar', label: 'Campanhas de auditoria' },
   { value: 'parametros.gerenciar', label: 'Parâmetros' },
   { value: 'usuarios.gerenciar', label: 'Usuários' },
   { value: 'contratos.gerenciar', label: 'Contratos (comodato, ponto extra)' },
   { value: 'ordens_servico.gerenciar', label: 'Ordens de serviço' },
-  { value: 'centros_custo.gerenciar', label: 'Centros de custo (dado financeiro)' },
+  {
+    value: 'centros_custo.gerenciar',
+    label: 'Centros de custo (dado financeiro)',
+  },
   {
     value: 'pontos_venda.visualizar_todos',
     label: 'Ver todos os pontos de venda no app (ignora vínculo) — única atribuível a Promotor',
@@ -49,11 +56,37 @@ const PERMISSOES: { value: Permissao; label: string }[] = [
   },
   // Planos de Ação (docs/37-PLANOS-DE-ACAO.md §6) — fatiadas por ação: quem movimenta etapa no dia
   // a dia não é necessariamente quem pode dar o problema como resolvido (concluir).
-  { value: 'planos_acao.visualizar', label: 'Planos de Ação — visualizar lista e detalhe' },
-  { value: 'planos_acao.criar', label: 'Planos de Ação — abrir plano a partir de um alerta' },
-  { value: 'planos_acao.movimentar_etapa', label: 'Planos de Ação — movimentar etapa (marcar feita, anexar evidência, bloquear)' },
-  { value: 'planos_acao.concluir', label: 'Planos de Ação — concluir o plano (confirmar que o problema foi resolvido)' },
+  {
+    value: 'planos_acao.visualizar',
+    label: 'Planos de Ação — visualizar lista e detalhe',
+  },
+  {
+    value: 'planos_acao.criar',
+    label: 'Planos de Ação — abrir plano a partir de um alerta',
+  },
+  {
+    value: 'planos_acao.movimentar_etapa',
+    label: 'Planos de Ação — movimentar etapa (marcar feita, anexar evidência, bloquear)',
+  },
+  {
+    value: 'planos_acao.concluir',
+    label: 'Planos de Ação — concluir o plano (confirmar que o problema foi resolvido)',
+  },
   { value: 'planos_acao.cancelar', label: 'Planos de Ação — cancelar o plano' },
+  // Pedido de Venda (docs/38-PEDIDO-VENDEDOR.md §5) — valem também pra Promotor: "criar" é o que
+  // liga o "modo Vendedor" no app. Quem cria nunca aprova o próprio pedido, mesmo tendo "aprovar".
+  {
+    value: 'pedidos_venda.visualizar',
+    label: 'Pedidos de Venda — visualizar (sem "aprovar", só os próprios)',
+  },
+  {
+    value: 'pedidos_venda.criar',
+    label: 'Pedidos de Venda — tirar pedido (liga o "modo Vendedor" no app do Promotor)',
+  },
+  {
+    value: 'pedidos_venda.aprovar',
+    label: 'Pedidos de Venda — autorizar preço abaixo do mínimo (vê os pedidos de todos)',
+  },
 ];
 
 const schema = z.object({
@@ -65,7 +98,12 @@ const schema = z.object({
 
 type PerfilFormData = z.infer<typeof schema>;
 
-const DEFAULT_VALUES: PerfilFormData = { nome: '', descricao: '', permissoes: [], ativo: true };
+const DEFAULT_VALUES: PerfilFormData = {
+  nome: '',
+  descricao: '',
+  permissoes: [],
+  ativo: true,
+};
 
 interface PerfilFormDialogProps {
   open: boolean;
@@ -76,6 +114,10 @@ interface PerfilFormDialogProps {
 export function PerfilFormDialog({ open, perfil, onClose }: PerfilFormDialogProps) {
   const modoEdicao = perfil !== null;
   const queryClient = useQueryClient();
+  // Módulo pago (docs/38-PEDIDO-VENDEDOR.md §12): sem ele, pedidos_venda.* ficam desabilitadas
+  // aqui — não somem nem são desmarcadas, pra voltarem a valer sozinhas se a empresa contratar.
+  const { usuario } = useAuth();
+  const pedidosVendaHabilitado = usuario?.empresa?.pedidos_venda_habilitado ?? false;
   const [erroGeral, setErroGeral] = useState<string | null>(null);
 
   const {
@@ -94,7 +136,12 @@ export function PerfilFormDialog({ open, perfil, onClose }: PerfilFormDialogProp
       setErroGeral(null);
       reset(
         perfil
-          ? { nome: perfil.nome, descricao: perfil.descricao ?? '', permissoes: perfil.permissoes, ativo: perfil.ativo }
+          ? {
+              nome: perfil.nome,
+              descricao: perfil.descricao ?? '',
+              permissoes: perfil.permissoes,
+              ativo: perfil.ativo,
+            }
           : DEFAULT_VALUES,
       );
     }
@@ -119,12 +166,20 @@ export function PerfilFormDialog({ open, perfil, onClose }: PerfilFormDialogProp
       onClose();
     },
     onError: (err) => {
-      if (axios.isAxiosError<{ message?: string; errors?: Record<string, string[]> }>(err) && err.response?.status === 422) {
+      if (
+        axios.isAxiosError<{
+          message?: string;
+          errors?: Record<string, string[]>;
+        }>(err) &&
+        err.response?.status === 422
+      ) {
         const errors = err.response.data.errors;
         if (errors) {
           for (const [campo, mensagens] of Object.entries(errors)) {
             if (campo in DEFAULT_VALUES) {
-              setError(campo as keyof PerfilFormData, { message: mensagens[0] });
+              setError(campo as keyof PerfilFormData, {
+                message: mensagens[0],
+              });
             }
           }
         }
@@ -185,33 +240,37 @@ export function PerfilFormDialog({ open, perfil, onClose }: PerfilFormDialogProp
             Permissões
           </Typography>
           <Typography variant="caption" color="text.secondary">
-            A maioria é permissão de escrita no admin web, atribuível só a Gestor — a única
-            exceção é "ver todos os pontos de venda", que também vale pra Promotor (visibilidade
-            no app, ver docs/12-VISIBILIDADE-PONTOS-DE-VENDA.md).
+            A maioria é permissão de escrita no admin web, atribuível só a Gestor — a única exceção é "ver todos os
+            pontos de venda", que também vale pra Promotor (visibilidade no app, ver
+            docs/12-VISIBILIDADE-PONTOS-DE-VENDA.md).
           </Typography>
           <Controller
             name="permissoes"
             control={control}
             render={({ field }) => (
               <FormGroup>
-                {PERMISSOES.map((permissao) => (
-                  <FormControlLabel
-                    key={permissao.value}
-                    control={
-                      <Checkbox
-                        checked={field.value.includes(permissao.value)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            field.onChange([...field.value, permissao.value]);
-                          } else {
-                            field.onChange(field.value.filter((v) => v !== permissao.value));
-                          }
-                        }}
-                      />
-                    }
-                    label={permissao.label}
-                  />
-                ))}
+                {PERMISSOES.map((permissao) => {
+                  const bloqueada = permissao.value.startsWith('pedidos_venda.') && !pedidosVendaHabilitado;
+                  return (
+                    <FormControlLabel
+                      key={permissao.value}
+                      disabled={bloqueada}
+                      control={
+                        <Checkbox
+                          checked={field.value.includes(permissao.value)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              field.onChange([...field.value, permissao.value]);
+                            } else {
+                              field.onChange(field.value.filter((v) => v !== permissao.value));
+                            }
+                          }}
+                        />
+                      }
+                      label={bloqueada ? `${permissao.label} — módulo não contratado` : permissao.label}
+                    />
+                  );
+                })}
               </FormGroup>
             )}
           />

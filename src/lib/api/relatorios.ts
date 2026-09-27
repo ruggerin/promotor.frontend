@@ -1,3 +1,4 @@
+import type { RelatorioColeta } from '../coletaFormulario';
 import { apiClient } from './client';
 
 // Relatórios agregados — docs/28-RELATORIOS-FEEDBACK-HISTORICO.md §2. ADMIN/GESTOR.
@@ -110,6 +111,29 @@ export async function buscarRespostasFormulario(filtros: FiltrosRespostas): Prom
 export async function baixarPdfRespostasFormulario(filtros: FiltrosRespostas): Promise<Blob> {
   const { data } = await apiClient.get<Blob>('/relatorios/respostas-formulario/pdf', {
     params: paramsRespostas(filtros),
+    responseType: 'blob',
+  });
+  return data;
+}
+
+// Coleta por Formulário (docs/39-RELATORIO-ANALITICO-PIVOT.md) — lista plana; a matriz é montada
+// no front (lib/coletaFormulario.ts).
+export async function buscarColetaFormulario(filtros: FiltrosRespostas): Promise<RelatorioColeta> {
+  const { data } = await apiClient.get<RelatorioColeta>('/relatorios/respostas-formulario/analitico', {
+    params: paramsRespostas(filtros),
+  });
+  return data;
+}
+
+// O PDF recebe a matriz exatamente como está na tela — o backend não refaz o pivot.
+export async function baixarPdfColetaFormulario(payload: {
+  titulo: string;
+  subtitulo?: string;
+  cabecalho: { texto: string; colunas?: number; linhas?: number }[][];
+  linhas: (string | null)[][];
+  rodape: (string | null)[][];
+}): Promise<Blob> {
+  const { data } = await apiClient.post<Blob>('/relatorios/respostas-formulario/analitico/pdf', payload, {
     responseType: 'blob',
   });
   return data;
