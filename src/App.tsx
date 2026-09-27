@@ -24,6 +24,9 @@ import { PerfisListPage } from './pages/perfis/PerfisListPage';
 import { PlanejadorVisitasPage } from './pages/planejadorVisitas/PlanejadorVisitasPage';
 import { PlanoAcaoDetailPage } from './pages/planosAcao/PlanoAcaoDetailPage';
 import { PlanosAcaoListPage } from './pages/planosAcao/PlanosAcaoListPage';
+import { ImportacaoDadosPage } from './pages/importacaoDados/ImportacaoDadosPage';
+import { PedidoVendaDetailPage } from './pages/pedidosVenda/PedidoVendaDetailPage';
+import { PedidosVendaListPage } from './pages/pedidosVenda/PedidosVendaListPage';
 import { RespostasFormularioPage } from './pages/relatorios/RespostasFormularioPage';
 import { VisitasPlanejadasPage } from './pages/relatorios/VisitasPlanejadasPage';
 import { RastreamentoPage } from './pages/rastreamento/RastreamentoPage';
@@ -53,12 +56,18 @@ export function App() {
           <Route path="/visitas" element={<VisitasListPage />} />
           <Route path="/visitas/:publicId" element={<VisitaDetailPage />} />
           <Route path="/pontos-venda" element={<PontosVendaListPage />} />
+          {/* Importação em lote de lojas, produtos e vínculo loja × produto (docs/42). */}
+          <Route path="/importacao-dados" element={<ImportacaoDadosPage />} />
           <Route path="/atividades" element={<AtividadesPage />} />
           <Route path="/galeria-fotos" element={<GaleriaFotosPage />} />
           {/* Planos de Ação (docs/37-PLANOS-DE-ACAO.md) — nascem de um alerta no Painel de
               Atividades; a criação é um diálogo lá, não uma rota própria. */}
           <Route path="/planos-acao" element={<PlanosAcaoListPage />} />
           <Route path="/planos-acao/:publicId" element={<PlanoAcaoDetailPage />} />
+          {/* Pedidos de Venda (docs/38-PEDIDO-VENDEDOR.md) — tirados pelo vendedor no app; aqui é a
+              fila de autorização de preço e a consulta. */}
+          <Route path="/pedidos-venda" element={<PedidosVendaListPage />} />
+          <Route path="/pedidos-venda/:publicId" element={<PedidoVendaDetailPage />} />
           <Route path="/pontos-venda/:publicId" element={<PontoVendaDetailPage />} />
           <Route path="/catalogo" element={<CatalogoPage />} />
           <Route path="/redes-lojas" element={<RedesLojasListPage />} />

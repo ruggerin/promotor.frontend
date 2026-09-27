@@ -41,6 +41,7 @@ function buildSchema(modoEdicao: boolean) {
       limite_usuarios: z.string(),
       limite_pontos_venda: z.string(),
       limite_licencas: z.string(),
+      pedidos_venda_habilitado: z.boolean(),
       ativo: z.boolean(),
       admin_nome: z.string(),
       admin_email: z.string(),
@@ -48,13 +49,25 @@ function buildSchema(modoEdicao: boolean) {
     })
     .superRefine((data, ctx) => {
       if (data.limite_usuarios && !/^\d+$/.test(data.limite_usuarios)) {
-        ctx.addIssue({ code: 'custom', message: 'Deve ser um número inteiro', path: ['limite_usuarios'] });
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Deve ser um número inteiro',
+          path: ['limite_usuarios'],
+        });
       }
       if (data.limite_pontos_venda && !/^\d+$/.test(data.limite_pontos_venda)) {
-        ctx.addIssue({ code: 'custom', message: 'Deve ser um número inteiro', path: ['limite_pontos_venda'] });
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Deve ser um número inteiro',
+          path: ['limite_pontos_venda'],
+        });
       }
       if (data.limite_licencas && !/^\d+$/.test(data.limite_licencas)) {
-        ctx.addIssue({ code: 'custom', message: 'Deve ser um número inteiro', path: ['limite_licencas'] });
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Deve ser um número inteiro',
+          path: ['limite_licencas'],
+        });
       }
 
       if (modoEdicao) {
@@ -62,15 +75,31 @@ function buildSchema(modoEdicao: boolean) {
       }
 
       if (!data.admin_nome.trim()) {
-        ctx.addIssue({ code: 'custom', message: 'Obrigatório', path: ['admin_nome'] });
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Obrigatório',
+          path: ['admin_nome'],
+        });
       }
       if (!data.admin_email.trim()) {
-        ctx.addIssue({ code: 'custom', message: 'Obrigatório', path: ['admin_email'] });
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Obrigatório',
+          path: ['admin_email'],
+        });
       } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.admin_email)) {
-        ctx.addIssue({ code: 'custom', message: 'E-mail inválido', path: ['admin_email'] });
+        ctx.addIssue({
+          code: 'custom',
+          message: 'E-mail inválido',
+          path: ['admin_email'],
+        });
       }
       if (data.admin_senha.length < 8) {
-        ctx.addIssue({ code: 'custom', message: 'Mínimo 8 caracteres', path: ['admin_senha'] });
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Mínimo 8 caracteres',
+          path: ['admin_senha'],
+        });
       }
     });
 }
@@ -106,6 +135,7 @@ export function EmpresaFormDialog({ open, empresa, onClose }: EmpresaFormDialogP
       limite_usuarios: '',
       limite_pontos_venda: '',
       limite_licencas: '',
+      pedidos_venda_habilitado: false,
       ativo: true,
       admin_nome: '',
       admin_email: '',
@@ -128,6 +158,7 @@ export function EmpresaFormDialog({ open, empresa, onClose }: EmpresaFormDialogP
               limite_usuarios: empresa.limite_usuarios?.toString() ?? '',
               limite_pontos_venda: empresa.limite_pontos_venda?.toString() ?? '',
               limite_licencas: empresa.limite_licencas?.toString() ?? '',
+              pedidos_venda_habilitado: empresa.pedidos_venda_habilitado,
               ativo: empresa.ativo,
               admin_nome: '',
               admin_email: '',
@@ -141,6 +172,7 @@ export function EmpresaFormDialog({ open, empresa, onClose }: EmpresaFormDialogP
               limite_usuarios: '',
               limite_pontos_venda: '',
               limite_licencas: '',
+              pedidos_venda_habilitado: false,
               ativo: true,
               admin_nome: '',
               admin_email: '',
@@ -165,6 +197,7 @@ export function EmpresaFormDialog({ open, empresa, onClose }: EmpresaFormDialogP
           limite_usuarios: limiteUsuarios,
           limite_pontos_venda: limitePontosVenda,
           limite_licencas: limiteLicencas,
+          pedidos_venda_habilitado: data.pedidos_venda_habilitado,
           ativo: data.ativo,
         });
       }
@@ -177,6 +210,7 @@ export function EmpresaFormDialog({ open, empresa, onClose }: EmpresaFormDialogP
         limite_usuarios: limiteUsuarios,
         limite_pontos_venda: limitePontosVenda,
         limite_licencas: limiteLicencas,
+        pedidos_venda_habilitado: data.pedidos_venda_habilitado,
         admin_nome: data.admin_nome,
         admin_email: data.admin_email,
         admin_senha: data.admin_senha,
@@ -187,12 +221,34 @@ export function EmpresaFormDialog({ open, empresa, onClose }: EmpresaFormDialogP
       onClose();
     },
     onError: (err) => {
-      if (axios.isAxiosError<{ message?: string; errors?: Record<string, string[]> }>(err) && err.response?.status === 422) {
+      if (
+        axios.isAxiosError<{
+          message?: string;
+          errors?: Record<string, string[]>;
+        }>(err) &&
+        err.response?.status === 422
+      ) {
         const errors = err.response.data.errors;
         if (errors) {
           for (const [campo, mensagens] of Object.entries(errors)) {
-            if (campo in { razao_social: 1, nome_fantasia: 1, cnpj: 1, plano: 1, limite_usuarios: 1, limite_pontos_venda: 1, limite_licencas: 1, admin_nome: 1, admin_email: 1, admin_senha: 1 }) {
-              setError(campo as keyof EmpresaFormData, { message: mensagens[0] });
+            if (
+              campo in
+              {
+                razao_social: 1,
+                nome_fantasia: 1,
+                cnpj: 1,
+                plano: 1,
+                limite_usuarios: 1,
+                limite_pontos_venda: 1,
+                limite_licencas: 1,
+                admin_nome: 1,
+                admin_email: 1,
+                admin_senha: 1,
+              }
+            ) {
+              setError(campo as keyof EmpresaFormData, {
+                message: mensagens[0],
+              });
             }
           }
         }
@@ -324,6 +380,20 @@ export function EmpresaFormDialog({ open, empresa, onClose }: EmpresaFormDialogP
                 margin="normal"
                 error={!!fieldState.error}
                 helperText={fieldState.error?.message ?? 'Cobrança por dispositivo — vazio = sem limite'}
+              />
+            )}
+          />
+
+          {/* Módulo pago (docs/38-PEDIDO-VENDEDOR.md §12) — só o SUPERADMIN liga; sem ele as
+              permissões pedidos_venda.* não valem pra ninguém da empresa. */}
+          <Controller
+            name="pedidos_venda_habilitado"
+            control={control}
+            render={({ field }) => (
+              <FormControlLabel
+                sx={{ mt: 1, display: 'flex' }}
+                control={<Switch checked={field.value} onChange={(e) => field.onChange(e.target.checked)} />}
+                label="Pedido de Venda habilitado (módulo contratado — libera o modo Vendedor)"
               />
             )}
           />

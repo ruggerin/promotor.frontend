@@ -21,6 +21,8 @@ export interface TiposRegistroListParams {
   // "Formulário desta campanha" (Fase 3 de docs/20-FORMULARIO-DINAMICO-CAMPANHA.md §3) — lista
   // só os tipos vinculados a essa campanha, usado pela seção própria na tela de Campanha.
   campanha_auditoria_uuid?: string;
+  // Opt-in (até 200) — pra quem precisa da lista toda (copiar de outro formulário).
+  por_pagina?: number;
 }
 
 export async function listarTiposRegistro(params: TiposRegistroListParams = {}): Promise<TiposRegistroListResponse> {
@@ -29,6 +31,7 @@ export async function listarTiposRegistro(params: TiposRegistroListParams = {}):
       ativo: params.ativo === undefined ? undefined : params.ativo ? 1 : 0,
       empresa_uuid: params.empresa_uuid,
       campanha_auditoria_uuid: params.campanha_auditoria_uuid,
+      por_pagina: params.por_pagina,
     },
   });
   return data;
@@ -62,6 +65,11 @@ export interface TipoRegistroPayload {
   acao_obrigatoria?: boolean;
   escopo_acao?: EscopoAcaoTipoRegistro | null;
   campanha_auditoria_uuid?: string | null;
+  // Escopo LOJA_REDE (docs/40) — ignoradas/limpas pelo backend em qualquer outro escopo.
+  // Lista predefinida de produtos (só com granularidade PRODUTO; o backend limpa nas outras).
+  produtos_uuids?: string[];
+  pontos_venda_uuids?: string[];
+  redes_lojas_uuids?: string[];
   granularidade_padrao?: GranularidadeResposta | null;
   // Lista completa — sempre substitui as exceções existentes por inteiro (ver
   // TipoRegistroController::sincronizarExcecoesGranularidade).

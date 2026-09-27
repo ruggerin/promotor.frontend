@@ -25,8 +25,10 @@ import PeopleIcon from '@mui/icons-material/People';
 import PhotoLibraryIcon from '@mui/icons-material/PhotoLibrary';
 import SecurityIcon from '@mui/icons-material/Security';
 import StoreIcon from '@mui/icons-material/Store';
+import ShoppingCartOutlinedIcon from '@mui/icons-material/ShoppingCartOutlined';
 import TaskAltIcon from '@mui/icons-material/TaskAlt';
 import TuneIcon from '@mui/icons-material/Tune';
+import UploadFileIcon from '@mui/icons-material/UploadFile';
 import WorkIcon from '@mui/icons-material/Work';
 import {
   AppBar,
@@ -43,7 +45,7 @@ import {
   Typography,
 } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
-import { buscarNaoLidos } from '../../lib/api/comentarios';
+import { buscarResumoAtividades } from '../../lib/api/atividades';
 import { useState, type ReactNode } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { AutorizacaoGestorButton } from '../AutorizacaoGestorButton';
@@ -112,14 +114,19 @@ export function AppLayout() {
   });
   const solicitacoesPendentes = solicitacoesQuery.data?.meta.total ?? 0;
 
-  // Badge de feedback não lido (docs/28 §3) — polling, sem push. Aparece no item Atividades.
-  const naoLidosQuery = useQuery({
-    queryKey: ['comentarios-nao-lidos'],
-    queryFn: buscarNaoLidos,
+  // Badge do item Atividades (docs/43 §6 decisão 5) — respostas novas de promotor + alertas sem
+  // tratativa de hoje/ontem (esses só quando a empresa usa resolução de alerta, senão o alerta é
+  // informativo e acumularia pra sempre). Polling, sem push.
+  const resumoAtividadesQuery = useQuery({
+    queryKey: ['atividades-resumo', 'menu'],
+    queryFn: () => buscarResumoAtividades(),
     enabled: usuario?.user_type === 'ADMIN' || usuario?.user_type === 'GESTOR',
     refetchInterval: 60_000,
   });
-  const naoLidos = naoLidosQuery.data;
+  const resumoAtividades = resumoAtividadesQuery.data;
+  const badgeAtividades = resumoAtividades
+    ? resumoAtividades.respostas_novas + (resumoAtividades.requer_resolucao ? resumoAtividades.alertas.total : 0)
+    : 0;
 
   // `NavLink` só calcula `active` sozinho quando NINGUÉM mais fornece `className` — o
   // `ListItemButton` do MUI sempre passa a própria lista de classes geradas pra baixo, o que
@@ -144,7 +151,10 @@ export function AppLayout() {
           borderBottom: '1px solid',
           borderColor: 'divider',
           transition: (theme) =>
-            theme.transitions.create(['width', 'margin'], { easing: theme.transitions.easing.sharp, duration: 200 }),
+            theme.transitions.create(['width', 'margin'], {
+              easing: theme.transitions.easing.sharp,
+              duration: 200,
+            }),
         }}
       >
         <Toolbar sx={{ display: 'flex', gap: 2 }}>
@@ -160,7 +170,14 @@ export function AppLayout() {
               espaço vertical no corpo pra relatório/tabela/feed. Vazio quando a página não usa o
               hook (ex. telas que ainda não migraram esse padrão). */}
           <Box ref={setHeaderSlot} sx={{ flex: 1, minWidth: 0 }} />
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexShrink: 0 }}>
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1.5,
+              flexShrink: 0,
+            }}
+          >
             {usuario && <UsuarioAvatar nome={usuario.nome} fotoUrl={usuario.foto_url} size={32} />}
             <Typography variant="body2" noWrap>
               {usuario?.nome} · {usuario?.empresa?.nome_fantasia ?? usuario?.user_type}
@@ -187,7 +204,11 @@ export function AppLayout() {
           // funciona depois que o width de verdade encolhe.
           minWidth: 0,
           overflowX: 'hidden',
-          transition: (theme) => theme.transitions.create('width', { easing: theme.transitions.easing.sharp, duration: 200 }),
+          transition: (theme) =>
+            theme.transitions.create('width', {
+              easing: theme.transitions.easing.sharp,
+              duration: 200,
+            }),
           // O papel do Drawer (a folha escura em si) usa `position: fixed` mesmo no variant
           // "permanent" — não fica preso ao box do pai, então `overflowX` no root acima NÃO
           // clipa ele sozinho (overflow de ancestral não recorta descendente fixed, a menos que
@@ -201,7 +222,11 @@ export function AppLayout() {
             bgcolor: SIDEBAR.bg,
             color: SIDEBAR.texto,
             borderRight: 0,
-            transition: (theme) => theme.transitions.create('width', { easing: theme.transitions.easing.sharp, duration: 200 }),
+            transition: (theme) =>
+              theme.transitions.create('width', {
+                easing: theme.transitions.easing.sharp,
+                duration: 200,
+              }),
           },
           '& .MuiListSubheader-root': {
             bgcolor: 'transparent',
@@ -239,7 +264,15 @@ export function AppLayout() {
         {/* Logo — mesmo lockup do handoff de design: quadrado indigo com um recorte amber
             dentro, "PDV Admin" ao lado. Substitui o Toolbar-espaçador antigo (que só existia
             pra compensar a altura da AppBar). */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, px: 2.75, py: 2.75 }}>
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1.25,
+            px: 2.75,
+            py: 2.75,
+          }}
+        >
           <Box
             sx={{
               width: 28,
@@ -252,9 +285,23 @@ export function AppLayout() {
               flexShrink: 0,
             }}
           >
-            <Box sx={{ width: 9, height: 9, borderRadius: '2px', bgcolor: SIDEBAR.amber }} />
+            <Box
+              sx={{
+                width: 9,
+                height: 9,
+                borderRadius: '2px',
+                bgcolor: SIDEBAR.amber,
+              }}
+            />
           </Box>
-          <Typography sx={{ fontSize: 15, fontWeight: 700, letterSpacing: '-0.01em', color: '#fff' }}>
+          <Typography
+            sx={{
+              fontSize: 15,
+              fontWeight: 700,
+              letterSpacing: '-0.01em',
+              color: '#fff',
+            }}
+          >
             PDV Admin
           </Typography>
         </Box>
@@ -281,13 +328,25 @@ export function AppLayout() {
             </ListItemIcon>
             <ListItemText primary="Pontos de Venda" />
           </ListItemButton>
+          {/* Importação de Dados (docs/42) — aparece pra quem pode importar ao menos um dos tipos
+              (lojas/vínculo: pontos_venda.gerenciar; produtos: catalogo.gerenciar). */}
+          {(usuario?.user_type === 'ADMIN' ||
+            (usuario?.user_type === 'GESTOR' &&
+              (usuario.perfil?.permissoes ?? []).some((p) => p === 'pontos_venda.gerenciar' || p === 'catalogo.gerenciar'))) && (
+            <ListItemButton component={NavLink} to="/importacao-dados" selected={emRota('/importacao-dados')}>
+              <ListItemIcon>
+                <UploadFileIcon />
+              </ListItemIcon>
+              <ListItemText primary="Importação de Dados" />
+            </ListItemButton>
+          )}
           {/* Timeline de supervisão (check-in/checkout/alertas) — pensada pra substituir o
               grupo de WhatsApp do gestor, ver docs/19-PAINEL-ATIVIDADES.md. PROMOTOR não vê:
               o backend também bloqueia (403), o gate aqui é só a UX de esconder o link. */}
           {(usuario?.user_type === 'ADMIN' || usuario?.user_type === 'GESTOR') && (
             <ListItemButton component={NavLink} to="/atividades" selected={emRota('/atividades')}>
               <ListItemIcon>
-                <Badge color="error" badgeContent={naoLidos?.total ?? 0} max={99}>
+                <Badge color="error" badgeContent={badgeAtividades} max={99}>
                   <BoltIcon />
                 </Badge>
               </ListItemIcon>
@@ -305,6 +364,20 @@ export function AppLayout() {
               <ListItemText primary="Planos de Ação" />
             </ListItemButton>
           )}
+          {/* Pedidos de Venda (docs/38-PEDIDO-VENDEDOR.md) — ADMIN sempre; GESTOR só com alguma
+              permissão pedidos_venda.* no perfil (o /auth/me passou a expor as permissões). */}
+          {/* Também só com o módulo contratado (docs/38 §12). */}
+          {usuario?.empresa?.pedidos_venda_habilitado &&
+            (usuario.user_type === 'ADMIN' ||
+              (usuario.user_type === 'GESTOR' &&
+                (usuario.perfil?.permissoes ?? []).some((p) => p.startsWith('pedidos_venda.')))) && (
+              <ListItemButton component={NavLink} to="/pedidos-venda" selected={emRota('/pedidos-venda')}>
+                <ListItemIcon>
+                  <ShoppingCartOutlinedIcon />
+                </ListItemIcon>
+                <ListItemText primary="Pedidos de Venda" />
+              </ListItemButton>
+            )}
           {/* Grade só de fotos (diferente do Atividades, que é timeline de eventos) — mesmo
               gate de ADMIN/GESTOR, ver docs/23-GALERIA-DE-FOTOS.md §4. */}
           {(usuario?.user_type === 'ADMIN' || usuario?.user_type === 'GESTOR') && (
@@ -336,7 +409,7 @@ export function AppLayout() {
                 <ListItemIcon>
                   <FactCheckIcon />
                 </ListItemIcon>
-                <ListItemText primary="Respostas por pergunta" />
+                <ListItemText primary="Coleta por Formulário" />
               </ListItemButton>
             </>
           )}
@@ -498,7 +571,11 @@ export function AppLayout() {
           flexGrow: 1,
           p: 3,
           width: menuAberto ? `calc(100% - ${DRAWER_WIDTH}px)` : '100%',
-          transition: (theme) => theme.transitions.create('width', { easing: theme.transitions.easing.sharp, duration: 200 }),
+          transition: (theme) =>
+            theme.transitions.create('width', {
+              easing: theme.transitions.easing.sharp,
+              duration: 200,
+            }),
         }}
       >
         <Toolbar />
