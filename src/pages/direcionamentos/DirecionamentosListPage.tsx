@@ -17,6 +17,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePageHeader } from '../../components/layout/PageHeaderSlot';
+import { TituloComAtualizar } from '../../components/RefreshButton';
 import { listarDirecionamentos } from '../../lib/api/direcionamentos';
 import type { Direcionamento } from '../../types/api';
 import { DirecionamentoFormDialog } from './DirecionamentoFormDialog';
@@ -36,11 +37,7 @@ export function DirecionamentosListPage() {
   });
   const direcionamentos = query.data?.direcionamentos ?? [];
 
-  const cabecalho = usePageHeader(
-    <Typography variant="h6" sx={{ fontWeight: 700 }}>
-      Direcionamentos
-    </Typography>,
-  );
+  const cabecalho = usePageHeader(<TituloComAtualizar titulo="Direcionamentos" />);
 
   return (
     <Box>

@@ -5,6 +5,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 import { useState } from 'react';
 import { usePageHeader } from '../../components/layout/PageHeaderSlot';
+import { TituloComAtualizar } from '../../components/RefreshButton';
 import { FiltroPeriodo, hojeISO } from '../../components/relatorios/FiltroPeriodo';
 import { SeletorPontoVenda } from '../../components/relatorios/SeletorPontoVenda';
 import {
@@ -149,11 +150,7 @@ export function RespostasFormularioPage() {
   // "Coleta por Formulário" = matriz Loja × Produto (docs/39-RELATORIO-ANALITICO-PIVOT.md), mesmos filtros.
   const [aba, setAba] = useState<'sintetico' | 'coleta'>('sintetico');
 
-  const cabecalho = usePageHeader(
-    <Typography variant="h6" sx={{ fontWeight: 700 }}>
-      Coleta por Formulário
-    </Typography>,
-  );
+  const cabecalho = usePageHeader(<TituloComAtualizar titulo="Coleta por Formulário" />);
 
   const tiposQuery = useQuery({ queryKey: ['tipos-registro', { ativo: true }], queryFn: () => listarTiposRegistro({ ativo: true }) });
   const promotoresQuery = useQuery({

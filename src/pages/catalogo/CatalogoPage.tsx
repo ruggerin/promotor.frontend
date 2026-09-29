@@ -1,5 +1,6 @@
-import { Autocomplete, Box, Tab, Tabs, TextField, Typography } from '@mui/material';
+import { Autocomplete, Box, Tab, Tabs, TextField } from '@mui/material';
 import { usePageHeader } from '../../components/layout/PageHeaderSlot';
+import { TituloComAtualizar } from '../../components/RefreshButton';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { listarEmpresasSuperadmin } from '../../lib/api/empresas';
@@ -30,11 +31,7 @@ export function CatalogoPage() {
     enabled: isSuperadmin,
   });
 
-  const cabecalho = usePageHeader(
-    <Typography variant="h6" sx={{ fontWeight: 700 }}>
-      Catálogo
-    </Typography>,
-  );
+  const cabecalho = usePageHeader(<TituloComAtualizar titulo="Catálogo" />);
 
   return (
     <Box>

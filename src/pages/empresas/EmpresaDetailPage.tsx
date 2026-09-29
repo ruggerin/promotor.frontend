@@ -27,6 +27,7 @@ import { formatarDataSemFuso } from '../../lib/formatarData';
 import type { Empresa, Fatura, StatusFatura } from '../../types/api';
 import { EmpresaFormDialog } from './EmpresaFormDialog';
 import { FaturaFormDialog } from './FaturaFormDialog';
+import { ParametrosPadraoCard } from './ParametrosPadraoCard';
 
 const STATUS_FATURA_LABELS: Record<StatusFatura, string> = {
   PENDENTE: 'Pendente',
@@ -232,6 +233,8 @@ export function EmpresaDetailPage() {
           </Grid>
         </Grid>
       </Paper>
+
+      <ParametrosPadraoCard empresaUuid={publicId as string} />
 
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h6">Faturas</Typography>

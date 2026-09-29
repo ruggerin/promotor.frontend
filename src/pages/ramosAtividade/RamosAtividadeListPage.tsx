@@ -1,5 +1,6 @@
 import AddIcon from '@mui/icons-material/Add';
 import { usePageHeader } from '../../components/layout/PageHeaderSlot';
+import { TituloComAtualizar } from '../../components/RefreshButton';
 import BlockIcon from '@mui/icons-material/Block';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import EditIcon from '@mui/icons-material/Edit';
@@ -20,8 +21,7 @@ import {
   TableRow,
   TextField,
   Tooltip,
-  Typography,
-} from '@mui/material';
+  } from '@mui/material';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { listarEmpresasSuperadmin } from '../../lib/api/empresas';
@@ -85,11 +85,7 @@ export function RamosAtividadeListPage() {
     reativarMutation.mutate(r);
   }
 
-  const cabecalho = usePageHeader(
-    <Typography variant="h6" sx={{ fontWeight: 700 }}>
-      Ramos de Atividade
-    </Typography>,
-  );
+  const cabecalho = usePageHeader(<TituloComAtualizar titulo="Ramos de Atividade" />);
 
   return (
     <Box>

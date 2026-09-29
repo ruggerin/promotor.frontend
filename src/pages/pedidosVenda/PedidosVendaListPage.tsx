@@ -25,6 +25,7 @@ import axios from 'axios';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePageHeader } from '../../components/layout/PageHeaderSlot';
+import { TituloComAtualizar } from '../../components/RefreshButton';
 import { baixarCsv } from '../../lib/csv';
 import { listarPedidosVenda, listarVendedoresPedidosVenda } from '../../lib/api/pedidosVenda';
 import { listarPontosVenda } from '../../lib/api/pontosVenda';
@@ -110,11 +111,7 @@ export function PedidosVendaListPage() {
   const resumo = query.data?.resumo;
   const semPermissao = axios.isAxiosError(query.error) && query.error.response?.status === 403;
 
-  const cabecalho = usePageHeader(
-    <Typography variant="h6" sx={{ fontWeight: 700 }}>
-      Pedidos de Venda
-    </Typography>,
-  );
+  const cabecalho = usePageHeader(<TituloComAtualizar titulo="Pedidos de Venda" />);
 
   function mudarFiltro(atualizar: () => void) {
     atualizar();

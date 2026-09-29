@@ -62,3 +62,26 @@ export async function atualizarEmpresaSuperadmin(
 export async function bloquearEmpresaSuperadmin(uuid: string): Promise<void> {
   await apiClient.delete(`/superadmin/empresas/${uuid}`);
 }
+
+// Parâmetros padrão da empresa (App\Support\ParametrosPadrao no backend) — quais já estão
+// cadastrados e quais faltam; completar cadastra só os que faltam, sem sobrescrever nada.
+export interface ParametroPadrao {
+  chave: string;
+  valor_padrao: string;
+  descricao: string;
+  cadastrado: boolean;
+}
+
+export async function buscarParametrosPadraoEmpresa(uuid: string): Promise<ParametroPadrao[]> {
+  const { data } = await apiClient.get<{ parametros: ParametroPadrao[] }>(`/superadmin/empresas/${uuid}/parametros-padrao`);
+  return data.parametros;
+}
+
+export async function completarParametrosPadraoEmpresa(
+  uuid: string,
+): Promise<{ criados: string[]; parametros: ParametroPadrao[] }> {
+  const { data } = await apiClient.post<{ criados: string[]; parametros: ParametroPadrao[] }>(
+    `/superadmin/empresas/${uuid}/parametros-padrao`,
+  );
+  return data;
+}

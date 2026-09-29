@@ -1,5 +1,6 @@
 import AddIcon from '@mui/icons-material/Add';
 import { usePageHeader } from '../../components/layout/PageHeaderSlot';
+import { TituloComAtualizar } from '../../components/RefreshButton';
 import {
   Box,
   Button,
@@ -47,11 +48,7 @@ export function EmpresasListPage() {
     queryFn: listarEmpresasSuperadmin,
   });
 
-  const cabecalho = usePageHeader(
-    <Typography variant="h6" sx={{ fontWeight: 700 }}>
-      Empresas
-    </Typography>,
-  );
+  const cabecalho = usePageHeader(<TituloComAtualizar titulo="Empresas" />);
 
   return (
     <Box>
