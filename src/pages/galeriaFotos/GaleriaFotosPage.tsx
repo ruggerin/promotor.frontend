@@ -1,5 +1,6 @@
 import AddIcon from '@mui/icons-material/Add';
 import { usePageHeader } from '../../components/layout/PageHeaderSlot';
+import { TituloComAtualizar } from '../../components/RefreshButton';
 import PhotoSizeSelectLargeIcon from '@mui/icons-material/PhotoSizeSelectLarge';
 import PhotoSizeSelectSmallIcon from '@mui/icons-material/PhotoSizeSelectSmall';
 import {
@@ -385,11 +386,7 @@ export function GaleriaFotosPage() {
     return valor ? `${LABELS_FILTRO[tipo]}: ${valor.label}` : LABELS_FILTRO[tipo];
   }
 
-  const cabecalho = usePageHeader(
-    <Typography variant="h6" sx={{ fontWeight: 700 }}>
-      Galeria de Fotos
-    </Typography>,
-  );
+  const cabecalho = usePageHeader(<TituloComAtualizar titulo="Galeria de Fotos" />);
 
   return (
     <Box>

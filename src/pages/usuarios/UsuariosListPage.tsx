@@ -1,5 +1,6 @@
 import AddIcon from '@mui/icons-material/Add';
 import { usePageHeader } from '../../components/layout/PageHeaderSlot';
+import { TituloComAtualizar } from '../../components/RefreshButton';
 import BlockIcon from '@mui/icons-material/Block';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import EditIcon from '@mui/icons-material/Edit';
@@ -151,11 +152,7 @@ export function UsuariosListPage() {
   // SUPERADMIN ganha a coluna Empresa a mais (Ações ele também tem, só com menos ícones).
   const totalColunas = isSuperadmin ? 9 : 8;
 
-  const cabecalho = usePageHeader(
-    <Typography variant="h6" sx={{ fontWeight: 700 }}>
-      Usuários
-    </Typography>,
-  );
+  const cabecalho = usePageHeader(<TituloComAtualizar titulo="Usuários" />);
 
   return (
     <Box>

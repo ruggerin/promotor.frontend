@@ -44,6 +44,7 @@ import {
   ListSubheader,
   Toolbar,
   Typography,
+  useMediaQuery,
 } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 import { buscarResumoAtividades } from '../../lib/api/atividades';
@@ -92,7 +93,18 @@ export function AppLayout() {
     }
   });
 
+  // Celular/tablet (< md): o menu vira gaveta TEMPORÁRIA por cima do conteúdo — fixo, ele comia
+  // 250px de uma tela de ~390px. Começa fechada, não persiste, fecha ao escolher um item.
+  const ehMobile = useMediaQuery((theme) => theme.breakpoints.down('md'));
+  const [menuMobileAberto, setMenuMobileAberto] = useState(false);
+  // Largura que o menu ocupa no layout (só no desktop, com o menu fixo aberto).
+  const menuFixo = !ehMobile && menuAberto;
+
   function alternarMenu() {
+    if (ehMobile) {
+      setMenuMobileAberto((atual) => !atual);
+      return;
+    }
     setMenuAberto((atual) => {
       const novo = !atual;
       try {
@@ -144,8 +156,8 @@ export function AppLayout() {
         elevation={0}
         sx={{
           zIndex: (theme) => theme.zIndex.drawer + 1,
-          width: menuAberto ? `calc(100% - ${DRAWER_WIDTH}px)` : '100%',
-          ml: menuAberto ? `${DRAWER_WIDTH}px` : 0,
+          width: menuFixo ? `calc(100% - ${DRAWER_WIDTH}px)` : '100%',
+          ml: menuFixo ? `${DRAWER_WIDTH}px` : 0,
           bgcolor: 'rgba(255,255,255,0.88)',
           backdropFilter: 'blur(8px)',
           color: 'text.primary',
@@ -163,7 +175,7 @@ export function AppLayout() {
             onClick={alternarMenu}
             edge="start"
             sx={{ flexShrink: 0 }}
-            title={menuAberto ? 'Recolher menu' : 'Expandir menu'}
+            title={ehMobile ? 'Abrir menu' : menuAberto ? 'Recolher menu' : 'Expandir menu'}
           >
             <MenuIcon />
           </IconButton>
@@ -180,7 +192,7 @@ export function AppLayout() {
             }}
           >
             {usuario && <UsuarioAvatar nome={usuario.nome} fotoUrl={usuario.foto_url} size={32} />}
-            <Typography variant="body2" noWrap>
+            <Typography variant="body2" noWrap sx={{ display: { xs: 'none', sm: 'block' } }}>
               {usuario?.nome} · {usuario?.empresa?.nome_fantasia ?? usuario?.user_type}
             </Typography>
             {/* Saída de segurança pra visita travada, sem o gestor digitar e-mail/senha no
@@ -195,9 +207,14 @@ export function AppLayout() {
         </Toolbar>
       </AppBar>
       <Drawer
-        variant="permanent"
+        variant={ehMobile ? 'temporary' : 'permanent'}
+        open={ehMobile ? menuMobileAberto : true}
+        onClose={() => setMenuMobileAberto(false)}
+        // No celular, tocar num item do menu já navega e fecha a gaveta.
+        onClick={ehMobile ? () => setMenuMobileAberto(false) : undefined}
+        ModalProps={{ keepMounted: true }}
         sx={{
-          width: menuAberto ? DRAWER_WIDTH : 0,
+          width: menuFixo ? DRAWER_WIDTH : 0,
           flexShrink: 0,
           // Item flex, por padrão, não encolhe abaixo do min-content do conteúdo interno (a
           // regra CSS `min-width: auto` implícita) — sem isso, o `width: 0` acima é ignorado e o
@@ -217,7 +234,7 @@ export function AppLayout() {
           // direto aqui também, em espelho do root — sem isso, o menu "fechava" só por baixo dos
           // panos (o root ia pra 0, mas a folha continuava pintando por cima, cheia, sempre).
           '& .MuiDrawer-paper': {
-            width: menuAberto ? DRAWER_WIDTH : 0,
+            width: ehMobile || menuAberto ? DRAWER_WIDTH : 0,
             overflowX: 'hidden',
             boxSizing: 'border-box',
             bgcolor: SIDEBAR.bg,
@@ -581,8 +598,9 @@ export function AppLayout() {
         component="main"
         sx={{
           flexGrow: 1,
-          p: 3,
-          width: menuAberto ? `calc(100% - ${DRAWER_WIDTH}px)` : '100%',
+          p: { xs: 1.5, sm: 3 },
+          minWidth: 0,
+          width: menuFixo ? `calc(100% - ${DRAWER_WIDTH}px)` : '100%',
           transition: (theme) =>
             theme.transitions.create('width', {
               easing: theme.transitions.easing.sharp,

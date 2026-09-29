@@ -5,6 +5,9 @@ on:
     branches: ['**']
   pull_request:
 
+# O repositório do admin tem os arquivos na RAIZ (não numa pasta admin/) — por isso nenhum passo
+# usa working-directory (versões antigas deste arquivo usavam e nunca rodaram no GitHub).
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -17,16 +20,12 @@ jobs:
         with:
           node-version: '22'
           cache: npm
-          cache-dependency-path: admin/package-lock.json
 
       - name: Instalar dependências
-        working-directory: admin
         run: npm ci
 
       - name: Rodar testes
-        working-directory: admin
         run: npm test
 
       - name: Typecheck + build de produção
-        working-directory: admin
         run: npm run build

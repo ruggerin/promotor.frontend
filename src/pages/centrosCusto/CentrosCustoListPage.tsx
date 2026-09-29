@@ -1,5 +1,6 @@
 import AddIcon from '@mui/icons-material/Add';
 import { usePageHeader } from '../../components/layout/PageHeaderSlot';
+import { TituloComAtualizar } from '../../components/RefreshButton';
 import BlockIcon from '@mui/icons-material/Block';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import EditIcon from '@mui/icons-material/Edit';
@@ -75,11 +76,7 @@ export function CentrosCustoListPage() {
 
   const centrosCusto = query.data?.centros_custo ?? [];
 
-  const cabecalho = usePageHeader(
-    <Typography variant="h6" sx={{ fontWeight: 700 }}>
-      Centros de Custo
-    </Typography>,
-  );
+  const cabecalho = usePageHeader(<TituloComAtualizar titulo="Centros de Custo" />);
 
   return (
     <Box>

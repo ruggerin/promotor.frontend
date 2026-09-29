@@ -1,5 +1,6 @@
 import AddIcon from '@mui/icons-material/Add';
 import { usePageHeader } from '../../components/layout/PageHeaderSlot';
+import { TituloComAtualizar } from '../../components/RefreshButton';
 import BlockIcon from '@mui/icons-material/Block';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import EditIcon from '@mui/icons-material/Edit';
@@ -67,11 +68,7 @@ export function ObjetivosVisitaListPage() {
 
   const objetivosVisita = query.data?.objetivos_visita ?? [];
 
-  const cabecalho = usePageHeader(
-    <Typography variant="h6" sx={{ fontWeight: 700 }}>
-      Objetivos de Visita
-    </Typography>,
-  );
+  const cabecalho = usePageHeader(<TituloComAtualizar titulo="Objetivos de Visita" />);
 
   return (
     <Box>

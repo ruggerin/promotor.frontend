@@ -5,6 +5,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 import { useState } from 'react';
 import { usePageHeader } from '../../components/layout/PageHeaderSlot';
+import { TituloComAtualizar } from '../../components/RefreshButton';
 import { FiltroPeriodo, hojeISO } from '../../components/relatorios/FiltroPeriodo';
 import { SeletorPontoVenda } from '../../components/relatorios/SeletorPontoVenda';
 import { baixarPdfVisitasPlanejadas, buscarVisitasPlanejadasXExecutadas, type TotalPlanejadoExecutado } from '../../lib/api/relatorios';
@@ -44,11 +45,7 @@ export function VisitasPlanejadasPage() {
   const [promotorUuid, setPromotorUuid] = useState<string | null>(null);
   const [pontoVendaUuid, setPontoVendaUuid] = useState<string | null>(null);
 
-  const cabecalho = usePageHeader(
-    <Typography variant="h6" sx={{ fontWeight: 700 }}>
-      Cumprimento de visitas
-    </Typography>,
-  );
+  const cabecalho = usePageHeader(<TituloComAtualizar titulo="Cumprimento de visitas" />);
 
   const promotoresQuery = useQuery({
     queryKey: ['usuarios', 'promotores-relatorio'],

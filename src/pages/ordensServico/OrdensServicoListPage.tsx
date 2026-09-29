@@ -1,5 +1,6 @@
 import AddIcon from '@mui/icons-material/Add';
 import { usePageHeader } from '../../components/layout/PageHeaderSlot';
+import { TituloComAtualizar } from '../../components/RefreshButton';
 import BlockIcon from '@mui/icons-material/Block';
 import CheckIcon from '@mui/icons-material/Check';
 import CloseIcon from '@mui/icons-material/Close';
@@ -225,11 +226,7 @@ export function OrdensServicoListPage() {
     });
   }
 
-  const cabecalho = usePageHeader(
-    <Typography variant="h6" sx={{ fontWeight: 700 }}>
-      Ordens de Serviço
-    </Typography>,
-  );
+  const cabecalho = usePageHeader(<TituloComAtualizar titulo="Ordens de Serviço" />);
 
   return (
     <Box>

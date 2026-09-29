@@ -1,5 +1,6 @@
 import { Autocomplete, Box, Chip, MenuItem, Paper, TextField, Typography } from '@mui/material';
 import { usePageHeader } from '../../components/layout/PageHeaderSlot';
+import { TituloComAtualizar } from '../../components/RefreshButton';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { createColumnHelper } from '@tanstack/react-table';
 import { useMemo, useState } from 'react';
@@ -131,11 +132,7 @@ export function VisitasListPage() {
     [],
   );
 
-  const cabecalho = usePageHeader(
-    <Typography variant="h6" sx={{ fontWeight: 700 }}>
-      Visitas
-    </Typography>,
-  );
+  const cabecalho = usePageHeader(<TituloComAtualizar titulo="Visitas" />);
 
   return (
     <Box>

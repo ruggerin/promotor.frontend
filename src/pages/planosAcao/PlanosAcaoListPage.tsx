@@ -27,6 +27,7 @@ import axios from 'axios';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePageHeader } from '../../components/layout/PageHeaderSlot';
+import { TituloComAtualizar } from '../../components/RefreshButton';
 import { listarPlanosAcao, listarResponsaveisPlanoAcao } from '../../lib/api/planosAcao';
 import { listarPontosVenda } from '../../lib/api/pontosVenda';
 import { listarRedesLojas } from '../../lib/api/redesLojas';
@@ -88,11 +89,7 @@ export function PlanosAcaoListPage() {
   const resumo = query.data?.resumo;
   const semPermissao = axios.isAxiosError(query.error) && query.error.response?.status === 403;
 
-  const cabecalho = usePageHeader(
-    <Typography variant="h6" sx={{ fontWeight: 700 }}>
-      Planos de Ação
-    </Typography>,
-  );
+  const cabecalho = usePageHeader(<TituloComAtualizar titulo="Planos de Ação" />);
 
   function mudarFiltro(atualizar: () => void) {
     atualizar();
