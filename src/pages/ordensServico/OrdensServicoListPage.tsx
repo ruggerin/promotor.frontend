@@ -6,6 +6,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import EditIcon from '@mui/icons-material/Edit';
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   Checkbox,
@@ -23,13 +24,14 @@ import {
   TableCell,
   TableContainer,
   TableHead,
+  TablePagination,
   TableRow,
   TextField,
   Tooltip,
   Typography,
 } from '@mui/material';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   aprovarOrdemServico,
   atualizarOrdemServico,
@@ -37,6 +39,8 @@ import {
   listarOrdensServico,
   rejeitarOrdemServico,
 } from '../../lib/api/ordensServico';
+import { listarPontosVenda } from '../../lib/api/pontosVenda';
+import { listarUsuarios } from '../../lib/api/usuarios';
 import type { OrdemServico, OrigemOrdemServico, StatusOrdemServico } from '../../types/api';
 import { OrdemServicoFormDialog } from './OrdemServicoFormDialog';
 
@@ -97,6 +101,17 @@ export function OrdensServicoListPage() {
 
   const [page, setPage] = useState(0);
   const [filtroStatus, setFiltroStatus] = useState<FiltroStatus>('todos');
+  // Loja/promotor: mesmo padrão de busca-com-debounce server-side de OrdemServicoFormDialog —
+  // sem isso o Autocomplete ficaria preso aos 15 primeiros registros. Ver docs/07 (revisão de
+  // filtros pedida pelo usuário).
+  const [pontoVendaFiltro, setPontoVendaFiltro] = useState<{ id: string; fantasia: string } | null>(null);
+  const [buscaPdv, setBuscaPdv] = useState('');
+  const [buscaPdvDebounced, setBuscaPdvDebounced] = useState('');
+  const [usuarioFiltro, setUsuarioFiltro] = useState<{ id: string; nome: string } | null>(null);
+  const [buscaPromotor, setBuscaPromotor] = useState('');
+  const [buscaPromotorDebounced, setBuscaPromotorDebounced] = useState('');
+  const [prazoDe, setPrazoDe] = useState('');
+  const [prazoAte, setPrazoAte] = useState('');
   const [dialogAberto, setDialogAberto] = useState(false);
   const [emEdicao, setEmEdicao] = useState<OrdemServico | null>(null);
   const [erro, setErro] = useState<string | null>(null);
@@ -106,12 +121,38 @@ export function OrdensServicoListPage() {
   // decisão 7). Só faz sentido pra PENDENTE, então a seleção nunca inclui as outras.
   const [selecionadas, setSelecionadas] = useState<Set<string>>(new Set());
 
+  useEffect(() => {
+    const timer = setTimeout(() => setBuscaPdvDebounced(buscaPdv), 300);
+    return () => clearTimeout(timer);
+  }, [buscaPdv]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setBuscaPromotorDebounced(buscaPromotor), 300);
+    return () => clearTimeout(timer);
+  }, [buscaPromotor]);
+
+  const pontosVendaQuery = useQuery({
+    queryKey: ['pontos-venda', 'filtro-ordens-servico', buscaPdvDebounced],
+    queryFn: () => listarPontosVenda({ ativo: true, busca: buscaPdvDebounced || undefined }),
+  });
+  const opcoesPontoVenda = pontosVendaQuery.data?.pontos_venda ?? [];
+
+  const promotoresQuery = useQuery({
+    queryKey: ['usuarios', 'filtro-ordens-servico', buscaPromotorDebounced],
+    queryFn: () => listarUsuarios({ user_type: 'PROMOTOR', ativo: true, busca: buscaPromotorDebounced || undefined }),
+  });
+  const opcoesPromotor = promotoresQuery.data?.usuarios ?? [];
+
   const query = useQuery({
-    queryKey: ['ordens-servico', { page, filtroStatus }],
+    queryKey: ['ordens-servico', { page, filtroStatus, pontoVendaFiltro, usuarioFiltro, prazoDe, prazoAte }],
     queryFn: () =>
       listarOrdensServico({
         page: page + 1,
         status: filtroStatus === 'todos' ? undefined : filtroStatus === 'solicitacoes' ? STATUS_SOLICITACAO : filtroStatus,
+        ponto_venda_uuid: pontoVendaFiltro?.id,
+        usuario_uuid: usuarioFiltro?.id,
+        prazo_de: prazoDe || undefined,
+        prazo_ate: prazoAte || undefined,
       }),
     placeholderData: keepPreviousData,
   });
@@ -218,7 +259,7 @@ export function OrdensServicoListPage() {
         </Alert>
       )}
 
-      <Paper sx={{ p: 2, mb: 2, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+      <Paper sx={{ p: 2, mb: 2, display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
         <TextField
           select
           label="Status"
@@ -240,6 +281,78 @@ export function OrdensServicoListPage() {
           <MenuItem value="REAGENDAMENTO_SOLICITADO">Reagendamento solicitado</MenuItem>
           <MenuItem value="CANCELAMENTO_SOLICITADO">Cancelamento solicitado</MenuItem>
         </TextField>
+        <Autocomplete
+          size="small"
+          sx={{ width: 260 }}
+          options={opcoesPontoVenda}
+          getOptionLabel={(option) => option.fantasia}
+          loading={pontosVendaQuery.isLoading}
+          filterOptions={(options) => options}
+          value={pontoVendaFiltro}
+          inputValue={buscaPdv}
+          onInputChange={(_, value) => setBuscaPdv(value)}
+          onChange={(_, value) => {
+            setPage(0);
+            setPontoVendaFiltro(value);
+          }}
+          renderInput={(params) => <TextField {...params} label="Ponto de venda" />}
+        />
+        <Autocomplete
+          size="small"
+          sx={{ width: 240 }}
+          options={opcoesPromotor}
+          getOptionLabel={(option) => option.nome}
+          loading={promotoresQuery.isLoading}
+          filterOptions={(options) => options}
+          value={usuarioFiltro}
+          inputValue={buscaPromotor}
+          onInputChange={(_, value) => setBuscaPromotor(value)}
+          onChange={(_, value) => {
+            setPage(0);
+            setUsuarioFiltro(value);
+          }}
+          renderInput={(params) => <TextField {...params} label="Promotor" />}
+        />
+        <TextField
+          label="Prazo de"
+          type="date"
+          size="small"
+          sx={{ width: 160 }}
+          slotProps={{ inputLabel: { shrink: true } }}
+          value={prazoDe}
+          onChange={(e) => {
+            setPage(0);
+            setPrazoDe(e.target.value);
+          }}
+        />
+        <TextField
+          label="Prazo até"
+          type="date"
+          size="small"
+          sx={{ width: 160 }}
+          slotProps={{ inputLabel: { shrink: true } }}
+          value={prazoAte}
+          onChange={(e) => {
+            setPage(0);
+            setPrazoAte(e.target.value);
+          }}
+        />
+        {(pontoVendaFiltro || usuarioFiltro || prazoDe || prazoAte) && (
+          <Button
+            size="small"
+            onClick={() => {
+              setPage(0);
+              setPontoVendaFiltro(null);
+              setBuscaPdv('');
+              setUsuarioFiltro(null);
+              setBuscaPromotor('');
+              setPrazoDe('');
+              setPrazoAte('');
+            }}
+          >
+            Limpar filtros
+          </Button>
+        )}
         {selecionadas.size > 0 && (
           <Button
             variant="outlined"
@@ -407,6 +520,17 @@ export function OrdensServicoListPage() {
             })}
           </TableBody>
         </Table>
+        <TablePagination
+          component="div"
+          count={query.data?.meta.total ?? 0}
+          page={page}
+          onPageChange={(_, newPage) => setPage(newPage)}
+          rowsPerPage={query.data?.meta.per_page ?? 15}
+          rowsPerPageOptions={[query.data?.meta.per_page ?? 15]}
+          onRowsPerPageChange={() => {
+            // A API não aceita per_page customizado ainda — mesmo padrão do resto do admin.
+          }}
+        />
       </TableContainer>
 
       <OrdemServicoFormDialog open={dialogAberto} ordemServico={emEdicao} onClose={() => setDialogAberto(false)} />

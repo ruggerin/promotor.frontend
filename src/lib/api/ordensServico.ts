@@ -8,6 +8,9 @@ export interface OrdensServicoListParams {
   status?: StatusOrdemServico | StatusOrdemServico[];
   ponto_venda_uuid?: string;
   usuario_uuid?: string;
+  // Janela de data contra prazo_fim (mesmo campo usado pra calcular "Atrasada"/"Expirada").
+  prazo_de?: string;
+  prazo_ate?: string;
 }
 
 export interface OrdensServicoListResponse {
@@ -22,6 +25,8 @@ export async function listarOrdensServico(params: OrdensServicoListParams = {}):
       status: params.status,
       ponto_venda_uuid: params.ponto_venda_uuid,
       usuario_uuid: params.usuario_uuid,
+      prazo_de: params.prazo_de || undefined,
+      prazo_ate: params.prazo_ate || undefined,
     },
   });
   return data;

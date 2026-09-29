@@ -5,6 +5,8 @@ export interface UsuariosListParams {
   page?: number;
   ativo?: boolean;
   user_type?: UserType;
+  // Nome, e-mail ou código externo na mesma caixa (mesmo padrão de busca de produto/PDV).
+  busca?: string;
   // Só tem efeito pra quem chama como SUPERADMIN (ver docs/02-API-BACKEND.md) — ADMIN/GESTOR já
   // são restritos à própria empresa pelo backend, então passar isso pra eles é inofensivo mas
   // inútil.
@@ -26,6 +28,7 @@ export async function listarUsuarios(params: UsuariosListParams = {}): Promise<U
       page: params.page,
       ativo: params.ativo === undefined ? undefined : params.ativo ? 1 : 0,
       user_type: params.user_type,
+      busca: params.busca || undefined,
       empresa_uuid: params.empresa_uuid,
       por_pagina: params.por_pagina,
     },
