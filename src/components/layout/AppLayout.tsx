@@ -14,6 +14,7 @@ import GridViewIcon from '@mui/icons-material/GridView';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutlineOutlined';
 import InsightsIcon from '@mui/icons-material/Insights';
 import LabelIcon from '@mui/icons-material/Label';
+import ChecklistIcon from '@mui/icons-material/Checklist';
 import ListAltIcon from '@mui/icons-material/ListAlt';
 import LogoutIcon from '@mui/icons-material/Logout';
 import MenuIcon from '@mui/icons-material/Menu';
@@ -386,6 +387,17 @@ export function AppLayout() {
                 <PhotoLibraryIcon />
               </ListItemIcon>
               <ListItemText primary="Galeria de Fotos" />
+            </ListItemButton>
+          )}
+          {/* Lista genérica e crua de qualquer registro de visita (ruptura, avaria, validade
+              próxima, foto, observação) — mesmo gate de ADMIN/GESTOR, ver
+              docs/44-TELA-REGISTROS.md. */}
+          {(usuario?.user_type === 'ADMIN' || usuario?.user_type === 'GESTOR') && (
+            <ListItemButton component={NavLink} to="/registros" selected={emRota('/registros')}>
+              <ListItemIcon>
+                <ChecklistIcon />
+              </ListItemIcon>
+              <ListItemText primary="Registros" />
             </ListItemButton>
           )}
           {/* Relatórios agregados (docs/28 §2) — ADMIN/GESTOR, a API também barra com 403. */}

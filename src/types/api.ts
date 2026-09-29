@@ -669,6 +669,28 @@ export interface FotoGaleria {
   registro: VisitaRegistro;
 }
 
+// Linha da tela "Registros" (docs/44-TELA-REGISTROS.md) — lista genérica e crua de
+// VisitaRegistro (qualquer TipoRegistro), diferente de FotoGaleria (só registro com foto) e do
+// VisitaRegistro cru (que não carrega loja/rede/promotor consigo). `status` já vem resolvido do
+// backend: null quando tipo_registro não é eh_alerta (Foto, Observação livre — não tem estado de
+// alerta nenhum), 'aberto'/'resolvido' só quando é.
+export interface RegistroLista {
+  id: string;
+  ocorrido_em: string;
+  tipo_registro: { id: string; descricao: string; icone: string | null };
+  ponto_venda: {
+    id: string;
+    fantasia: string;
+    rede_loja: { id: string; descricao: string } | null;
+  } | null;
+  usuario: { id: string; nome: string } | null;
+  produto_auditoria: { id: string; descricao: string } | null;
+  observacao: string | null;
+  status: 'aberto' | 'resolvido' | null;
+  // Uuid da visita de origem — o link "Ver visita" da tela, a razão de ser dela.
+  visita_id: string;
+}
+
 // Feed do Painel de Atividades — mistura Visita (check-in/checkout) e VisitaRegistro-alerta
 // num shape comum, discriminado por tipo_evento. Ver docs/19-PAINEL-ATIVIDADES.md.
 export type TipoEventoAtividade = 'VISITA_INICIADA' | 'VISITA_FINALIZADA' | 'ALERTA' | 'FORMULARIO' | 'COMENTARIO';

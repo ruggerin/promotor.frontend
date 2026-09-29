@@ -574,8 +574,10 @@ export function OperacaoDoDiaPage() {
                       hover
                       sx={{ cursor: 'pointer' }}
                       onClick={() =>
+                        // Drill-down pro nível de detalhe certo — registro, não visita — ver
+                        // docs/44-TELA-REGISTROS.md §3.2 (mudança de destino confirmada no escopo).
                         navigate(
-                          `/visitas?produto_auditoria_uuid=${linha.produto.id}&produto_descricao=${encodeURIComponent(linha.produto.descricao)}&ruptura=1`,
+                          `/registros?produto_auditoria_uuid=${linha.produto.id}&produto_descricao=${encodeURIComponent(linha.produto.descricao)}&ruptura=1`,
                         )
                       }
                     >
