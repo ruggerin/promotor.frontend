@@ -15,6 +15,7 @@ import { DirecionamentosListPage } from './pages/direcionamentos/Direcionamentos
 import { EmpresaDetailPage } from './pages/empresas/EmpresaDetailPage';
 import { EmpresasListPage } from './pages/empresas/EmpresasListPage';
 import { GaleriaFotosPage } from './pages/galeriaFotos/GaleriaFotosPage';
+import { RegistrosListPage } from './pages/registros/RegistrosListPage';
 import { ManualPage } from './pages/manual/ManualPage';
 import { ObjetivosVisitaListPage } from './pages/objetivosVisita/ObjetivosVisitaListPage';
 import { OperacaoDoDiaPage } from './pages/operacaoDoDia/OperacaoDoDiaPage';
@@ -60,6 +61,7 @@ export function App() {
           <Route path="/importacao-dados" element={<ImportacaoDadosPage />} />
           <Route path="/atividades" element={<AtividadesPage />} />
           <Route path="/galeria-fotos" element={<GaleriaFotosPage />} />
+          <Route path="/registros" element={<RegistrosListPage />} />
           {/* Planos de Ação (docs/37-PLANOS-DE-ACAO.md) — nascem de um alerta no Painel de
               Atividades; a criação é um diálogo lá, não uma rota própria. */}
           <Route path="/planos-acao" element={<PlanosAcaoListPage />} />
