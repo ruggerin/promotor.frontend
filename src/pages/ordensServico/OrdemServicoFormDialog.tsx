@@ -118,9 +118,34 @@ export function OrdemServicoFormDialog({ open, ordemServico, onClose }: OrdemSer
   const { fields, append, remove } = useFieldArray({ control, name: 'formularios' });
   const formulariosAtuais = useWatch({ control, name: 'formularios' }) ?? [];
 
+  // Busca-com-debounce do "Ponto de venda"/"Promotor" — mesmo padrão de UsuarioDetailPage
+  // (Autocomplete server-side, sem o filtro client-side padrão do MUI). Sem isso, o Autocomplete
+  // só enxergava a 1ª página (15 registros) buscada 1 vez na abertura do diálogo: digitar não
+  // buscava de novo no servidor, só filtrava dentro daqueles 15 — daí "poucos registros" e
+  // "digitar não acha o que devia" reportados pelo usuário.
+  const [buscaPdv, setBuscaPdv] = useState('');
+  const [buscaPdvDebounced, setBuscaPdvDebounced] = useState('');
+  const [buscaPromotor, setBuscaPromotor] = useState('');
+  const [buscaPromotorDebounced, setBuscaPromotorDebounced] = useState('');
+
+  useEffect(() => {
+    const timer = setTimeout(() => setBuscaPdvDebounced(buscaPdv), 300);
+    return () => clearTimeout(timer);
+  }, [buscaPdv]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setBuscaPromotorDebounced(buscaPromotor), 300);
+    return () => clearTimeout(timer);
+  }, [buscaPromotor]);
+
   useEffect(() => {
     if (open) {
       setErroGeral(null);
+      // Semeia o texto de busca com o nome já selecionado (edição) — o Autocomplete tem
+      // inputValue controlado, então sem isso o campo apareceria vazio mesmo com um PDV/promotor
+      // já escolhido.
+      setBuscaPdv(ordemServico?.ponto_venda?.fantasia ?? '');
+      setBuscaPromotor(ordemServico?.usuario?.nome ?? '');
       reset(
         ordemServico
           ? {
@@ -146,21 +171,35 @@ export function OrdemServicoFormDialog({ open, ordemServico, onClose }: OrdemSer
   }, [open, ordemServico, reset]);
 
   const pontosVendaQuery = useQuery({
-    queryKey: ['pontos-venda', 'form-ordem-servico'],
-    queryFn: () => listarPontosVenda({ ativo: true }),
+    queryKey: ['pontos-venda', 'form-ordem-servico', buscaPdvDebounced],
+    queryFn: () => listarPontosVenda({ ativo: true, busca: buscaPdvDebounced || undefined }),
     enabled: open,
   });
-  const pontosVenda = pontosVendaQuery.data?.pontos_venda ?? [];
+  // Garante que o PDV já selecionado (edição) apareça mesmo se a busca atual não o trouxer —
+  // ex.: usuário apagou o texto do campo sem escolher outro ainda.
+  const pontosVenda = (() => {
+    const lista = pontosVendaQuery.data?.pontos_venda ?? [];
+    if (ordemServico?.ponto_venda && !lista.some((p) => p.id === ordemServico.ponto_venda!.id)) {
+      return [ordemServico.ponto_venda, ...lista];
+    }
+    return lista;
+  })();
 
   // Exige a permissão usuarios.gerenciar pra carregar — se o perfil do gestor não tiver, a
   // lista vem vazia e ele só consegue deixar em fila aberta (mesma limitação já aceita em
   // PontoVendaDetailPage ao atribuir promotores a uma loja).
   const promotoresQuery = useQuery({
-    queryKey: ['usuarios', { user_type: 'PROMOTOR', ativo: true }],
-    queryFn: () => listarUsuarios({ user_type: 'PROMOTOR', ativo: true }),
+    queryKey: ['usuarios', { user_type: 'PROMOTOR', ativo: true }, buscaPromotorDebounced],
+    queryFn: () => listarUsuarios({ user_type: 'PROMOTOR', ativo: true, busca: buscaPromotorDebounced || undefined }),
     enabled: open,
   });
-  const promotores = promotoresQuery.data?.usuarios ?? [];
+  const promotores = (() => {
+    const lista = promotoresQuery.data?.usuarios ?? [];
+    if (ordemServico?.usuario && !lista.some((p) => p.id === ordemServico.usuario!.id)) {
+      return [ordemServico.usuario, ...lista];
+    }
+    return lista;
+  })();
 
   const tiposVisitaQuery = useQuery({
     queryKey: ['tipos-visita', { ativo: true }],
@@ -244,7 +283,10 @@ export function OrdemServicoFormDialog({ open, ordemServico, onClose }: OrdemSer
                 options={pontosVenda}
                 getOptionLabel={(option) => option.fantasia}
                 loading={pontosVendaQuery.isLoading}
+                filterOptions={(options) => options}
                 value={pontosVenda.find((p) => p.id === field.value) ?? null}
+                inputValue={buscaPdv}
+                onInputChange={(_, value) => setBuscaPdv(value)}
                 onChange={(_, value) => field.onChange(value?.id ?? '')}
                 renderInput={(params) => (
                   <TextField
@@ -269,7 +311,10 @@ export function OrdemServicoFormDialog({ open, ordemServico, onClose }: OrdemSer
                 options={promotores}
                 getOptionLabel={(option) => option.nome}
                 loading={promotoresQuery.isLoading}
+                filterOptions={(options) => options}
                 value={promotores.find((p) => p.id === field.value) ?? null}
+                inputValue={buscaPromotor}
+                onInputChange={(_, value) => setBuscaPromotor(value)}
                 onChange={(_, value) => field.onChange(value?.id ?? null)}
                 renderInput={(params) => (
                   <TextField
