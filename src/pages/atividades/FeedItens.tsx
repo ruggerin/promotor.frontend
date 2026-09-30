@@ -103,8 +103,11 @@ function LinkVisita({ visitaId }: { visitaId: string }) {
 // Post = avatar grande + balão (canto do lado do avatar quase reto, jeito de conversa).
 function Post({ evento, children, compacto }: { evento: AtividadeEvento; children: ReactNode; compacto?: boolean }) {
   return (
-    <Box id={`evento-${evento.id}`} component="article" sx={{ display: 'flex', gap: 1.5, opacity: compacto ? 0.92 : 1, scrollMarginTop: 140 }}>
-      <UsuarioAvatar nome={evento.usuario?.nome ?? '?'} fotoUrl={evento.usuario?.foto_url} size={44} cor={corDaPessoa(evento.usuario?.id)} />
+    <Box id={`evento-${evento.id}`} component="article" sx={{ display: 'flex', gap: { xs: 0, sm: 1.5 }, opacity: compacto ? 0.92 : 1, scrollMarginTop: 140 }}>
+      {/* No celular o avatar grande sai (o nome já vem na cor da pessoa) e o card usa a largura toda. */}
+      <Box sx={{ display: { xs: 'none', sm: 'block' }, flexShrink: 0 }}>
+        <UsuarioAvatar nome={evento.usuario?.nome ?? '?'} fotoUrl={evento.usuario?.foto_url} size={44} cor={corDaPessoa(evento.usuario?.id)} />
+      </Box>
       <Box
         sx={{
           flexGrow: 1,
@@ -155,7 +158,7 @@ function Album({
           <Box
             key={`${foto.registro.id}-${foto.imagem.id}`}
             onClick={() => onAbrir(i)}
-            sx={{ position: 'relative', height: altura, borderRadius: raio, overflow: 'hidden', cursor: 'pointer', bgcolor: '#ecebf3' }}
+            sx={{ position: 'relative', height: { xs: Math.round(altura * 0.7), sm: altura }, borderRadius: raio, overflow: 'hidden', cursor: 'pointer', bgcolor: '#ecebf3' }}
           >
             <AutenticatedImage url={foto.imagem.url} alt="" sx={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
             {ultimo && sobra > 0 && (
