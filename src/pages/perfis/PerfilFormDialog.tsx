@@ -51,6 +51,10 @@ const PERMISSOES: { value: Permissao; label: string }[] = [
     label: 'Ver o mapa ao vivo com a posição dos promotores — só tem efeito em Gestor',
   },
   {
+    value: 'rastreamento.trajeto',
+    label: 'Ver a rota do dia (por onde o promotor passou, paradas fora de loja) — só tem efeito em Gestor',
+  },
+  {
     value: 'pedidos.gerenciar',
     label: 'Gravar pedidos do ERP (pensada pro integrador externo) — só tem efeito em Gestor',
   },

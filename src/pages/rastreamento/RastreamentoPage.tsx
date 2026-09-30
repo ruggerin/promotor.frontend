@@ -1,10 +1,12 @@
-import { Alert, Box, Chip, CircularProgress, List, ListItemButton, ListItemText, Paper, Typography } from '@mui/material';
+import AltRouteIcon from '@mui/icons-material/AltRoute';
+import { Alert, IconButton, Box, Chip, CircularProgress, List, ListItemButton, ListItemText, Paper, Typography } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useEffect, useMemo, useState } from 'react';
 import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet';
+import { Link as RouterLink } from 'react-router-dom';
 import { usePageHeader } from '../../components/layout/PageHeaderSlot';
 import { ZoomComCtrl } from '../../components/mapa/ZoomComCtrl';
 import { UsuarioAvatar } from '../../components/UsuarioAvatar';
@@ -157,6 +159,16 @@ export function RastreamentoPage() {
                     }
                     slotProps={{ secondary: { color: l.situacao && l.situacao !== 'ATIVO' ? 'error' : undefined } }}
                   />
+                  {/* Atalho pra Rota do dia de hoje desse promotor (docs/48). */}
+                  <IconButton
+                    size="small"
+                    component={RouterLink}
+                    to={`/rota-do-dia?usuario=${l.id}`}
+                    title="Ver rota do dia"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <AltRouteIcon fontSize="small" />
+                  </IconButton>
                   <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: l.ativo_agora ? COR_ATIVO : COR_INATIVO, flexShrink: 0 }} />
                 </ListItemButton>
               ))}
