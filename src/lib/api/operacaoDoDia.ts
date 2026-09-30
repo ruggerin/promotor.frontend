@@ -24,6 +24,9 @@ export interface LinhaEquipeOperacaoDoDia {
   visitas: { feitas: number; total: number };
   rupturas: number;
   ultima_localizacao_em: string | null;
+  // Última posição conhecida — null sem a permissão rastreamento.visualizar ou se nunca mandou.
+  // situacao = o que o app informou (docs/47 §5.1): ATIVO, GPS_DESLIGADO, SO_DURANTE_USO...
+  ultima_localizacao: { latitude: number; longitude: number; situacao: string | null } | null;
   sem_sinal: boolean;
   blocos_jornada: BlocoJornada[];
 }
