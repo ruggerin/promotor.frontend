@@ -47,6 +47,8 @@ const DESCRICOES: Record<string, string> = {
   RASTREAMENTO_EXIGENCIA: 'Quanto o app exige do promotor pra manter o rastreamento ligado: OPCIONAL, AVISO ou OBRIGATORIO',
   RASTREAMENTO_SO_NA_JORNADA: 'A exigência de rastreamento só vale dentro de JORNADA_INICIO/JORNADA_FIM — false = o dia inteiro',
   RASTREAMENTO_PAINEL_CONFORMIDADE: 'Mostra no Mapa ao vivo a lista de promotores com rastreamento irregular e o motivo',
+  RASTREAMENTO_HISTORICO_DIAS: 'Por quantos dias as posições do promotor ficam guardadas pra Rota do dia — o mais antigo é apagado todo dia',
+  RASTREAMENTO_PARADA_MINUTOS: 'A partir de quantos minutos parado no mesmo lugar, sem loja por perto, conta como parada fora de loja na Rota do dia',
   JORNADA_INICIO: 'Início da jornada de trabalho (HH:mm)',
   JORNADA_FIM: 'Fim da jornada de trabalho (HH:mm)',
 };
@@ -75,11 +77,16 @@ export function ConfigRastreamentoCard({ parametros }: { parametros: Parametro[]
   const [inicio, setInicio] = useState(valorAtivo(parametros, 'JORNADA_INICIO') ?? '07:00');
   const [fim, setFim] = useState(valorAtivo(parametros, 'JORNADA_FIM') ?? '17:00');
   const [painel, setPainel] = useState(painelAtual !== undefined && VERDADEIROS.includes(painelAtual.toLowerCase()));
+  // Rota do dia (docs/48): retenção do histórico e régua de "parado fora de loja".
+  const [historicoDias, setHistoricoDias] = useState(valorAtivo(parametros, 'RASTREAMENTO_HISTORICO_DIAS') ?? '90');
+  const [paradaMinutos, setParadaMinutos] = useState(valorAtivo(parametros, 'RASTREAMENTO_PARADA_MINUTOS') ?? '30');
   const [salvo, setSalvo] = useState(false);
 
   const intervaloNumero = Number(intervalo);
   const intervaloInvalido = ligado && (!Number.isInteger(intervaloNumero) || intervaloNumero < INTERVALO_MINIMO);
   const jornadaInvalida = soNaJornada && (!inicio || !fim || inicio >= fim);
+  const historicoInvalido = ligado && (!Number.isInteger(Number(historicoDias)) || Number(historicoDias) < 1);
+  const paradaInvalida = ligado && (!Number.isInteger(Number(paradaMinutos)) || Number(paradaMinutos) < 5);
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -88,6 +95,8 @@ export function ConfigRastreamentoCard({ parametros }: { parametros: Parametro[]
         RASTREAMENTO_EXIGENCIA: exigencia,
         RASTREAMENTO_SO_NA_JORNADA: soNaJornada ? 'true' : 'false',
         RASTREAMENTO_PAINEL_CONFORMIDADE: painel ? 'true' : 'false',
+        RASTREAMENTO_HISTORICO_DIAS: String(Number(historicoDias)),
+        RASTREAMENTO_PARADA_MINUTOS: String(Number(paradaMinutos)),
       };
       // A jornada é compartilhada com a Operação do Dia — só grava se o card estiver usando.
       if (soNaJornada) {
@@ -207,6 +216,38 @@ export function ConfigRastreamentoCard({ parametros }: { parametros: Parametro[]
               Lista os promotores sem permissão, com GPS desligado ou sem sinal, e o motivo.
             </Typography>
           </Box>
+
+          <Divider />
+
+          <Box>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5 }}>
+              Rota do dia
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+              <TextField
+                label="Guardar o trajeto por (dias)"
+                type="number"
+                size="small"
+                value={historicoDias}
+                onChange={(e) => setHistoricoDias(e.target.value)}
+                error={historicoInvalido}
+                helperText={historicoInvalido ? 'Mínimo 1 dia.' : 'O mais antigo é apagado todo dia.'}
+                slotProps={{ htmlInput: { min: 1 } }}
+                sx={{ width: 240 }}
+              />
+              <TextField
+                label="Parado fora de loja a partir de (min)"
+                type="number"
+                size="small"
+                value={paradaMinutos}
+                onChange={(e) => setParadaMinutos(e.target.value)}
+                error={paradaInvalida}
+                helperText={paradaInvalida ? 'Mínimo 5 minutos.' : 'Parado no mesmo lugar, sem loja por perto.'}
+                slotProps={{ htmlInput: { min: 5, step: 5 } }}
+                sx={{ width: 260 }}
+              />
+            </Box>
+          </Box>
         </Box>
       </Collapse>
 
@@ -224,7 +265,7 @@ export function ConfigRastreamentoCard({ parametros }: { parametros: Parametro[]
       <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
         <Button
           variant="contained"
-          disabled={mutation.isPending || intervaloInvalido || (ligado && jornadaInvalida)}
+          disabled={mutation.isPending || intervaloInvalido || historicoInvalido || paradaInvalida || (ligado && jornadaInvalida)}
           onClick={() => {
             setSalvo(false);
             mutation.mutate();

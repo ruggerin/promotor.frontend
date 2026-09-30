@@ -31,6 +31,7 @@ import { PedidosVendaListPage } from './pages/pedidosVenda/PedidosVendaListPage'
 import { RespostasFormularioPage } from './pages/relatorios/RespostasFormularioPage';
 import { VisitasPlanejadasPage } from './pages/relatorios/VisitasPlanejadasPage';
 import { RastreamentoPage } from './pages/rastreamento/RastreamentoPage';
+import { RotaDoDiaPage } from './pages/rastreamento/RotaDoDiaPage';
 import { PlanogramaEditorPage } from './pages/planogramas/PlanogramaEditorPage';
 import { PlanogramasListPage } from './pages/planogramas/PlanogramasListPage';
 import { PontoVendaDetailPage } from './pages/pontosVenda/PontoVendaDetailPage';
@@ -93,6 +94,7 @@ export function App() {
           <Route path="/agendas-visita" element={<AgendasVisitaListPage />} />
           <Route path="/planejador-visitas" element={<PlanejadorVisitasPage />} />
           <Route path="/rastreamento" element={<RastreamentoPage />} />
+          <Route path="/rota-do-dia" element={<RotaDoDiaPage />} />
           <Route path="/relatorios/visitas-planejadas" element={<VisitasPlanejadasPage />} />
           <Route path="/relatorios/respostas-formulario" element={<RespostasFormularioPage />} />
           <Route path="/tipos-visita" element={<TiposVisitaListPage />} />

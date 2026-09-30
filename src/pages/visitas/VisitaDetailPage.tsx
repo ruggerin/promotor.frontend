@@ -943,6 +943,15 @@ export function VisitaDetailPage() {
               <Typography variant="body2" sx={{ fontWeight: 700 }}>
                 {visita.usuario.nome}
               </Typography>
+              {/* Por onde ele passou nesse dia (docs/48) — a tela trata quem não tem a permissão. */}
+              <MuiLink
+                component={RouterLink}
+                to={`/rota-do-dia?usuario=${visita.usuario.id}&data=${new Date(visita.inicio_data).toLocaleDateString('en-CA')}`}
+                variant="caption"
+                underline="hover"
+              >
+                Ver rota do dia
+              </MuiLink>
             </Box>
           </Box>
         )}

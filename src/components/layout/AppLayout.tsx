@@ -22,6 +22,7 @@ import PaidIcon from '@mui/icons-material/Paid';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import FactCheckIcon from '@mui/icons-material/FactCheck';
 import MyLocationIcon from '@mui/icons-material/MyLocation';
+import AltRouteIcon from '@mui/icons-material/AltRoute';
 import PeopleIcon from '@mui/icons-material/People';
 import PhotoLibraryIcon from '@mui/icons-material/PhotoLibrary';
 import SecurityIcon from '@mui/icons-material/Security';
@@ -575,6 +576,16 @@ export function AppLayout() {
                 </Badge>
               </ListItemIcon>
               <ListItemText primary="Mapa ao vivo" />
+            </ListItemButton>
+          )}
+          {/* Rota do dia (docs/48) — permissão própria rastreamento.trajeto; GESTOR sem ela vê o item e a
+              tela trata o 403, mesmo critério do Mapa ao vivo. */}
+          {(usuario?.user_type === 'ADMIN' || usuario?.user_type === 'GESTOR') && (
+            <ListItemButton component={NavLink} to="/rota-do-dia" selected={emRota('/rota-do-dia')}>
+              <ListItemIcon>
+                <AltRouteIcon />
+              </ListItemIcon>
+              <ListItemText primary="Rota do dia" />
             </ListItemButton>
           )}
           {/* Gestão de perfis é sempre user_type:ADMIN no backend — nem SUPERADMIN passa (o

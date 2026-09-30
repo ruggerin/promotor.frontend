@@ -14,6 +14,7 @@ export type Permissao =
   | 'pontos_venda.visualizar_todos'
   | 'visitas.intervir'
   | 'rastreamento.visualizar'
+  | 'rastreamento.trajeto'
   | 'pedidos.gerenciar'
   | 'planos_acao.visualizar'
   | 'planos_acao.criar'
