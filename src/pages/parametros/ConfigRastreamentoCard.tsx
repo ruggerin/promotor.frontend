@@ -49,6 +49,8 @@ const DESCRICOES: Record<string, string> = {
   RASTREAMENTO_PAINEL_CONFORMIDADE: 'Mostra no Mapa ao vivo a lista de promotores com rastreamento irregular e o motivo',
   RASTREAMENTO_HISTORICO_DIAS: 'Por quantos dias as posições do promotor ficam guardadas pra Rota do dia — o mais antigo é apagado todo dia',
   RASTREAMENTO_PARADA_MINUTOS: 'A partir de quantos minutos parado no mesmo lugar, sem loja por perto, conta como parada fora de loja na Rota do dia',
+  RASTREAMENTO_AFASTAMENTO_METROS: 'Distância da loja, em metros, a partir da qual o promotor conta como "saiu da loja" durante a visita — deixe acima do CHECKIN_RAIO_METROS',
+  RASTREAMENTO_AFASTAMENTO_MINUTOS: 'Minutos longe da loja durante a visita pra contar como afastamento',
   JORNADA_INICIO: 'Início da jornada de trabalho (HH:mm)',
   JORNADA_FIM: 'Fim da jornada de trabalho (HH:mm)',
 };
@@ -80,6 +82,9 @@ export function ConfigRastreamentoCard({ parametros }: { parametros: Parametro[]
   // Rota do dia (docs/48): retenção do histórico e régua de "parado fora de loja".
   const [historicoDias, setHistoricoDias] = useState(valorAtivo(parametros, 'RASTREAMENTO_HISTORICO_DIAS') ?? '90');
   const [paradaMinutos, setParadaMinutos] = useState(valorAtivo(parametros, 'RASTREAMENTO_PARADA_MINUTOS') ?? '30');
+  // Saiu da loja durante a visita (docs/49).
+  const [afastamentoMetros, setAfastamentoMetros] = useState(valorAtivo(parametros, 'RASTREAMENTO_AFASTAMENTO_METROS') ?? '300');
+  const [afastamentoMinutos, setAfastamentoMinutos] = useState(valorAtivo(parametros, 'RASTREAMENTO_AFASTAMENTO_MINUTOS') ?? '10');
   const [salvo, setSalvo] = useState(false);
 
   const intervaloNumero = Number(intervalo);
@@ -87,6 +92,12 @@ export function ConfigRastreamentoCard({ parametros }: { parametros: Parametro[]
   const jornadaInvalida = soNaJornada && (!inicio || !fim || inicio >= fim);
   const historicoInvalido = ligado && (!Number.isInteger(Number(historicoDias)) || Number(historicoDias) < 1);
   const paradaInvalida = ligado && (!Number.isInteger(Number(paradaMinutos)) || Number(paradaMinutos) < 5);
+  const afastamentoMetrosInvalido = ligado && (!Number.isInteger(Number(afastamentoMetros)) || Number(afastamentoMetros) < 50);
+  const afastamentoMinutosInvalido = ligado && (!Number.isInteger(Number(afastamentoMinutos)) || Number(afastamentoMinutos) < 1);
+  // Abaixo do raio de check-in, quem entra na borda do raio já nasce "afastado" (docs/49 §3).
+  const raioCheckin = Number(valorAtivo(parametros, 'CHECKIN_RAIO_METROS'));
+  const afastamentoAbaixoDoRaio =
+    !afastamentoMetrosInvalido && Number.isFinite(raioCheckin) && raioCheckin > 0 && Number(afastamentoMetros) <= raioCheckin;
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -97,6 +108,8 @@ export function ConfigRastreamentoCard({ parametros }: { parametros: Parametro[]
         RASTREAMENTO_PAINEL_CONFORMIDADE: painel ? 'true' : 'false',
         RASTREAMENTO_HISTORICO_DIAS: String(Number(historicoDias)),
         RASTREAMENTO_PARADA_MINUTOS: String(Number(paradaMinutos)),
+        RASTREAMENTO_AFASTAMENTO_METROS: String(Number(afastamentoMetros)),
+        RASTREAMENTO_AFASTAMENTO_MINUTOS: String(Number(afastamentoMinutos)),
       };
       // A jornada é compartilhada com a Operação do Dia — só grava se o card estiver usando.
       if (soNaJornada) {
@@ -247,6 +260,39 @@ export function ConfigRastreamentoCard({ parametros }: { parametros: Parametro[]
                 sx={{ width: 260 }}
               />
             </Box>
+            <Typography variant="body2" sx={{ fontWeight: 600, mt: 2, mb: 1 }}>
+              Saiu da loja durante a visita
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+              <TextField
+                label="Longe da loja a partir de (metros)"
+                type="number"
+                size="small"
+                value={afastamentoMetros}
+                onChange={(e) => setAfastamentoMetros(e.target.value)}
+                error={afastamentoMetrosInvalido}
+                helperText={afastamentoMetrosInvalido ? 'Mínimo 50 metros.' : 'Entre o check-in e o checkout.'}
+                slotProps={{ htmlInput: { min: 50, step: 50 } }}
+                sx={{ width: 260 }}
+              />
+              <TextField
+                label="Por pelo menos (min)"
+                type="number"
+                size="small"
+                value={afastamentoMinutos}
+                onChange={(e) => setAfastamentoMinutos(e.target.value)}
+                error={afastamentoMinutosInvalido}
+                helperText={afastamentoMinutosInvalido ? 'Mínimo 1 minuto.' : 'Salto de GPS de um instante não conta.'}
+                slotProps={{ htmlInput: { min: 1 } }}
+                sx={{ width: 200 }}
+              />
+            </Box>
+            {afastamentoAbaixoDoRaio && (
+              <Alert severity="warning" sx={{ mt: 1.5 }}>
+                A distância está igual ou abaixo do raio de check-in ({raioCheckin} m): quem fizer check-in na borda do
+                raio já vai aparecer como "saiu da loja". Use um valor maior.
+              </Alert>
+            )}
           </Box>
         </Box>
       </Collapse>
@@ -265,7 +311,7 @@ export function ConfigRastreamentoCard({ parametros }: { parametros: Parametro[]
       <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
         <Button
           variant="contained"
-          disabled={mutation.isPending || intervaloInvalido || historicoInvalido || paradaInvalida || (ligado && jornadaInvalida)}
+          disabled={mutation.isPending || intervaloInvalido || historicoInvalido || paradaInvalida || afastamentoMetrosInvalido || afastamentoMinutosInvalido || (ligado && jornadaInvalida)}
           onClick={() => {
             setSalvo(false);
             mutation.mutate();
