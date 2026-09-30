@@ -1,4 +1,4 @@
-import type { PaginatedMeta, StatusVisita, Visita } from '../../types/api';
+import type { AfastamentoTrecho, PaginatedMeta, StatusVisita, Visita } from '../../types/api';
 import { apiClient } from './client';
 
 export interface VisitasFiltros {
@@ -10,6 +10,8 @@ export interface VisitasFiltros {
   // Drill-down do "Rupturas por SKU" da Operação do Dia — ver docs/32-PAINEL-OPERACAO-DO-DIA.md.
   produto_auditoria_uuid?: string;
   ruptura?: boolean;
+  // Só as que saíram da loja durante a visita (docs/49) — exige rastreamento.trajeto.
+  afastamento?: boolean;
   page?: number;
 }
 
@@ -23,9 +25,27 @@ export async function listarVisitas(filtros: VisitasFiltros = {}): Promise<Visit
   return data;
 }
 
-// raio_checkin_metros = raio ATUAL da empresa (não gravado por visita); null = sem limite.
-export async function buscarVisita(uuid: string): Promise<{ visita: Visita; raio_checkin_metros?: number | null }> {
-  const { data } = await apiClient.get<{ visita: Visita; raio_checkin_metros?: number | null }>(`/visitas/${uuid}`);
+// Afastamento durante a visita (docs/49), calculado na hora a partir do histórico de posições.
+// null = sem permissão rastreamento.trajeto. sem_dados = nenhuma posição chegou durante a visita.
+export interface AfastamentoDetalhe {
+  afastamentos: AfastamentoTrecho[];
+  minutos_fora: number;
+  sem_sinal_minutos: number;
+  sem_dados: boolean;
+  // Parâmetros atuais da empresa (RASTREAMENTO_AFASTAMENTO_METROS / _MINUTOS).
+  metros: number;
+  minutos: number;
+}
+
+export interface VisitaDetalheResponse {
+  visita: Visita;
+  // Raio ATUAL da empresa (não gravado por visita); null = sem limite.
+  raio_checkin_metros?: number | null;
+  afastamento?: AfastamentoDetalhe | null;
+}
+
+export async function buscarVisita(uuid: string): Promise<VisitaDetalheResponse> {
+  const { data } = await apiClient.get<VisitaDetalheResponse>(`/visitas/${uuid}`);
   return data;
 }
 

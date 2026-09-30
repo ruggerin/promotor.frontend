@@ -45,6 +45,8 @@ import {
   type TipoItemFilaAcoes,
 } from '../../lib/api/operacaoDoDia';
 import { OrdemServicoFormDialog } from '../ordensServico/OrdemServicoFormDialog';
+import { tempoDesde } from '../../lib/formatarData';
+import { LocalizacaoPromotorDialog } from './LocalizacaoPromotorDialog';
 import { NovoPlanoAcaoDialog, type AlertaOrigem } from '../planosAcao/NovoPlanoAcaoDialog';
 
 // Painel "Operação do dia" — docs/32-PAINEL-OPERACAO-DO-DIA.md. Fase 2 (esta tela) consome o
@@ -158,7 +160,7 @@ function exportarEquipeCsv(equipe: LinhaEquipeOperacaoDoDia[], data: string): vo
     formatarHora(linha.checkin_em) ?? '',
     `${linha.visitas.feitas}/${linha.visitas.total}`,
     linha.rupturas,
-    linha.ultima_localizacao_em ? `${minutosDesde(linha.ultima_localizacao_em)} min` : 'sem sinal',
+    linha.ultima_localizacao_em ? tempoDesde(linha.ultima_localizacao_em) : 'sem sinal',
   ]);
   baixarCsv(
     `operacao-do-dia-${data}.csv`,
@@ -201,6 +203,8 @@ export function OperacaoDoDiaPage() {
   // como resolvido (o boolean de sempre) — docs/37-PLANOS-DE-ACAO.md §4.8.
   const [alertaEscolha, setAlertaEscolha] = useState<ItemFilaAcoes | null>(null);
   const [alertaPlano, setAlertaPlano] = useState<AlertaOrigem | null>(null);
+  // Promotor cujo "Sinal" foi clicado — abre a última posição num mapa.
+  const [localizando, setLocalizando] = useState<LinhaEquipeOperacaoDoDia | null>(null);
 
   function abrirPlanoDoAlerta(item: ItemFilaAcoes) {
     setAlertaEscolha(null);
@@ -396,12 +400,34 @@ export function OperacaoDoDiaPage() {
                         </TableCell>
                         <TableCell align="right">{linha.rupturas || '—'}</TableCell>
                         <TableCell align="right">
-                          <Typography
-                            variant="body2"
-                            sx={{ color: linha.sem_sinal ? '#dc2626' : 'text.secondary', fontWeight: linha.sem_sinal ? 700 : 400 }}
-                          >
-                            {sinalMin === null ? '—' : `${sinalMin} min`}
-                          </Typography>
+                          {/* Clique abre a última posição num mapa, sem sair da tela. Só em "hoje":
+                              num dia passado o sinal continua sendo o de agora (ver backend). */}
+                          <Tooltip title={historico ? '' : 'Ver onde ele está'}>
+                            <Typography
+                              variant="body2"
+                              component={historico ? 'span' : 'button'}
+                              type={historico ? undefined : 'button'}
+                              onClick={historico ? undefined : () => setLocalizando(linha)}
+                              sx={{
+                                color: linha.sem_sinal ? '#dc2626' : 'text.secondary',
+                                fontWeight: linha.sem_sinal ? 700 : 400,
+                                ...(historico
+                                  ? {}
+                                  : {
+                                      border: 0,
+                                      background: 'none',
+                                      font: 'inherit',
+                                      p: 0,
+                                      cursor: 'pointer',
+                                      textDecoration: 'underline dotted',
+                                      textUnderlineOffset: 3,
+                                      '&:hover': { color: '#4f46e5' },
+                                    }),
+                              }}
+                            >
+                              {sinalMin === null || !linha.ultima_localizacao_em ? '—' : tempoDesde(linha.ultima_localizacao_em)}
+                            </Typography>
+                          </Tooltip>
                         </TableCell>
                       </TableRow>
                     );
@@ -647,6 +673,7 @@ export function OperacaoDoDiaPage() {
       </Dialog>
 
       <NovoPlanoAcaoDialog open={!!alertaPlano} alerta={alertaPlano} onClose={() => setAlertaPlano(null)} />
+      <LocalizacaoPromotorDialog linha={localizando} onClose={() => setLocalizando(null)} />
     </Box>
   );
 }

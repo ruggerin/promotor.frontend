@@ -734,6 +734,8 @@ export function VisitaDetailPage() {
 
   const visita = visitaQuery.data?.visita;
   const raio = visitaQuery.data?.raio_checkin_metros;
+  // Saídas da loja durante a visita (docs/49) — null pra quem não tem rastreamento.trajeto.
+  const afastamento = visitaQuery.data?.afastamento;
 
   // Hook sempre chamado, mesmo antes de saber se a visita carregou — Rules of Hooks não
   // permite pular a chamada num render e chamar no outro.
@@ -974,6 +976,38 @@ export function VisitaDetailPage() {
           </Box>
         )}
       </Paper>
+
+      {afastamento && afastamento.afastamentos.length > 0 && (
+        <Alert
+          severity="error"
+          sx={{ mb: 2 }}
+          action={
+            visita.usuario && (
+              <Button
+                component={RouterLink}
+                to={`/rota-do-dia?usuario=${visita.usuario.id}&data=${new Date(visita.inicio_data).toLocaleDateString('en-CA')}`}
+                color="inherit"
+                size="small"
+              >
+                Ver no mapa
+              </Button>
+            )
+          }
+        >
+          <Typography variant="body2" sx={{ fontWeight: 700 }}>
+            O promotor saiu da loja durante a visita, sem fazer checkout
+          </Typography>
+          {afastamento.afastamentos.map((a) => (
+            <Typography key={a.inicio} variant="body2">
+              Saiu às {formatarHora(a.inicio)}, foi até {formatarDistancia(a.distancia_max_metros)} da loja,{' '}
+              {a.fim ? `voltou às ${formatarHora(a.fim)}` : 'não voltou antes do checkout'} ({a.minutos} min fora).
+            </Typography>
+          ))}
+          <Typography variant="caption" sx={{ display: 'block', mt: 0.5, opacity: 0.8 }}>
+            Conta como saída: mais de {formatarDistancia(afastamento.metros)} da loja por {afastamento.minutos} min ou mais.
+          </Typography>
+        </Alert>
+      )}
 
       {/* Mapa (esquerda) + jornada e indicadores (direita). */}
       <Box

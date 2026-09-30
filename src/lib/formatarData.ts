@@ -9,3 +9,14 @@ export function formatarDataSemFuso(iso: string): string {
   const [ano, mes, dia] = iso.slice(0, 10).split('-');
   return `${dia}/${mes}/${ano}`;
 }
+
+// Tempo desde um instante, na unidade que faz sentido: "12 min", "3 h", "5 dias" — "7204 min"
+// (sinal de GPS da Operação do dia) não diz nada a ninguém.
+export function tempoDesde(iso: string): string {
+  const minutos = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60_000));
+  if (minutos < 60) return `${minutos} min`;
+  const horas = Math.floor(minutos / 60);
+  if (horas < 24) return `${horas} h`;
+  const dias = Math.floor(horas / 24);
+  return dias === 1 ? '1 dia' : `${dias} dias`;
+}

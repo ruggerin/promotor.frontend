@@ -722,6 +722,9 @@ export interface AtividadeEvento {
   // (mesmo shape de VisitaRegistro, pra galeria mostrar a informação junto da imagem).
   resumo?: { registros: number; rupturas: number; duracao_minutos: number; total_fotos: number };
   imagens?: VisitaRegistro[];
+  // Só em VISITA_FINALIZADA, e só pra quem tem rastreamento.trajeto — saiu da loja no meio da
+  // visita (docs/49); null = não saiu, ou ainda não calculado (roda 30 min depois do checkout).
+  afastamento?: AfastamentoResumo | null;
   // Só em ALERTA.
   registro?: VisitaRegistro;
   conversa?: MensagemConversa[];
@@ -740,6 +743,23 @@ export interface AtividadeEvento {
     comentarios_count: number;
     comentarios_novos: number;
   };
+}
+
+// Afastamento durante a visita (docs/49-AFASTAMENTO-DURANTE-VISITA.md) — resumo gravado na visita.
+export interface AfastamentoResumo {
+  qtd: number;
+  minutos: number;
+  max_metros: number;
+}
+
+// Uma saída da loja durante a visita. fim = null: não voltou antes do checkout (ou o sinal caiu).
+export interface AfastamentoTrecho {
+  inicio: string;
+  fim: string | null;
+  minutos: number;
+  distancia_max_metros: number;
+  // Trecho do trajeto durante a saída — [lat, lng].
+  pontos: [number, number][];
 }
 
 export interface Visita {
@@ -769,6 +789,8 @@ export interface Visita {
   fim_longitude: number | null;
   fim_distancia_metros: number | null;
   checkout_tipo: CheckoutTipo | null;
+  // Só pra quem tem rastreamento.trajeto; null = ainda não calculado ou sem posição na visita.
+  afastamento?: AfastamentoResumo | null;
   registros?: VisitaRegistro[];
   // Só presente no GET /visitas/{uuid} — log de cancelamento / checkout forçado / correção de
   // horário feito por um gestor. Ver docs/15-INTERVENCAO-ADMINISTRATIVA-VISITA.md.

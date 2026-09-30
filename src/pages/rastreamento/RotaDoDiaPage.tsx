@@ -10,12 +10,16 @@ import { usePageHeader } from '../../components/layout/PageHeaderSlot';
 import { ZoomComCtrl } from '../../components/mapa/ZoomComCtrl';
 import { TituloComAtualizar } from '../../components/RefreshButton';
 import { buscarRotaDoDia, listarPromotoresRota, type RotaDoDia } from '../../lib/api/rotas';
+import type { AfastamentoTrecho } from '../../types/api';
 
 // Rota do dia — por onde o promotor passou num dia: trajeto seguindo as ruas, visitas numeradas
 // com chegada/saída, paradas fora de loja e trechos sem sinal. docs/48-ROTA-DO-DIA.md; protótipo
-// aprovado em https://claude.ai/artifact/Suz8gHAQg15H72e73nqeZf.
+// aprovado em https://claude.ai/artifact/Suz8gHAQg15H72e73nqeZf. Saída da loja no meio da visita
+// (trecho vermelho, selo no pino): docs/49-AFASTAMENTO-DURANTE-VISITA.md.
 
-const COR = { rota: '#4f46e5', gap: '#8a87a3', parada: '#ea580c', inicio: '#15803d' };
+const COR = { rota: '#4f46e5', gap: '#8a87a3', parada: '#ea580c', inicio: '#15803d', fora: '#dc2626' };
+
+type Visita = RotaDoDia['visitas'][number];
 
 function hoje(): string {
   return new Date().toLocaleDateString('en-CA');
@@ -33,19 +37,34 @@ function duracao(minutos: number | null): string {
   return m ? `${h}h${String(m).padStart(2, '0')}` : `${h}h`;
 }
 
-function pino(cor: string, texto: string): L.DivIcon {
+function distancia(metros: number): string {
+  return metros < 1000 ? `${metros} m` : `${(metros / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} km`;
+}
+
+// Uma linha por saída — "saiu às 10:12 sem checkout, foi até 3,2 km, voltou às 10:55 (43 min fora)".
+function textoAfastamento(a: AfastamentoTrecho): string {
+  const volta = a.fim ? `voltou às ${hora(a.fim)}` : 'não voltou antes do checkout';
+  return `Saiu às ${hora(a.inicio)} sem checkout, foi até ${distancia(a.distancia_max_metros)}, ${volta} (${duracao(a.minutos)} fora)`;
+}
+
+// `alerta` = selo vermelho "!" no canto: a visita teve saída da loja (docs/49).
+function pino(cor: string, texto: string, alerta = false): L.DivIcon {
+  const selo = alerta
+    ? `<div style="position:absolute;top:-6px;right:-6px;width:16px;height:16px;border-radius:50%;background:${COR.fora};border:2px solid #fff;color:#fff;font:800 10px 'IBM Plex Sans',sans-serif;display:flex;align-items:center;justify-content:center">!</div>`
+    : '';
   return L.divIcon({
     className: '',
     iconSize: [30, 30],
     iconAnchor: [15, 15],
     popupAnchor: [0, -14],
-    html: `<div style="width:30px;height:30px;border-radius:50%;background:${cor};border:3px solid #fff;box-shadow:0 2px 6px rgba(15,23,42,.35);color:#fff;font:700 13px 'IBM Plex Sans',sans-serif;display:flex;align-items:center;justify-content:center">${texto}</div>`,
+    html: `<div style="position:relative;width:30px;height:30px;border-radius:50%;background:${cor};border:3px solid #fff;box-shadow:0 2px 6px rgba(15,23,42,.35);color:#fff;font:700 13px 'IBM Plex Sans',sans-serif;display:flex;align-items:center;justify-content:center;box-sizing:border-box">${texto}${selo}</div>`,
   });
 }
 
 type Evento =
   | { chave: string; tipo: 'inicio'; em: string; lat: number; lng: number }
-  | { chave: string; tipo: 'visita'; em: string; v: RotaDoDia['visitas'][number] }
+  | { chave: string; tipo: 'visita'; em: string; v: Visita }
+  | { chave: string; tipo: 'afastamento'; em: string; v: Visita; a: AfastamentoTrecho }
   | { chave: string; tipo: 'parada'; em: string; p: RotaDoDia['paradas'][number] }
   | { chave: string; tipo: 'gap'; em: string; g: RotaDoDia['sem_sinal'][number] };
 
@@ -53,7 +72,10 @@ function eventosDaRota(rota: RotaDoDia): Evento[] {
   const eventos: Evento[] = [];
   const primeiro = rota.pontos[0];
   if (primeiro) eventos.push({ chave: 'inicio', tipo: 'inicio', em: primeiro.em, lat: primeiro.latitude, lng: primeiro.longitude });
-  rota.visitas.forEach((v) => eventos.push({ chave: `v-${v.id}`, tipo: 'visita', em: v.inicio, v }));
+  rota.visitas.forEach((v) => {
+    eventos.push({ chave: `v-${v.id}`, tipo: 'visita', em: v.inicio, v });
+    v.afastamentos.forEach((a, i) => eventos.push({ chave: `a-${v.id}-${i}`, tipo: 'afastamento', em: a.inicio, v, a }));
+  });
   rota.paradas.forEach((p, i) => eventos.push({ chave: `p-${i}`, tipo: 'parada', em: p.inicio, p }));
   rota.sem_sinal.forEach((g, i) => eventos.push({ chave: `g-${i}`, tipo: 'gap', em: g.inicio, g }));
   return eventos.sort((a, b) => new Date(a.em).getTime() - new Date(b.em).getTime());
@@ -90,6 +112,11 @@ function ControleMapa({
       mapa.fitBounds(L.latLngBounds([gap.de.latitude, gap.de.longitude], [gap.ate.latitude, gap.ate.longitude]), { padding: [60, 60], maxZoom: 16 });
       return;
     }
+    const afastamento = selecionado.startsWith('a-') ? trechoDoAfastamento(rota, selecionado) : null;
+    if (afastamento && afastamento.pontos.length > 0) {
+      mapa.fitBounds(L.latLngBounds(afastamento.pontos), { padding: [60, 60], maxZoom: 16 });
+      return;
+    }
     const marcador = marcadores.current?.[selecionado];
     if (marcador) {
       mapa.setView(marcador.getLatLng(), Math.max(mapa.getZoom(), 15));
@@ -100,16 +127,23 @@ function ControleMapa({
   return null;
 }
 
-function Kpi({ titulo, valor, alerta }: { titulo: string; valor: string; alerta?: boolean }) {
+// chave "a-{visitaUuid}-{índice}" — o uuid tem hífens, então o índice é o que vem depois do último.
+function trechoDoAfastamento(rota: RotaDoDia, chave: string): AfastamentoTrecho | null {
+  const corte = chave.lastIndexOf('-');
+  const visita = rota.visitas.find((v) => v.id === chave.slice(2, corte));
+  return visita?.afastamentos[Number(chave.slice(corte + 1))] ?? null;
+}
+
+function Kpi({ titulo, valor, alerta, cor = COR.parada }: { titulo: string; valor: string; alerta?: boolean; cor?: string }) {
   return (
     <Paper
       variant="outlined"
-      sx={{ px: 1.75, py: 1.25, borderRadius: 1.25, borderColor: alerta ? COR.parada : undefined, bgcolor: alerta ? '#fff4ec' : undefined }}
+      sx={{ px: 1.75, py: 1.25, borderRadius: 1.25, borderColor: alerta ? cor : undefined, bgcolor: alerta ? `${cor}10` : undefined }}
     >
       <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
         {titulo}
       </Typography>
-      <Typography sx={{ fontSize: 20, fontWeight: 700, color: alerta ? COR.parada : undefined, fontVariantNumeric: 'tabular-nums' }}>
+      <Typography sx={{ fontSize: 20, fontWeight: 700, color: alerta ? cor : undefined, fontVariantNumeric: 'tabular-nums' }}>
         {valor}
       </Typography>
     </Paper>
@@ -200,6 +234,12 @@ export function RotaDoDiaPage() {
                 <Kpi titulo="Visitas" valor={String(rota.resumo.visitas)} />
                 <Kpi titulo="Tempo em loja" valor={duracao(rota.resumo.tempo_em_loja_minutos)} />
                 <Kpi titulo="Distância percorrida" valor={`${rota.resumo.distancia_km.toLocaleString('pt-BR')} km`} />
+                <Kpi
+                  titulo="Fora da loja durante visita"
+                  valor={duracao(rota.resumo.fora_da_loja_minutos)}
+                  alerta={rota.resumo.fora_da_loja_minutos > 0}
+                  cor={COR.fora}
+                />
                 <Kpi titulo="Parado fora de loja" valor={duracao(rota.resumo.parado_fora_minutos)} alerta={rota.resumo.parado_fora_minutos > 0} />
                 <Kpi titulo="Sem sinal" valor={duracao(rota.resumo.sem_sinal_minutos)} />
               </Box>
@@ -239,6 +279,17 @@ export function RotaDoDiaPage() {
                           pathOptions={{ color: COR.gap, weight: 4, dashArray: '8 8' }}
                         />
                       ))}
+                      {/* Saída da loja durante a visita — por cima do trajeto (pontos brutos, não casados nas ruas). */}
+                      {rota.visitas.flatMap((v) =>
+                        v.afastamentos.map((a, i) => (
+                          <Polyline
+                            key={`a-${v.id}-${i}`}
+                            positions={a.pontos}
+                            pathOptions={{ color: COR.fora, weight: 6, opacity: 0.9 }}
+                            eventHandlers={{ click: () => setSelecionado(`a-${v.id}-${i}`) }}
+                          />
+                        )),
+                      )}
 
                       {rota.pontos[0] && (
                         <Marker
@@ -260,7 +311,7 @@ export function RotaDoDiaPage() {
                         <Marker
                           key={v.id}
                           position={[v.latitude, v.longitude]}
-                          icon={pino(COR.rota, String(v.ordem))}
+                          icon={pino(COR.rota, String(v.ordem), v.afastamentos.length > 0)}
                           ref={(m) => {
                             marcadores.current[`v-${v.id}`] = m;
                           }}
@@ -276,6 +327,12 @@ export function RotaDoDiaPage() {
                             Saiu: {v.fim ? hora(v.fim) : 'ainda na loja'}
                             <br />
                             Ficou: {duracao(v.minutos)}
+                            {v.minutos_fora > 0 && ` · ${duracao(v.minutos_fora)} fora`}
+                            {v.afastamentos.map((a, i) => (
+                              <span key={i} style={{ display: 'block', color: COR.fora, fontWeight: 600, marginTop: 4 }}>
+                                {textoAfastamento(a)}
+                              </span>
+                            ))}
                             <br />
                             <Link to={`/visitas/${v.id}`}>Ver visita</Link>
                           </Popup>
@@ -311,6 +368,11 @@ export function RotaDoDiaPage() {
                       <Legenda cor={COR.gap} texto="Sem sinal" tracejada />
                       <Legenda cor={COR.rota} texto="Visita, na ordem" />
                       <Legenda cor={COR.parada} texto={`Parado fora de loja (${rota.parametros.parada_minutos} min ou mais)`} />
+                      <Legenda
+                        cor={COR.fora}
+                        texto={`Saiu da loja durante a visita (mais de ${distancia(rota.parametros.afastamento_metros)} por ${rota.parametros.afastamento_minutos} min)`}
+                        linha
+                      />
                     </Box>
                   </Paper>
 
@@ -380,6 +442,8 @@ function ItemLinhaDoTempo({
         return { bg: COR.rota, texto: String(evento.v.ordem), borda: undefined };
       case 'parada':
         return { bg: COR.parada, texto: 'P', borda: undefined };
+      case 'afastamento':
+        return { bg: COR.fora, texto: '!', borda: undefined };
       default:
         return { bg: 'transparent', texto: '', borda: `2px dashed ${COR.gap}` };
     }
@@ -392,8 +456,15 @@ function ItemLinhaDoTempo({
       case 'visita':
         return [
           evento.v.ponto_venda?.fantasia ?? 'Visita',
-          evento.v.fim ? `até ${hora(evento.v.fim)} · ficou ${duracao(evento.v.minutos)}` : 'ainda na loja',
+          (evento.v.fim ? `até ${hora(evento.v.fim)} · ficou ${duracao(evento.v.minutos)}` : 'ainda na loja') +
+            (evento.v.minutos_fora > 0 ? ` · ${duracao(evento.v.minutos_fora)} fora` : ''),
           null,
+        ];
+      case 'afastamento':
+        return [
+          'Saiu da loja durante a visita',
+          `${evento.v.ponto_venda?.fantasia ?? 'Visita'} · ${evento.a.fim ? `voltou às ${hora(evento.a.fim)}` : 'não voltou antes do checkout'} · foi até ${distancia(evento.a.distancia_max_metros)}`,
+          `${duracao(evento.a.minutos)} fora`,
         ];
       case 'parada':
         return ['Parado fora de loja', `até ${hora(evento.p.fim)} · nenhuma loja num raio de 300 m`, `${duracao(evento.p.minutos)} parado`];
@@ -459,8 +530,8 @@ function ItemLinhaDoTempo({
               fontWeight: 700,
               px: 1,
               borderRadius: 99,
-              bgcolor: evento.tipo === 'parada' ? '#ffedd5' : 'action.hover',
-              color: evento.tipo === 'parada' ? COR.parada : 'text.secondary',
+              bgcolor: evento.tipo === 'parada' ? '#ffedd5' : evento.tipo === 'afastamento' ? '#fee2e2' : 'action.hover',
+              color: evento.tipo === 'parada' ? COR.parada : evento.tipo === 'afastamento' ? COR.fora : 'text.secondary',
             }}
           >
             {tag}

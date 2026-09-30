@@ -461,6 +461,13 @@ export function PostSaida({ evento, acoes }: { evento: AtividadeEvento; acoes: A
               {resumo.rupturas} {resumo.rupturas === 1 ? 'ruptura' : 'rupturas'}
             </Pilula>
           )}
+          {/* Saiu da loja no meio da visita (docs/49) — âmbar, como a chegada fora do raio. */}
+          {evento.afastamento && (
+            <Pilula bg="#fef3c7" fg="#78350f" sx={{ fontSize: 13 }}>
+              <WarningAmberIcon sx={{ fontSize: 14, mr: 0.5, verticalAlign: '-2px' }} />
+              Saiu da loja · {formatarMinutos(evento.afastamento.minutos)} fora
+            </Pilula>
+          )}
           <LinkVisita visitaId={evento.visita.id} />
         </Box>
       </Box>

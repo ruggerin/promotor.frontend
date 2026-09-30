@@ -9,6 +9,7 @@ import { DataTable } from '../../components/DataTable';
 import { listarPontosVenda } from '../../lib/api/pontosVenda';
 import { listarUsuarios } from '../../lib/api/usuarios';
 import { listarVisitas } from '../../lib/api/visitas';
+import { useAuth } from '../../lib/auth/AuthContext';
 import type { StatusVisita, Visita } from '../../types/api';
 
 function hojeISO(): string {
@@ -62,6 +63,11 @@ export function VisitasListPage() {
   const [usuarioUuid, setUsuarioUuid] = useState<string | null>(null);
   const [pontoVendaUuid, setPontoVendaUuid] = useState<string | null>(null);
   const [status, setStatus] = useState<StatusVisita | ''>('');
+  const [soAfastamento, setSoAfastamento] = useState(false);
+  // Filtro "saiu da loja" (docs/49) é dado de localização — só pra quem vê a Rota do dia.
+  const { usuario } = useAuth();
+  const veAfastamento =
+    usuario?.user_type === 'ADMIN' || (usuario?.perfil?.permissoes ?? []).includes('rastreamento.trajeto');
 
   // Só a primeira página de cada lista — suficiente pros dados de teste de agora; se a
   // empresa tiver mais de 15 promotores/PDVs, a API precisaria de um jeito de listar tudo
@@ -77,7 +83,7 @@ export function VisitasListPage() {
   });
 
   const visitasQuery = useQuery({
-    queryKey: ['visitas', { page, dataInicio, dataFim, usuarioUuid, pontoVendaUuid, status, produtoFiltro, rupturaFiltro }],
+    queryKey: ['visitas', { page, dataInicio, dataFim, usuarioUuid, pontoVendaUuid, status, produtoFiltro, rupturaFiltro, soAfastamento }],
     queryFn: () =>
       listarVisitas({
         page: page + 1,
@@ -88,6 +94,7 @@ export function VisitasListPage() {
         status: status || undefined,
         produto_auditoria_uuid: produtoFiltro?.uuid,
         ruptura: rupturaFiltro || undefined,
+        afastamento: soAfastamento || undefined,
       }),
     placeholderData: keepPreviousData,
   });
@@ -127,6 +134,16 @@ export function VisitasListPage() {
         header: 'Distância check-in',
         cell: (info) => `${Math.round(info.getValue())}m`,
         meta: { align: 'right' },
+      }),
+      // Saiu da loja no meio da visita (docs/49) — calculado 30 min depois do checkout; só vem pra
+      // quem tem a permissão da Rota do dia.
+      coluna.accessor((visita) => visita.afastamento?.minutos ?? 0, {
+        id: 'afastamento',
+        header: 'Saiu da loja',
+        cell: (info) => {
+          const a = info.row.original.afastamento;
+          return a && a.qtd > 0 ? <Chip size="small" color="error" variant="outlined" label={`${a.minutos} min fora`} /> : '—';
+        },
       }),
     ],
     [],
@@ -220,6 +237,17 @@ export function VisitasListPage() {
             </MenuItem>
           ))}
         </TextField>
+        {veAfastamento && (
+        <Chip
+          label="Saiu da loja durante a visita"
+          color={soAfastamento ? 'error' : 'default'}
+          variant={soAfastamento ? 'filled' : 'outlined'}
+          onClick={() => {
+            setPage(0);
+            setSoAfastamento((v) => !v);
+          }}
+        />
+        )}
       </Paper>
 
       <DataTable
