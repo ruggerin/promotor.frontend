@@ -1,6 +1,7 @@
 import AddIcon from '@mui/icons-material/Add';
 import { usePageHeader } from '../../components/layout/PageHeaderSlot';
 import { TituloComAtualizar } from '../../components/RefreshButton';
+import { ConfigRastreamentoCard } from './ConfigRastreamentoCard';
 import BlockIcon from '@mui/icons-material/Block';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import EditIcon from '@mui/icons-material/Edit';
@@ -143,6 +144,12 @@ export function ParametrosListPage() {
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setErro(null)}>
           {erro}
         </Alert>
+      )}
+
+      {/* Rastreamento num card (docs/47) — só pra quem edita (SUPERADMIN só visualiza). `key`
+          remonta o card com os valores novos depois de salvar/recarregar. */}
+      {!isSuperadmin && parametrosQuery.data && (
+        <ConfigRastreamentoCard key={parametrosQuery.dataUpdatedAt} parametros={parametrosQuery.data.parametros} />
       )}
 
       <TableContainer component={Paper}>

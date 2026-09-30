@@ -8,6 +8,8 @@ import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet';
 import { usePageHeader } from '../../components/layout/PageHeaderSlot';
 import { ZoomComCtrl } from '../../components/mapa/ZoomComCtrl';
 import { UsuarioAvatar } from '../../components/UsuarioAvatar';
+import { ConformidadePainel } from './ConformidadePainel';
+import { MOTIVO_RASTREAMENTO } from './motivosRastreamento';
 import { listarLocalizacoes, type LocalizacaoPromotor } from '../../lib/api/localizacoes';
 
 // Polling, não WebSocket (decisão 5 de docs/11-RASTREAMENTO-TEMPO-REAL.md): o projeto não tem
@@ -146,7 +148,14 @@ export function RastreamentoPage() {
                   <UsuarioAvatar nome={l.nome} fotoUrl={l.foto_url} size={28} />
                   <ListItemText
                     primary={l.nome}
-                    secondary={`${l.ativo_agora ? 'Ativo' : 'Inativo'} · visto ${haQuantoTempo(l.ultima_localizacao_em)}`}
+                    // Motivo informado pelo app quando não está rastreando (docs/47) — "ativo/inativo"
+                    // sozinho não dizia se o problema era no celular.
+                    secondary={
+                      l.situacao && l.situacao !== 'ATIVO'
+                        ? `${MOTIVO_RASTREAMENTO[l.situacao] ?? l.situacao} · visto ${haQuantoTempo(l.ultima_localizacao_em)}`
+                        : `${l.ativo_agora ? 'Ativo' : 'Inativo'} · visto ${haQuantoTempo(l.ultima_localizacao_em)}`
+                    }
+                    slotProps={{ secondary: { color: l.situacao && l.situacao !== 'ATIVO' ? 'error' : undefined } }}
                   />
                   <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: l.ativo_agora ? COR_ATIVO : COR_INATIVO, flexShrink: 0 }} />
                 </ListItemButton>
@@ -154,6 +163,19 @@ export function RastreamentoPage() {
             </List>
           </Paper>
         </Box>
+      )}
+
+      {/* Quem deveria estar rastreando e não está, e por quê (docs/47) — só com o parâmetro
+          RASTREAMENTO_PAINEL_CONFORMIDADE ligado; sem ele, o componente não renderiza nada. */}
+      {!semPermissao && (
+        <ConformidadePainel
+          intervaloMs={INTERVALO_POLLING_MS}
+          comPosicao={new Set(localizacoes.map((l) => l.id))}
+          onFocar={(id) => {
+            setFocoId(id);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+        />
       )}
     </Box>
   );

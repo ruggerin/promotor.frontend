@@ -48,6 +48,7 @@ import {
 } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 import { buscarResumoAtividades } from '../../lib/api/atividades';
+import { buscarConformidadeRastreamento } from '../../lib/api/localizacoes';
 import { useState, type ReactNode } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { AutorizacaoGestorButton } from '../AutorizacaoGestorButton';
@@ -137,6 +138,18 @@ export function AppLayout() {
     refetchInterval: 60_000,
   });
   const resumoAtividades = resumoAtividadesQuery.data;
+
+  // Badge do Mapa ao vivo (docs/47) — promotores com rastreamento irregular. Só conta quando a
+  // empresa ligou RASTREAMENTO_PAINEL_CONFORMIDADE; GESTOR sem rastreamento.visualizar recebe 403
+  // e o badge simplesmente não aparece (retry: false pra não martelar a API).
+  const conformidadeQuery = useQuery({
+    queryKey: ['localizacoes', 'conformidade', 'menu'],
+    queryFn: buscarConformidadeRastreamento,
+    enabled: usuario?.user_type === 'ADMIN' || usuario?.user_type === 'GESTOR',
+    refetchInterval: 60_000,
+    retry: false,
+  });
+  const irregularesRastreamento = conformidadeQuery.data?.habilitado ? conformidadeQuery.data.irregulares.length : 0;
   const badgeAtividades = resumoAtividades
     ? resumoAtividades.respostas_novas + (resumoAtividades.requer_resolucao ? resumoAtividades.alertas.total : 0)
     : 0;
@@ -557,7 +570,9 @@ export function AppLayout() {
           {(usuario?.user_type === 'ADMIN' || usuario?.user_type === 'GESTOR') && (
             <ListItemButton component={NavLink} to="/rastreamento" selected={emRota('/rastreamento')}>
               <ListItemIcon>
-                <MyLocationIcon />
+                <Badge color="error" badgeContent={irregularesRastreamento} max={99}>
+                  <MyLocationIcon />
+                </Badge>
               </ListItemIcon>
               <ListItemText primary="Mapa ao vivo" />
             </ListItemButton>

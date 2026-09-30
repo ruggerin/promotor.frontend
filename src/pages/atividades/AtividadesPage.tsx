@@ -5,11 +5,13 @@ import {
   Box,
   Button,
   CircularProgress,
+  Collapse,
   Popover,
   TextField,
   ToggleButton,
   ToggleButtonGroup,
   Typography,
+  useMediaQuery,
 } from '@mui/material';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
@@ -51,6 +53,8 @@ export function AtividadesPage() {
   const [edicao, setEdicao] = useState<{ tipo: FiltroEntidade; anchorEl: HTMLElement } | null>(null);
   const [galeria, setGaleria] = useState<{ fotos: FotoComRegistro[]; indice: number } | null>(null);
   const [alertaPlano, setAlertaPlano] = useState<AlertaOrigem | null>(null);
+  const telaLarga = useMediaQuery((theme) => theme.breakpoints.up('lg'));
+  const [lateralAberta, setLateralAberta] = useState(false);
 
   const usuariosQuery = useQuery({ queryKey: ['usuarios', 'promotores'], queryFn: () => listarUsuarios({ user_type: 'PROMOTOR' }) });
   const pontosVendaQuery = useQuery({
@@ -142,6 +146,7 @@ export function AtividadesPage() {
 
   // "Precisa de você" → rola até o card do alerta se ele está no feed; senão abre a visita.
   function abrirAlerta(registroId: string, visitaId: string) {
+    setLateralAberta(false);
     const el = document.getElementById(`evento-alerta:${registroId}`);
     if (!el) {
       navigate(`/visitas/${visitaId}`);
@@ -192,9 +197,9 @@ export function AtividadesPage() {
     // Fundo levemente pontilhado — reforça o "jeito de grupo" (só nesta tela, docs/43 §6 decisão 6).
     <Box
       sx={{
-        mx: -3,
-        mb: -3,
-        px: 3,
+        mx: { xs: -1.5, sm: -3 },
+        mb: { xs: -1.5, sm: -3 },
+        px: { xs: 1.5, sm: 3 },
         pb: 6,
         minHeight: 'calc(100vh - 64px)',
         bgcolor: '#f1eff6',
@@ -204,8 +209,23 @@ export function AtividadesPage() {
     >
       {cabecalho}
 
-      {/* Filtros */}
-      <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap', pt: 0.5, pb: 2 }}>
+      {/* Bloco central — feed + lateral com largura de rede social, centralizado na tela. */}
+      <Box sx={{ maxWidth: 1080, mx: 'auto' }}>
+      {/* Filtros — no celular viram uma faixa que rola de lado, em vez de quebrar em 3 linhas. */}
+      <Box
+        sx={{
+          display: 'flex',
+          gap: 1,
+          alignItems: 'center',
+          flexWrap: { xs: 'nowrap', md: 'wrap' },
+          overflowX: { xs: 'auto', md: 'visible' },
+          scrollbarWidth: 'none',
+          '&::-webkit-scrollbar': { display: 'none' },
+          '& > *': { flexShrink: 0 },
+          pt: 0.5,
+          pb: 2,
+        }}
+      >
         <Button
           onClick={(e) => setEdicao({ tipo: 'periodo', anchorEl: e.currentTarget })}
           startIcon={<CalendarTodayOutlinedIcon sx={{ fontSize: '16px !important' }} />}
@@ -366,7 +386,8 @@ export function AtividadesPage() {
       <Box
         sx={{
           display: 'grid',
-          gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 700px) 340px' },
+          gridTemplateColumns: { xs: 'minmax(0, 1fr)', lg: 'minmax(0, 700px) 340px' },
+          justifyContent: 'center',
           gap: { xs: 2, lg: 4 },
           alignItems: 'start',
         }}
@@ -374,7 +395,7 @@ export function AtividadesPage() {
         {/* Feed */}
         <Box component="main" sx={{ display: 'flex', flexDirection: 'column', gap: 1.75, minWidth: 0 }}>
           {novas > 0 && (
-            <Box sx={{ position: 'sticky', top: 76, zIndex: 3, display: 'flex', justifyContent: 'center', height: 0, overflow: 'visible' }}>
+            <Box sx={{ position: 'sticky', top: { xs: 68, sm: 76 }, zIndex: 3, display: 'flex', justifyContent: 'center', height: 0, overflow: 'visible' }}>
               <Button
                 variant="contained"
                 disableElevation
@@ -417,7 +438,7 @@ export function AtividadesPage() {
               return (
                 <Box key={grupo.chave} sx={{ display: 'flex', flexDirection: 'column', gap: 1.75, mb: 1.75 }}>
                   {/* Separador de dia — pílula centralizada, grudada no topo ao rolar (64px = AppBar). */}
-                  <Box sx={{ position: 'sticky', top: 64, zIndex: 2, display: 'flex', justifyContent: 'center', pt: 2, pb: 0.5 }}>
+                  <Box sx={{ position: 'sticky', top: { xs: 56, sm: 64 }, zIndex: 2, display: 'flex', justifyContent: 'center', pt: 2, pb: 0.5 }}>
                     <Box sx={{ px: 1.75, py: 0.75, borderRadius: 99, bgcolor: '#fff', border: '1px solid #e7e5f0', fontSize: 13, fontWeight: 600 }}>
                       {dia.destaque}
                       {dia.resto && (
@@ -437,10 +458,50 @@ export function AtividadesPage() {
           </InfiniteScroll>
         </Box>
 
-        {/* Coluna lateral — no desktop gruda ao rolar; em tela estreita vai pra cima do feed. */}
-        <Box component="aside" sx={{ order: { xs: -1, lg: 0 }, position: { lg: 'sticky' }, top: { lg: 80 }, pt: { lg: 2 } }}>
-          <ColunaLateral resumo={resumo} onAbrirAlerta={abrirAlerta} />
-        </Box>
+        {/* Coluna lateral — no desktop largo gruda ao rolar; abaixo disso vira um resumo
+            recolhível em cima do feed (a coluna inteira empurrava o feed pra baixo da dobra). */}
+        {telaLarga ? (
+          <Box component="aside" sx={{ position: 'sticky', top: 80, pt: 2 }}>
+            <ColunaLateral resumo={resumo} onAbrirAlerta={abrirAlerta} />
+          </Box>
+        ) : (
+          <Box component="aside" sx={{ order: -1 }}>
+            <Button
+              fullWidth
+              onClick={() => setLateralAberta((a) => !a)}
+              endIcon={<KeyboardArrowDownIcon sx={{ transform: lateralAberta ? 'rotate(180deg)' : 'none', transition: 'transform .2s' }} />}
+              sx={{
+                justifyContent: 'space-between',
+                textTransform: 'none',
+                color: '#1a1830',
+                bgcolor: '#fff',
+                border: '1px solid #e7e5f0',
+                borderRadius: 1.5,
+                px: 2,
+                py: 1.25,
+                fontSize: 14,
+                '&:hover': { bgcolor: '#faf9fd' },
+              }}
+            >
+              <Box component="span" sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                  <Box component="span" sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#16a34a' }} />
+                  <b>{resumo?.em_loja.length ?? 0}</b> em loja
+                </Box>
+                <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                  <Box component="span" sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#dc2626' }} />
+                  <b>{(resumo?.alertas.total ?? 0) + (resumo?.respostas_novas ?? 0)}</b> precisam de você
+                </Box>
+              </Box>
+            </Button>
+            <Collapse in={lateralAberta} unmountOnExit>
+              <Box sx={{ pt: 1.5 }}>
+                <ColunaLateral resumo={resumo} onAbrirAlerta={abrirAlerta} />
+              </Box>
+            </Collapse>
+          </Box>
+        )}
+      </Box>
       </Box>
 
       {galeria && (
