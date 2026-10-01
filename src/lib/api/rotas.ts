@@ -67,9 +67,9 @@ export interface RotaDoDia {
   };
 }
 
-// `tz` = fuso do navegador: o histórico é UTC e o "dia" tem que fechar à meia-noite de quem olha.
+// Só a data (YYYY-MM-DD): o "dia" fecha à meia-noite do fuso da EMPRESA, decidido no backend —
+// não do navegador de quem olha (docs/50 §4.3).
 export async function buscarRotaDoDia(usuarioUuid: string, data: string): Promise<RotaDoDia> {
-  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  const { data: resposta } = await apiClient.get<RotaDoDia>('/rotas', { params: { usuario_uuid: usuarioUuid, data, tz } });
+  const { data: resposta } = await apiClient.get<RotaDoDia>('/rotas', { params: { usuario_uuid: usuarioUuid, data } });
   return resposta;
 }

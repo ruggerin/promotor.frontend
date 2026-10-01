@@ -25,6 +25,8 @@ export interface CriarEmpresaPayload {
   limite_pontos_venda?: number | null;
   limite_licencas?: number | null;
   pedidos_venda_habilitado?: boolean;
+  // IANA — ausente = America/Sao_Paulo (docs/50 §4.3).
+  fuso?: string;
   admin_nome: string;
   admin_email: string;
   admin_senha: string;
@@ -46,6 +48,7 @@ export interface AtualizarEmpresaPayload {
   limite_pontos_venda?: number | null;
   limite_licencas?: number | null;
   pedidos_venda_habilitado?: boolean;
+  fuso?: string;
   ativo?: boolean;
 }
 

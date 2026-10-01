@@ -124,7 +124,9 @@ describe('TipoRegistroFormPage (editor de formulário)', () => {
       disponivel_registro_livre: false,
       campos: [{ chave: 'preco_atual', rotulo: 'Preço atual', tipo_campo: 'MOEDA', obrigatorio: true }],
     });
-  });
+    // Digita dois textos letra a letra num editor grande — passa dos 5 s padrão com a máquina
+    // ocupada (estourava de vez em quando, sem nada de errado na tela).
+  }, 20_000);
 
   it('bloqueia salvar sem nome e mostra o motivo', async () => {
     const user = userEvent.setup();

@@ -9,6 +9,7 @@ import {
   DialogContent,
   DialogTitle,
   FormControlLabel,
+  MenuItem,
   Switch,
   TextField,
 } from '@mui/material';
@@ -20,6 +21,7 @@ import { z } from 'zod';
 import { atualizarPontoVenda, criarPontoVenda } from '../../lib/api/pontosVenda';
 import { listarRamosAtividade } from '../../lib/api/ramosAtividade';
 import { listarRedesLojas } from '../../lib/api/redesLojas';
+import { FUSOS_BRASIL } from '../../lib/fusos';
 import type { PontoVenda } from '../../types/api';
 
 const schema = z.object({
@@ -47,6 +49,8 @@ const schema = z.object({
   numero_checkouts: z
     .string()
     .refine((v) => v === '' || (!Number.isNaN(Number(v)) && Number(v) >= 0), 'Deve ser um número positivo'),
+  // '' = herda o fuso da empresa.
+  fuso: z.string(),
   ativo: z.boolean(),
 });
 
@@ -69,6 +73,7 @@ const DEFAULT_VALUES: PontoVendaFormData = {
   rede_loja_uuid: null,
   ramo_atividade_uuid: null,
   numero_checkouts: '',
+  fuso: '',
   ativo: true,
 };
 
@@ -127,6 +132,7 @@ export function PontoVendaFormDialog({ open, pontoVenda, onClose }: PontoVendaFo
               rede_loja_uuid: pontoVenda.rede_loja?.id ?? null,
               ramo_atividade_uuid: pontoVenda.ramo_atividade?.id ?? null,
               numero_checkouts: pontoVenda.numero_checkouts === null ? '' : String(pontoVenda.numero_checkouts),
+              fuso: pontoVenda.fuso ?? '',
               ativo: pontoVenda.ativo,
             }
           : DEFAULT_VALUES,
@@ -153,6 +159,7 @@ export function PontoVendaFormDialog({ open, pontoVenda, onClose }: PontoVendaFo
         rede_loja_uuid: data.rede_loja_uuid,
         ramo_atividade_uuid: data.ramo_atividade_uuid,
         numero_checkouts: data.numero_checkouts === '' ? null : Number(data.numero_checkouts),
+        fuso: data.fuso || null,
       };
 
       if (modoEdicao) {
@@ -457,6 +464,32 @@ export function PontoVendaFormDialog({ open, pontoVenda, onClose }: PontoVendaFo
                 error={!!fieldState.error}
                 helperText={fieldState.error?.message ?? 'Opcional'}
               />
+            )}
+          />
+          {/* Horário marcado desta loja (visita prevista, atendimento semanal) — docs/50 §4.2. Só
+              muda algo pra loja fora do fuso da empresa. */}
+          <Controller
+            name="fuso"
+            control={control}
+            render={({ field, fieldState }) => (
+              <TextField
+                {...field}
+                select
+                label="Fuso horário da loja"
+                fullWidth
+                margin="normal"
+                error={!!fieldState.error}
+                helperText={fieldState.error?.message ?? 'Só troque se a loja fica num fuso diferente do da empresa.'}
+                slotProps={{ select: { displayEmpty: true }, inputLabel: { shrink: true } }}
+              >
+                <MenuItem value="">O mesmo da empresa</MenuItem>
+                {FUSOS_BRASIL.map((f) => (
+                  <MenuItem key={f.valor} value={f.valor}>
+                    {f.rotulo}
+                  </MenuItem>
+                ))}
+                {field.value && !FUSOS_BRASIL.some((f) => f.valor === field.value) && <MenuItem value={field.value}>{field.value}</MenuItem>}
+              </TextField>
             )}
           />
           {modoEdicao && (

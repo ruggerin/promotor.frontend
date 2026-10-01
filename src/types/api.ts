@@ -83,6 +83,8 @@ export interface Empresa {
   limite_licencas: number | null;
   // Módulo pago Pedido de Venda — só SUPERADMIN edita (docs/38-PEDIDO-VENDEDOR.md §12).
   pedidos_venda_habilitado: boolean;
+  // Fuso (IANA) que define o corte de "dia" da empresa — docs/50 §4.3.
+  fuso: string;
   ativo: boolean;
   created_at: string;
   updated_at: string;
@@ -209,6 +211,8 @@ export interface PontoVenda {
   telefone: string | null;
   email: string | null;
   numero_checkouts: number | null;
+  // Fuso próprio da loja (IANA, docs/50 §4.2) — null = herda o da empresa.
+  fuso?: string | null;
   // Rota autenticada (mesmo padrão de UsuarioAvatar/foto_url) — nunca a URL direta do disco.
   fachada_url: string | null;
   rede_loja: { id: string; descricao: string } | null;

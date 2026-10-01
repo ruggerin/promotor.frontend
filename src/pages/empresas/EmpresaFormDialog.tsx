@@ -20,6 +20,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { atualizarEmpresaSuperadmin, criarEmpresaSuperadmin } from '../../lib/api/empresas';
+import { FUSO_PADRAO, FUSOS_BRASIL } from '../../lib/fusos';
 import type { Empresa, PlanoEmpresa } from '../../types/api';
 
 const PLANOS: { value: PlanoEmpresa; label: string }[] = [
@@ -42,6 +43,7 @@ function buildSchema(modoEdicao: boolean) {
       limite_pontos_venda: z.string(),
       limite_licencas: z.string(),
       pedidos_venda_habilitado: z.boolean(),
+      fuso: z.string().min(1, 'Obrigatório'),
       ativo: z.boolean(),
       admin_nome: z.string(),
       admin_email: z.string(),
@@ -136,6 +138,7 @@ export function EmpresaFormDialog({ open, empresa, onClose }: EmpresaFormDialogP
       limite_pontos_venda: '',
       limite_licencas: '',
       pedidos_venda_habilitado: false,
+      fuso: FUSO_PADRAO,
       ativo: true,
       admin_nome: '',
       admin_email: '',
@@ -159,6 +162,7 @@ export function EmpresaFormDialog({ open, empresa, onClose }: EmpresaFormDialogP
               limite_pontos_venda: empresa.limite_pontos_venda?.toString() ?? '',
               limite_licencas: empresa.limite_licencas?.toString() ?? '',
               pedidos_venda_habilitado: empresa.pedidos_venda_habilitado,
+              fuso: empresa.fuso ?? FUSO_PADRAO,
               ativo: empresa.ativo,
               admin_nome: '',
               admin_email: '',
@@ -173,6 +177,7 @@ export function EmpresaFormDialog({ open, empresa, onClose }: EmpresaFormDialogP
               limite_pontos_venda: '',
               limite_licencas: '',
               pedidos_venda_habilitado: false,
+              fuso: FUSO_PADRAO,
               ativo: true,
               admin_nome: '',
               admin_email: '',
@@ -198,6 +203,7 @@ export function EmpresaFormDialog({ open, empresa, onClose }: EmpresaFormDialogP
           limite_pontos_venda: limitePontosVenda,
           limite_licencas: limiteLicencas,
           pedidos_venda_habilitado: data.pedidos_venda_habilitado,
+          fuso: data.fuso,
           ativo: data.ativo,
         });
       }
@@ -211,6 +217,7 @@ export function EmpresaFormDialog({ open, empresa, onClose }: EmpresaFormDialogP
         limite_pontos_venda: limitePontosVenda,
         limite_licencas: limiteLicencas,
         pedidos_venda_habilitado: data.pedidos_venda_habilitado,
+        fuso: data.fuso,
         admin_nome: data.admin_nome,
         admin_email: data.admin_email,
         admin_senha: data.admin_senha,
@@ -241,6 +248,7 @@ export function EmpresaFormDialog({ open, empresa, onClose }: EmpresaFormDialogP
                 limite_usuarios: 1,
                 limite_pontos_venda: 1,
                 limite_licencas: 1,
+                fuso: 1,
                 admin_nome: 1,
                 admin_email: 1,
                 admin_senha: 1,
@@ -336,6 +344,30 @@ export function EmpresaFormDialog({ open, empresa, onClose }: EmpresaFormDialogP
                     {plano.label}
                   </MenuItem>
                 ))}
+              </TextField>
+            )}
+          />
+          {/* Corte de "dia" da empresa inteira (docs/50 §4.3) — "hoje" dos painéis, dia da Rota do
+              dia. Loja em outro fuso pode ter o dela no cadastro da loja. */}
+          <Controller
+            name="fuso"
+            control={control}
+            render={({ field, fieldState }) => (
+              <TextField
+                {...field}
+                select
+                label="Fuso horário"
+                fullWidth
+                margin="normal"
+                error={!!fieldState.error}
+                helperText={fieldState.error?.message ?? 'Define onde começa e termina o "dia" da empresa nos painéis e relatórios.'}
+              >
+                {FUSOS_BRASIL.map((f) => (
+                  <MenuItem key={f.valor} value={f.valor}>
+                    {f.rotulo}
+                  </MenuItem>
+                ))}
+                {!FUSOS_BRASIL.some((f) => f.valor === field.value) && <MenuItem value={field.value}>{field.value}</MenuItem>}
               </TextField>
             )}
           />

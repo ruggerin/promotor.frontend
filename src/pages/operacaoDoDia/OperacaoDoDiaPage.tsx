@@ -28,6 +28,8 @@ import {
   TextField,
   Tooltip,
   Typography,
+  useMediaQuery,
+  type Theme,
 } from '@mui/material';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
@@ -123,9 +125,46 @@ function tituloBlocoJornada(bloco: BlocoJornada): string {
   }
 }
 
-function minutosDesde(iso: string | null): number | null {
-  if (!iso) return null;
-  return Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60_000));
+// "Sinal" do promotor (há quanto tempo chegou a última posição). Clique abre a posição num mapa,
+// sem sair da tela — só em "hoje": num dia passado o sinal continua sendo o de agora (backend).
+function SinalPromotor({
+  linha,
+  historico,
+  onAbrir,
+}: {
+  linha: LinhaEquipeOperacaoDoDia;
+  historico: boolean;
+  onAbrir: (linha: LinhaEquipeOperacaoDoDia) => void;
+}) {
+  return (
+    <Tooltip title={historico ? '' : 'Ver onde ele está'}>
+      <Typography
+        variant="body2"
+        component={historico ? 'span' : 'button'}
+        type={historico ? undefined : 'button'}
+        onClick={historico ? undefined : () => onAbrir(linha)}
+        sx={{
+          color: linha.sem_sinal ? '#dc2626' : 'text.secondary',
+          fontWeight: linha.sem_sinal ? 700 : 400,
+          whiteSpace: 'nowrap',
+          ...(historico
+            ? {}
+            : {
+                border: 0,
+                background: 'none',
+                font: 'inherit',
+                p: 0,
+                cursor: 'pointer',
+                textDecoration: 'underline dotted',
+                textUnderlineOffset: 3,
+                '&:hover': { color: '#4f46e5' },
+              }),
+        }}
+      >
+        {linha.ultima_localizacao_em ? tempoDesde(linha.ultima_localizacao_em) : '—'}
+      </Typography>
+    </Tooltip>
+  );
 }
 
 function formatarDataHoraAgora(): string {
@@ -205,6 +244,8 @@ export function OperacaoDoDiaPage() {
   const [alertaPlano, setAlertaPlano] = useState<AlertaOrigem | null>(null);
   // Promotor cujo "Sinal" foi clicado — abre a última posição num mapa.
   const [localizando, setLocalizando] = useState<LinhaEquipeOperacaoDoDia | null>(null);
+  // Celular: a equipe vira cartões em vez de tabela (6 colunas não cabem em ~400px).
+  const celular = useMediaQuery((theme: Theme) => theme.breakpoints.down('sm'));
 
   function abrirPlanoDoAlerta(item: ItemFilaAcoes) {
     setAlertaEscolha(null);
@@ -248,7 +289,7 @@ export function OperacaoDoDiaPage() {
       {cabecalho}
 
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5, flexWrap: 'wrap', gap: 1.5 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', minWidth: 0 }}>
           <TextField
             type="date"
             size="small"
@@ -267,25 +308,47 @@ export function OperacaoDoDiaPage() {
             {dados.jornada.inicio}–{dados.jornada.fim}
           </Typography>
         </Box>
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button variant="outlined" size="small" startIcon={<DownloadIcon />} onClick={() => exportarEquipeCsv(equipe, dados.data)}>
+        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', width: { xs: '100%', sm: 'auto' } }}>
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<DownloadIcon />}
+            onClick={() => exportarEquipeCsv(equipe, dados.data)}
+            sx={{ flex: { xs: 1, sm: 'none' } }}
+          >
             Exportar
           </Button>
+          {/* Ainda desabilitado — no celular só ocuparia espaço. */}
           <Tooltip title="Ainda não implementado — depende de fechar o desenho da Fase 4 (ver docs/32-PAINEL-OPERACAO-DO-DIA.md)">
-            <span>
+            <Box component="span" sx={{ display: { xs: 'none', sm: 'inline-flex' } }}>
               <Button variant="outlined" size="small" startIcon={<ForumIcon />} disabled>
                 Mensagem à equipe
               </Button>
-            </span>
+            </Box>
           </Tooltip>
-          <Button variant="contained" size="small" startIcon={<PlaylistAddIcon />} onClick={() => setNovaTarefaAberta(true)}>
+          <Button
+            variant="contained"
+            size="small"
+            startIcon={<PlaylistAddIcon />}
+            onClick={() => setNovaTarefaAberta(true)}
+            sx={{ flex: { xs: 1, sm: 'none' } }}
+          >
             Nova tarefa
           </Button>
         </Box>
       </Box>
 
       {/* KPIs */}
-      <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 1.5, mb: 2 }}>
+      {/* 6 por linha no desktop, 3 no tablet, 2 no celular — minmax(0, …) deixa o texto quebrar
+          dentro do card em vez de empurrar a página pro lado. */}
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', sm: 'repeat(3, minmax(0, 1fr))', lg: 'repeat(6, minmax(0, 1fr))' },
+          gap: { xs: 1, sm: 1.5 },
+          mb: 2,
+        }}
+      >
         <Paper sx={{ p: 1.5 }}>
           <Typography variant="caption" color="text.secondary">
             VISITAS REALIZADAS
@@ -346,9 +409,9 @@ export function OperacaoDoDiaPage() {
         </Paper>
       </Box>
 
-      <Box sx={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 2, mb: 2, alignItems: 'start' }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', lg: 'minmax(0, 2fr) minmax(0, 1fr)' }, gap: 2, mb: 2, alignItems: 'start' }}>
         {/* Equipe em campo */}
-        <Paper sx={{ p: 2 }}>
+        <Paper sx={{ p: { xs: 1.5, sm: 2 } }}>
           <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1.5 }}>
             Equipe em campo <Chip label={equipe.length} size="small" sx={{ ml: 1 }} />
           </Typography>
@@ -356,6 +419,52 @@ export function OperacaoDoDiaPage() {
             <Typography variant="body2" color="text.secondary">
               {historico ? 'Nenhum compromisso nesse dia.' : 'Nenhum compromisso pra hoje.'}
             </Typography>
+          ) : celular ? (
+            // Celular: tabela de 6 colunas não cabe — um cartão por promotor, mesma informação.
+            <Box sx={{ display: 'flex', flexDirection: 'column', maxHeight: 420, overflowY: 'auto' }}>
+              {equipe.map((linha) => (
+                <Box
+                  key={linha.usuario.id}
+                  sx={{ py: 1.25, borderTop: '1px solid', borderColor: 'divider', '&:first-of-type': { borderTop: 0, pt: 0 } }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: SITUACAO_COR[linha.status], flexShrink: 0 }} />
+                    <UsuarioAvatar nome={linha.usuario.nome} fotoUrl={linha.usuario.foto_url} size={28} />
+                    <Box sx={{ minWidth: 0, flexGrow: 1 }}>
+                      <Typography variant="body2" sx={{ fontWeight: 600 }} noWrap>
+                        {linha.usuario.nome}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {SITUACAO_LABEL[linha.status]}
+                        {linha.ponto_venda_atual ? ` · ${linha.ponto_venda_atual.fantasia}` : ''}
+                        {linha.checkin_em ? ` desde ${formatarHora(linha.checkin_em)}` : ''}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1.2 }}>
+                        Sinal
+                      </Typography>
+                      <SinalPromotor linha={linha} historico={historico} onAbrir={setLocalizando} />
+                    </Box>
+                  </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mt: 0.75, pl: '44px' }}>
+                    <Box sx={{ flexGrow: 1 }}>
+                      <Typography variant="caption">
+                        Visitas {linha.visitas.feitas}/{linha.visitas.total}
+                      </Typography>
+                      <LinearProgress
+                        variant="determinate"
+                        value={linha.visitas.total ? (linha.visitas.feitas / linha.visitas.total) * 100 : 0}
+                        sx={{ height: 4, borderRadius: 4, mt: 0.3 }}
+                      />
+                    </Box>
+                    <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0 }}>
+                      Rupt. {linha.rupturas || '—'}
+                    </Typography>
+                  </Box>
+                </Box>
+              ))}
+            </Box>
           ) : (
             <TableContainer sx={{ maxHeight: 300, overflowY: 'auto' }}>
               <Table size="small" stickyHeader>
@@ -371,7 +480,6 @@ export function OperacaoDoDiaPage() {
                 </TableHead>
                 <TableBody>
                   {equipe.map((linha) => {
-                    const sinalMin = minutosDesde(linha.ultima_localizacao_em);
                     return (
                       <TableRow key={linha.usuario.id} hover>
                         <TableCell>
@@ -400,34 +508,7 @@ export function OperacaoDoDiaPage() {
                         </TableCell>
                         <TableCell align="right">{linha.rupturas || '—'}</TableCell>
                         <TableCell align="right">
-                          {/* Clique abre a última posição num mapa, sem sair da tela. Só em "hoje":
-                              num dia passado o sinal continua sendo o de agora (ver backend). */}
-                          <Tooltip title={historico ? '' : 'Ver onde ele está'}>
-                            <Typography
-                              variant="body2"
-                              component={historico ? 'span' : 'button'}
-                              type={historico ? undefined : 'button'}
-                              onClick={historico ? undefined : () => setLocalizando(linha)}
-                              sx={{
-                                color: linha.sem_sinal ? '#dc2626' : 'text.secondary',
-                                fontWeight: linha.sem_sinal ? 700 : 400,
-                                ...(historico
-                                  ? {}
-                                  : {
-                                      border: 0,
-                                      background: 'none',
-                                      font: 'inherit',
-                                      p: 0,
-                                      cursor: 'pointer',
-                                      textDecoration: 'underline dotted',
-                                      textUnderlineOffset: 3,
-                                      '&:hover': { color: '#4f46e5' },
-                                    }),
-                              }}
-                            >
-                              {sinalMin === null || !linha.ultima_localizacao_em ? '—' : tempoDesde(linha.ultima_localizacao_em)}
-                            </Typography>
-                          </Tooltip>
+                          <SinalPromotor linha={linha} historico={historico} onAbrir={setLocalizando} />
                         </TableCell>
                       </TableRow>
                     );
@@ -439,7 +520,7 @@ export function OperacaoDoDiaPage() {
         </Paper>
 
         {/* Fila de ações */}
-        <Paper sx={{ p: 2 }}>
+        <Paper sx={{ p: { xs: 1.5, sm: 2 } }}>
           <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1.5 }}>
             Fila de ações <Chip label={filaAcoes.length} size="small" sx={{ ml: 1 }} />
           </Typography>
@@ -504,9 +585,9 @@ export function OperacaoDoDiaPage() {
         </Paper>
       </Box>
 
-      <Box sx={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 2 }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', lg: 'minmax(0, 2fr) minmax(0, 1fr)' }, gap: 2 }}>
         {/* Jornada (Gantt) */}
-        <Paper sx={{ p: 2, overflowX: 'auto' }}>
+        <Paper sx={{ p: { xs: 1.5, sm: 2 }, overflowX: 'auto' }}>
           <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1.5 }}>
             Jornada
           </Typography>
@@ -574,7 +655,7 @@ export function OperacaoDoDiaPage() {
         </Paper>
 
         {/* Rupturas por SKU */}
-        <Paper sx={{ p: 2 }}>
+        <Paper sx={{ p: { xs: 1.5, sm: 2 } }}>
           <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
             <InventoryIcon fontSize="small" /> Rupturas por SKU
           </Typography>
