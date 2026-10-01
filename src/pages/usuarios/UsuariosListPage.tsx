@@ -29,6 +29,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import axios from 'axios';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { UltimoAcesso } from '../../components/UltimoAcesso';
 import { UsuarioAvatar } from '../../components/UsuarioAvatar';
 import { listarEmpresasSuperadmin } from '../../lib/api/empresas';
 import { atualizarUsuario, desativarUsuario, listarUsuarios } from '../../lib/api/usuarios';
@@ -150,7 +151,7 @@ export function UsuariosListPage() {
 
   const perPage = usuariosQuery.data?.meta.per_page ?? 15;
   // SUPERADMIN ganha a coluna Empresa a mais (Ações ele também tem, só com menos ícones).
-  const totalColunas = isSuperadmin ? 9 : 8;
+  const totalColunas = isSuperadmin ? 10 : 9;
 
   const cabecalho = usePageHeader(<TituloComAtualizar titulo="Usuários" />);
 
@@ -235,6 +236,8 @@ export function UsuariosListPage() {
               <TableCell>Tipo</TableCell>
               <TableCell>Perfil</TableCell>
               <TableCell>Dispositivo</TableCell>
+              {/* Uso do sistema, não login — o token não expira (docs/52). */}
+              <TableCell>Último acesso</TableCell>
               <TableCell>Status</TableCell>
               <TableCell align="right">Ações</TableCell>
             </TableRow>
@@ -287,6 +290,9 @@ export function UsuariosListPage() {
                 <TableCell>{usuario.perfil?.nome ?? '—'}</TableCell>
                 <TableCell>
                   <DispositivoCelula usuario={usuario} />
+                </TableCell>
+                <TableCell>
+                  <UltimoAcesso acesso={usuario.acesso} />
                 </TableCell>
                 <TableCell>
                   <Chip

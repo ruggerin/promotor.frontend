@@ -13,11 +13,13 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { diasDesde, textoUltimoAcesso } from '../../lib/acesso';
 import { listarEmpresasSuperadmin } from '../../lib/api/empresas';
 import type { PlanoEmpresa } from '../../types/api';
 import { EmpresaFormDialog } from './EmpresaFormDialog';
@@ -35,6 +37,20 @@ const PLANO_COLORS: Record<PlanoEmpresa, 'default' | 'primary' | 'secondary' | '
   PRO: 'secondary',
   BUSINESS: 'success',
 };
+
+// Última vez que alguém da empresa usou o sistema — âmbar passando de 7 dias (cliente sumindo,
+// docs/52 §4.2).
+function AtividadeEmpresa({ ultima }: { ultima: string | null }) {
+  const parado = ultima !== null && diasDesde(ultima) > 7;
+  return (
+    <Typography
+      variant="body2"
+      sx={{ color: ultima === null ? 'text.secondary' : parado ? '#b45309' : undefined, fontWeight: parado ? 700 : 400, whiteSpace: 'nowrap' }}
+    >
+      {textoUltimoAcesso(ultima)}
+    </Typography>
+  );
+}
 
 // Ações (editar dados, bloquear/reativar) ficam todas na página de detalhe
 // (EmpresaDetailPage) — a lista é só uma tabela pra escanear e clicar, ver
@@ -69,20 +85,23 @@ export function EmpresasListPage() {
               <TableCell>Plano</TableCell>
               <TableCell align="right">Limite usuários</TableCell>
               <TableCell align="right">Limite PDVs</TableCell>
+              {/* Adesão da carteira (docs/52 §4.2): uso do sistema, não login. */}
+              <TableCell>Última atividade</TableCell>
+              <TableCell>Usaram (7 · 30 · 90 dias)</TableCell>
               <TableCell>Status</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {empresasQuery.isLoading && (
               <TableRow>
-                <TableCell colSpan={7} align="center">
+                <TableCell colSpan={9} align="center">
                   <CircularProgress size={24} />
                 </TableCell>
               </TableRow>
             )}
             {empresasQuery.isError && (
               <TableRow>
-                <TableCell colSpan={7} align="center">
+                <TableCell colSpan={9} align="center">
                   <Typography color="error" variant="body2">
                     Não foi possível carregar a lista — você pode não ter permissão para isto, ou
                     houve um problema de conexão.
@@ -92,7 +111,7 @@ export function EmpresasListPage() {
             )}
             {empresasQuery.data?.empresas.length === 0 && !empresasQuery.isError && (
               <TableRow>
-                <TableCell colSpan={7} align="center">
+                <TableCell colSpan={9} align="center">
                   Nenhuma empresa encontrada.
                 </TableCell>
               </TableRow>
@@ -120,6 +139,28 @@ export function EmpresasListPage() {
                 </TableCell>
                 <TableCell align="right">{empresa.limite_usuarios ?? 'Sem limite'}</TableCell>
                 <TableCell align="right">{empresa.limite_pontos_venda ?? 'Sem limite'}</TableCell>
+                <TableCell>
+                  <AtividadeEmpresa ultima={empresa.adesao?.ultima_atividade ?? null} />
+                </TableCell>
+                <TableCell>
+                  {empresa.adesao ? (
+                    <Tooltip
+                      title={empresa.adesao.janelas
+                        .map((j) => `${j.dias} dias: ${j.usuarios} usuário(s) — ${j.mobile} no app, ${j.admin} no admin web`)
+                        .join(' · ')}
+                    >
+                      <Typography variant="body2" sx={{ fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+                        {empresa.adesao.janelas.map((j) => j.usuarios).join(' · ')}
+                        <Typography component="span" variant="caption" color="text.secondary">
+                          {' '}
+                          de {empresa.adesao.usuarios_ativos}
+                        </Typography>
+                      </Typography>
+                    </Tooltip>
+                  ) : (
+                    '—'
+                  )}
+                </TableCell>
                 <TableCell>
                   <Chip
                     label={empresa.ativo ? 'Ativa' : 'Bloqueada'}

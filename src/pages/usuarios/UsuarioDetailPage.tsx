@@ -17,6 +17,7 @@ import {
   Chip,
   CircularProgress,
   IconButton,
+  LinearProgress,
   Pagination,
   Paper,
   Tab,
@@ -46,7 +47,9 @@ import {
   removerFotoUsuario,
   revogarDispositivoUsuario,
 } from '../../lib/api/usuarios';
+import { textoUltimoAcesso } from '../../lib/acesso';
 import { useAuth } from '../../lib/auth/AuthContext';
+import { formatarDataSemFuso } from '../../lib/formatarData';
 import type { EventoHistorico, PontoVenda, TipoEventoHistorico, UserType, Usuario } from '../../types/api';
 import { SelecionarPontoVendaDialog } from './SelecionarPontoVendaDialog';
 import { UsuarioFormDialog } from './UsuarioFormDialog';
@@ -441,6 +444,53 @@ export function UsuarioDetailPage() {
           )}
         </Box>
       </Paper>
+
+      {/* Uso do sistema (docs/52 §4.1) — "esse supervisor tá abrindo o sistema?". Mede uso do dia,
+          não login (o token não expira). */}
+      {usuario.acesso && (
+        <Paper sx={{ p: 3, mb: 3 }}>
+          <Typography variant="h6" gutterBottom>
+            Uso do sistema
+          </Typography>
+          {usuario.acesso.sumido && (
+            <Alert severity="warning" sx={{ mb: 2 }}>
+              Sem usar o sistema há {usuario.acesso.dias_sem_acesso} dias
+              {ehPromotor ? ' — promotor costuma usar todo dia útil.' : '.'}
+            </Alert>
+          )}
+          <Box sx={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+            <Box>
+              <Typography variant="caption" color="text.secondary">
+                Último acesso
+              </Typography>
+              <Typography sx={{ fontWeight: 600 }}>{textoUltimoAcesso(usuario.acesso.ultimo_em)}</Typography>
+            </Box>
+            <Box>
+              <Typography variant="caption" color="text.secondary">
+                No app
+              </Typography>
+              <Typography>{usuario.acesso.mobile_em ? formatarDataSemFuso(usuario.acesso.mobile_em) : '—'}</Typography>
+            </Box>
+            <Box>
+              <Typography variant="caption" color="text.secondary">
+                No admin web
+              </Typography>
+              <Typography>{usuario.acesso.admin_em ? formatarDataSemFuso(usuario.acesso.admin_em) : '—'}</Typography>
+            </Box>
+            <Box sx={{ minWidth: 200, flexGrow: 1, maxWidth: 320 }}>
+              <Typography variant="caption" color="text.secondary">
+                Dias com uso nos últimos 30
+              </Typography>
+              <Typography sx={{ fontWeight: 600 }}>{usuario.acesso.dias_ativos_30d} de 30</Typography>
+              <LinearProgress
+                variant="determinate"
+                value={(usuario.acesso.dias_ativos_30d / 30) * 100}
+                sx={{ height: 5, borderRadius: 5, mt: 0.5 }}
+              />
+            </Box>
+          </Box>
+        </Paper>
+      )}
 
       {ehPromotor && (
         <Paper sx={{ p: 3, mb: 3 }}>

@@ -88,6 +88,8 @@ export interface Empresa {
   ativo: boolean;
   created_at: string;
   updated_at: string;
+  // Só na lista/detalhe do SUPERADMIN — docs/52 §4.2.
+  adesao?: AdesaoEmpresa;
 }
 
 // Espelha o objeto `uso` de GET /superadmin/empresas/{uuid} — ver
@@ -103,6 +105,27 @@ export interface EmpresaUso {
   visitas_ultimos_30_dias: number;
   pontos_venda_visitados: number;
   ultima_atividade_em: string | null;
+  // Uso do sistema (não só visita) — docs/52 §4.2.
+  adesao?: AdesaoEmpresa;
+}
+
+// Adesão de uma empresa (docs/52 §4.2): usuários que usaram o sistema em cada janela, no total e
+// por app. Datas YYYY-MM-DD (dia no fuso da empresa).
+export interface AdesaoEmpresa {
+  ultima_atividade: string | null;
+  usuarios_ativos: number;
+  janelas: { dias: number; usuarios: number; mobile: number; admin: number }[];
+}
+
+// Uso do sistema por usuário (docs/52 §4.1). `sumido` = passou do limite sem usar (promotor: 3
+// dias úteis; admin/gestor: 7 dias) — false quando nunca usou (não afirma nada).
+export interface AcessoUsuario {
+  ultimo_em: string | null;
+  mobile_em: string | null;
+  admin_em: string | null;
+  dias_ativos_30d: number;
+  dias_sem_acesso: number | null;
+  sumido: boolean;
 }
 
 export interface Fatura {
@@ -193,6 +216,8 @@ export interface Usuario {
   dispositivo?: Dispositivo | null;
   created_at: string;
   updated_at: string;
+  // Só nas telas de usuários (lista/detalhe) — docs/52.
+  acesso?: AcessoUsuario;
 }
 
 export interface PontoVenda {
