@@ -97,6 +97,8 @@ export function VisitasListPage() {
         afastamento: soAfastamento || undefined,
       }),
     placeholderData: keepPreviousData,
+    // Visita que o celular manda depois aparece sozinha (docs/51 Fase 3).
+    refetchInterval: 30_000,
   });
 
   const perPage = visitasQuery.data?.meta.per_page ?? 15;

@@ -795,6 +795,10 @@ export interface Visita {
   checkout_tipo: CheckoutTipo | null;
   // Só pra quem tem rastreamento.trajeto; null = ainda não calculado ou sem posição na visita.
   afastamento?: AfastamentoResumo | null;
+  // Quando o servidor recebeu cada passo (docs/51) — inicio_data/fim_data são a hora do campo.
+  // null = visita de antes desta versão.
+  checkin_recebido_em?: string | null;
+  checkout_recebido_em?: string | null;
   registros?: VisitaRegistro[];
   // Só presente no GET /visitas/{uuid} — log de cancelamento / checkout forçado / correção de
   // horário feito por um gestor. Ver docs/15-INTERVENCAO-ADMINISTRATIVA-VISITA.md.
