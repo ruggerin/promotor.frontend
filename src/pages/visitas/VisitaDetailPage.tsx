@@ -31,6 +31,7 @@ import {
   TextField,
   ToggleButton,
   ToggleButtonGroup,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
@@ -44,6 +45,7 @@ import { CORES_MAPA_VISITA } from '../../components/mapa/coresMapaVisita';
 import { MapaVisita } from '../../components/mapa/MapaVisita';
 import { UsuarioAvatar } from '../../components/UsuarioAvatar';
 import { apiClient } from '../../lib/api/client';
+import { atrasoEnvioMinutos, textoAtrasoEnvio } from '../../lib/atrasoEnvio';
 import { useAuth } from '../../lib/auth/AuthContext';
 import {
   buscarVisita,
@@ -100,6 +102,20 @@ function formatarDuracao(inicioIso: string, fimIso: string | null): string {
   const h = Math.floor(seg / 3600);
   const min = Math.floor(seg / 60) % 60;
   return h > 0 ? `${h}h ${String(min).padStart(2, '0')}min` : `${min}min`;
+}
+
+// Mesmo ritmo da Operação do Dia.
+const POLLING_VISITA_ABERTA_MS = 25_000;
+
+// "chegou 47 min depois" — o celular demorou a mandar (sem internet, fila parada). docs/51 Fase 3.
+function SeloAtrasoEnvio({ feitoEm, recebidoEm }: { feitoEm: string | null; recebidoEm: string | null | undefined }) {
+  const minutos = atrasoEnvioMinutos(feitoEm, recebidoEm);
+  if (minutos === null) return null;
+  return (
+    <Tooltip title={`O celular mandou às ${formatarHora(recebidoEm!)} — provavelmente estava sem internet. O horário mostrado é o do campo.`}>
+      <Chip size="small" variant="outlined" color="warning" label={textoAtrasoEnvio(minutos)} sx={{ height: 22, ml: 0.75 }} />
+    </Tooltip>
+  );
 }
 
 function formatarDistancia(metros: number): string {
@@ -510,6 +526,7 @@ function Jornada({ visita, raio }: { visita: Visita; raio: number | null | undef
           </Box>
           <Box sx={{ mt: 0.5 }}>
             <SeloDistancia metros={visita.inicio_distancia_metros} raio={raio} />
+            <SeloAtrasoEnvio feitoEm={visita.inicio_data} recebidoEm={visita.checkin_recebido_em} />
           </Box>
         </>,
       )}
@@ -559,6 +576,7 @@ function Jornada({ visita, raio }: { visita: Visita; raio: number | null | undef
                 ) : visita.fim_distancia_metros != null ? (
                   <SeloDistancia metros={visita.fim_distancia_metros} raio={raio} />
                 ) : null}
+                <SeloAtrasoEnvio feitoEm={visita.fim_data} recebidoEm={visita.checkout_recebido_em} />
               </Box>
             </>
           ) : (
@@ -722,6 +740,9 @@ export function VisitaDetailPage() {
     queryKey: ['visitas', publicId],
     queryFn: () => buscarVisita(publicId as string),
     enabled: Boolean(publicId),
+    // Visita aberta ainda recebe registros e o checkout do celular (docs/51 Fase 3) — atualiza
+    // sozinha; encerrada não muda mais.
+    refetchInterval: (q) => (q.state.data?.visita.status === 'ABERTA' ? POLLING_VISITA_ABERTA_MS : false),
   });
 
   const [dialog, setDialog] = useState<DialogAberto>(null);

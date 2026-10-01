@@ -77,6 +77,8 @@ export interface PontoVendaPayload {
   rede_loja_uuid?: string | null;
   ramo_atividade_uuid?: string | null;
   numero_checkouts?: number | null;
+  // IANA; null = herda o fuso da empresa (docs/50 §4.2).
+  fuso?: string | null;
   ativo?: boolean;
 }
 
