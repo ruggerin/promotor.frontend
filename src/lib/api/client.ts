@@ -10,6 +10,8 @@ export const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_URL,
   headers: {
     Accept: 'application/json',
+    // Identifica o cliente pra medição de uso por app (docs/52) — o app mobile manda 'mobile'.
+    'X-Client': 'admin',
   },
 });
 

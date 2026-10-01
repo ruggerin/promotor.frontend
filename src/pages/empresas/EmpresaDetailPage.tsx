@@ -21,6 +21,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { textoUltimoAcesso } from '../../lib/acesso';
 import { atualizarEmpresaSuperadmin, bloquearEmpresaSuperadmin, buscarEmpresaSuperadmin } from '../../lib/api/empresas';
 import { listarFaturas } from '../../lib/api/faturas';
 import { formatarDataSemFuso } from '../../lib/formatarData';
@@ -233,6 +234,38 @@ export function EmpresaDetailPage() {
           </Grid>
         </Grid>
       </Paper>
+
+      {/* Adesão (docs/52 §4.2): quantos usuários usaram o sistema em cada janela — uso, não login. */}
+      {uso.adesao && (
+        <Paper sx={{ p: 3, mb: 3 }}>
+          <Typography variant="h6" gutterBottom>
+            Adesão
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Último uso do sistema por alguém da empresa: <strong>{textoUltimoAcesso(uso.adesao.ultima_atividade)}</strong>.{' '}
+            {uso.adesao.usuarios_ativos} usuário(s) ativo(s) no cadastro.
+          </Typography>
+          <Grid container spacing={3}>
+            {uso.adesao.janelas.map((janela) => (
+              <Grid key={janela.dias} size={{ xs: 12, sm: 4 }}>
+                <Typography variant="caption" color="text.secondary">
+                  Usaram nos últimos {janela.dias} dias
+                </Typography>
+                <Typography variant="h5">
+                  {janela.usuarios}
+                  <Typography component="span" variant="body2" color="text.secondary">
+                    {' '}
+                    de {uso.adesao!.usuarios_ativos}
+                  </Typography>
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {janela.mobile} no app · {janela.admin} no admin web
+                </Typography>
+              </Grid>
+            ))}
+          </Grid>
+        </Paper>
+      )}
 
       <ParametrosPadraoCard empresaUuid={publicId as string} />
 
