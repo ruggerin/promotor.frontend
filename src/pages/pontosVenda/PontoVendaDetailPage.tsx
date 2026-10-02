@@ -35,6 +35,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { listarAgendasVisita } from '../../lib/api/agendasVisita';
 import { apiClient } from '../../lib/api/client';
 import { listarDepartamentos } from '../../lib/api/departamentos';
+import { formatarDataSemFuso } from '../../lib/formatarData';
 import { listarMarcas } from '../../lib/api/marcas';
 import {
   adicionarPromotorPontoVenda,
@@ -693,13 +694,20 @@ export function PontoVendaDetailPage() {
                     ))}
                   </TableCell>
                   <TableCell>
+                    {/* A caminho / Atrasado (previsão passou) / Entregue — docs/54 §4. */}
                     <Chip
                       size="small"
-                      color={pedido.status === 'ENTREGUE' ? 'success' : 'warning'}
+                      color={pedido.status === 'ENTREGUE' ? 'success' : pedido.status === 'ATRASADO' ? 'error' : 'warning'}
                       label={
-                        pedido.status === 'ENTREGUE' && pedido.entregue_em
-                          ? `Entregue ${new Date(pedido.entregue_em).toLocaleDateString('pt-BR')}`
-                          : 'A caminho'
+                        pedido.status === 'ENTREGUE'
+                          ? pedido.entregue_em
+                            ? `Entregue ${new Date(pedido.entregue_em).toLocaleDateString('pt-BR')}`
+                            : 'Entregue'
+                          : pedido.status === 'ATRASADO'
+                            ? `Atrasado (previsto ${formatarDataSemFuso(pedido.data_previsao_entrega!)})`
+                            : pedido.data_previsao_entrega
+                              ? `Chega ${formatarDataSemFuso(pedido.data_previsao_entrega)}`
+                              : 'A caminho'
                       }
                     />
                   </TableCell>
