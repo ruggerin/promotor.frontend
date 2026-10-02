@@ -1,4 +1,4 @@
-import { Autocomplete, Box, Chip, MenuItem, Paper, TextField, Typography } from '@mui/material';
+import { Autocomplete, Box, Button, Chip, MenuItem, Paper, TextField, Typography } from '@mui/material';
 import { usePageHeader } from '../../components/layout/PageHeaderSlot';
 import { TituloComAtualizar } from '../../components/RefreshButton';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
@@ -6,11 +6,16 @@ import { createColumnHelper } from '@tanstack/react-table';
 import { useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { DataTable } from '../../components/DataTable';
+import { buscarAlertaRequerResolucao } from '../../lib/api/parametros';
 import { listarPontosVenda } from '../../lib/api/pontosVenda';
 import { listarRedesLojas } from '../../lib/api/redesLojas';
 import { listarRegistros } from '../../lib/api/registros';
 import { listarTiposRegistro } from '../../lib/api/tiposRegistro';
 import type { RegistroLista } from '../../types/api';
+import type { AlertaOrigem } from '../planosAcao/NovoPlanoAcaoDialog';
+import { NovoPlanoAcaoDialog } from '../planosAcao/NovoPlanoAcaoDialog';
+import type { AlvoResolucao } from '../atividades/ResolverAlertaDialog';
+import { ResolverAlertaDialog } from '../atividades/ResolverAlertaDialog';
 
 type StatusFiltro = '' | 'aberto' | 'resolvido';
 
@@ -50,6 +55,14 @@ export function RegistrosListPage() {
   const [dataInicio, setDataInicio] = useState('');
   const [dataFim, setDataFim] = useState('');
   const [status, setStatus] = useState<StatusFiltro>('');
+  const [alvoResolver, setAlvoResolver] = useState<AlvoResolucao | null>(null);
+  const [alertaPlano, setAlertaPlano] = useState<AlertaOrigem | null>(null);
+
+  // Mesmo parâmetro que decide se o botão "Marcar resolvido" aparece no Painel de Atividades
+  // (docs/19) — sem ele, alerta é só informativo, não faz sentido oferecer ação de resolução
+  // aqui também. Ver docs/56-RESOLVER-ALERTA-NA-TELA-REGISTROS.md.
+  const requerResolucaoQuery = useQuery({ queryKey: ['parametros', 'alerta-requer-resolucao'], queryFn: buscarAlertaRequerResolucao });
+  const requerResolucao = requerResolucaoQuery.data ?? false;
 
   const tiposRegistroQuery = useQuery({ queryKey: ['tipos-registro', 'filtro'], queryFn: () => listarTiposRegistro() });
   const pontosVendaQuery = useQuery({ queryKey: ['pontos-venda', 'filtro'], queryFn: () => listarPontosVenda() });
@@ -127,13 +140,63 @@ export function RegistrosListPage() {
         id: 'status',
         header: 'Status',
         cell: (info) => {
-          const s = info.row.original.status;
-          if (!s) return '—';
-          return <Chip label={STATUS_LABELS[s]} size="small" color={s === 'aberto' ? 'warning' : 'success'} />;
+          const r = info.row.original;
+          if (!r.status) return '—';
+          return (
+            <Box>
+              <Chip label={STATUS_LABELS[r.status]} size="small" color={r.status === 'aberto' ? 'warning' : 'success'} />
+              {r.status === 'resolvido' && (r.motivo || r.motivo_texto) && (
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                  Motivo: {r.motivo?.descricao ?? r.motivo_texto}
+                </Typography>
+              )}
+            </Box>
+          );
         },
       }),
+      ...(requerResolucao
+        ? [
+            coluna.display({
+              id: 'acao',
+              header: 'Ação',
+              cell: (info) => {
+                const r = info.row.original;
+                if (r.status !== 'aberto') return null;
+                return (
+                  <Box sx={{ display: 'flex', gap: 1 }} onClick={(e) => e.stopPropagation()}>
+                    <Button
+                      size="small"
+                      variant="contained"
+                      color="success"
+                      onClick={() => setAlvoResolver({ visitaUuid: r.visita_id, registroUuid: r.id, tipo: r.tipo_registro.descricao, produto: r.produto_auditoria?.descricao, pontoVenda: r.ponto_venda?.fantasia })}
+                      sx={{ textTransform: 'none' }}
+                    >
+                      Resolver
+                    </Button>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      onClick={() =>
+                        setAlertaPlano({
+                          registroUuid: r.id,
+                          tipo: r.tipo_registro.descricao,
+                          produto: r.produto_auditoria?.descricao,
+                          pontoVenda: r.ponto_venda?.fantasia,
+                          observacao: r.observacao,
+                        })
+                      }
+                      sx={{ textTransform: 'none' }}
+                    >
+                      Abrir plano
+                    </Button>
+                  </Box>
+                );
+              },
+            }),
+          ]
+        : []),
     ],
-    [],
+    [requerResolucao],
   );
 
   const cabecalho = usePageHeader(<TituloComAtualizar titulo="Registros" />);
@@ -251,6 +314,9 @@ export function RegistrosListPage() {
         rowsPerPage={perPage}
         totalRows={registrosQuery.data?.meta.total ?? 0}
       />
+
+      <ResolverAlertaDialog open={!!alvoResolver} alvo={alvoResolver} onClose={() => setAlvoResolver(null)} />
+      <NovoPlanoAcaoDialog open={!!alertaPlano} alerta={alertaPlano} onClose={() => setAlertaPlano(null)} />
     </Box>
   );
 }

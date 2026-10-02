@@ -25,6 +25,7 @@ import MyLocationIcon from '@mui/icons-material/MyLocation';
 import AltRouteIcon from '@mui/icons-material/AltRoute';
 import PeopleIcon from '@mui/icons-material/People';
 import PhotoLibraryIcon from '@mui/icons-material/PhotoLibrary';
+import RuleIcon from '@mui/icons-material/Rule';
 import SecurityIcon from '@mui/icons-material/Security';
 import StoreIcon from '@mui/icons-material/Store';
 import ShoppingCartOutlinedIcon from '@mui/icons-material/ShoppingCartOutlined';
@@ -475,6 +476,12 @@ export function AppLayout() {
               <WorkIcon />
             </ListItemIcon>
             <ListItemText primary="Ramos de Atividade" />
+          </ListItemButton>
+          <ListItemButton component={NavLink} to="/motivos-resolucao-alerta" selected={emRota('/motivos-resolucao-alerta')}>
+            <ListItemIcon>
+              <RuleIcon />
+            </ListItemIcon>
+            <ListItemText primary="Motivos de Resolução" />
           </ListItemButton>
           <ListItemButton component={NavLink} to="/tipos-registro" selected={emRota('/tipos-registro')}>
             <ListItemIcon>

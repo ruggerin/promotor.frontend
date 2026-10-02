@@ -31,12 +31,11 @@ import {
   useMediaQuery,
   type Theme,
 } from '@mui/material';
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePageHeader } from '../../components/layout/PageHeaderSlot';
 import { UsuarioAvatar } from '../../components/UsuarioAvatar';
-import { resolverAlerta } from '../../lib/api/atividades';
 import { baixarCsv } from '../../lib/csv';
 import {
   buscarOperacaoDoDia,
@@ -50,6 +49,7 @@ import { OrdemServicoFormDialog } from '../ordensServico/OrdemServicoFormDialog'
 import { tempoDesde } from '../../lib/formatarData';
 import { LocalizacaoPromotorDialog } from './LocalizacaoPromotorDialog';
 import { NovoPlanoAcaoDialog, type AlertaOrigem } from '../planosAcao/NovoPlanoAcaoDialog';
+import { ResolverAlertaDialog, type AlvoResolucao } from '../atividades/ResolverAlertaDialog';
 
 // Painel "Operação do dia" — docs/32-PAINEL-OPERACAO-DO-DIA.md. Fase 2 (esta tela) consome o
 // endpoint agregador da Fase 1 (GET /operacao-do-dia). "Mensagem à equipe" (Fase 4) segue
@@ -231,17 +231,11 @@ export function OperacaoDoDiaPage() {
     placeholderData: keepPreviousData,
   });
 
-  const resolverAlertaMutation = useMutation({
-    mutationFn: (item: ItemFilaAcoes) => resolverAlerta(item.registro!.visita_id, item.registro!.id),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['operacao-do-dia', dataSelecionada] });
-      setAlertaEscolha(null);
-    },
-  });
   // "Resolver" pergunta antes: abrir um Plano de Ação (acompanhamento multi-etapa) ou só marcar
-  // como resolvido (o boolean de sempre) — docs/37-PLANOS-DE-ACAO.md §4.8.
+  // como resolvido (o boolean de sempre, pedindo motivo — docs/56) — docs/37-PLANOS-DE-ACAO.md §4.8.
   const [alertaEscolha, setAlertaEscolha] = useState<ItemFilaAcoes | null>(null);
   const [alertaPlano, setAlertaPlano] = useState<AlertaOrigem | null>(null);
+  const [alvoResolver, setAlvoResolver] = useState<AlvoResolucao | null>(null);
   // Promotor cujo "Sinal" foi clicado — abre a última posição num mapa.
   const [localizando, setLocalizando] = useState<LinhaEquipeOperacaoDoDia | null>(null);
   // Celular: a equipe vira cartões em vez de tabela (6 colunas não cabem em ~400px).
@@ -255,6 +249,17 @@ export function OperacaoDoDiaPage() {
       produto: item.registro!.produto,
       pontoVenda: item.ponto_venda?.fantasia,
       observacao: item.registro!.observacao,
+    });
+  }
+
+  function abrirResolverDoAlerta(item: ItemFilaAcoes) {
+    setAlertaEscolha(null);
+    setAlvoResolver({
+      visitaUuid: item.registro!.visita_id,
+      registroUuid: item.registro!.id,
+      tipo: item.registro!.tipo ?? item.titulo,
+      produto: item.registro!.produto,
+      pontoVenda: item.ponto_venda?.fantasia,
     });
   }
 
@@ -570,7 +575,6 @@ export function OperacaoDoDiaPage() {
                           size="small"
                           variant="text"
                           sx={{ minWidth: 0, p: '2px 6px', fontSize: 12 }}
-                          disabled={resolverAlertaMutation.isPending}
                           onClick={() => setAlertaEscolha(item)}
                         >
                           Resolver
@@ -738,15 +742,9 @@ export function OperacaoDoDiaPage() {
               icone={<CheckCircleOutlineIcon color="success" />}
               titulo="Só marcar como resolvido"
               descricao="Já foi resolvido ou é algo simples — some da fila na hora."
-              desabilitado={resolverAlertaMutation.isPending}
-              onClick={() => alertaEscolha && resolverAlertaMutation.mutate(alertaEscolha)}
+              onClick={() => alertaEscolha && abrirResolverDoAlerta(alertaEscolha)}
             />
           </Box>
-          {resolverAlertaMutation.isError && (
-            <Alert severity="error" sx={{ mt: 2 }}>
-              Não foi possível marcar como resolvido.
-            </Alert>
-          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setAlertaEscolha(null)}>Voltar</Button>
@@ -754,6 +752,14 @@ export function OperacaoDoDiaPage() {
       </Dialog>
 
       <NovoPlanoAcaoDialog open={!!alertaPlano} alerta={alertaPlano} onClose={() => setAlertaPlano(null)} />
+      <ResolverAlertaDialog
+        open={!!alvoResolver}
+        alvo={alvoResolver}
+        onClose={() => {
+          setAlvoResolver(null);
+          void queryClient.invalidateQueries({ queryKey: ['operacao-do-dia', dataSelecionada] });
+        }}
+      />
       <LocalizacaoPromotorDialog linha={localizando} onClose={() => setLocalizando(null)} />
     </Box>
   );
