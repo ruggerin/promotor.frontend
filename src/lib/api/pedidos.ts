@@ -23,9 +23,12 @@ export interface Pedido {
   numero_pedido: string;
   numero_nf: string | null;
   data_pedido: string;
+  // Previsão de chegada na loja mandada pelo ERP (YYYY-MM-DD) — null quando não vem (docs/54 §4).
+  data_previsao_entrega: string | null;
   observacao: string | null;
-  // Calculado no backend (pelo menos uma entrega = ENTREGUE) — nunca gravado.
-  status: 'PENDENTE' | 'ENTREGUE';
+  // Calculado no backend, nunca gravado (docs/54 §4): ENTREGUE com entrega; ATRASADO se a
+  // previsão já passou; senão A_CAMINHO.
+  status: 'A_CAMINHO' | 'ATRASADO' | 'ENTREGUE';
   entregue_em: string | null;
   itens: PedidoItem[];
   entregas: PedidoEntrega[];
