@@ -61,9 +61,21 @@ export async function buscarResumoAtividades(periodo: { data_inicio?: string; da
   return data;
 }
 
-export async function resolverAlerta(visitaUuid: string, registroUuid: string): Promise<{ registro: VisitaRegistro }> {
+// Motivo do fechamento (docs/56) — pelo menos um dos dois precisa vir preenchido; motivo_texto
+// complementa motivo_uuid ou substitui quando nenhum item do catálogo serve.
+export interface ResolverAlertaPayload {
+  motivo_uuid?: string | null;
+  motivo_texto?: string | null;
+}
+
+export async function resolverAlerta(
+  visitaUuid: string,
+  registroUuid: string,
+  payload: ResolverAlertaPayload,
+): Promise<{ registro: VisitaRegistro }> {
   const { data } = await apiClient.post<{ registro: VisitaRegistro }>(
     `/visitas/${visitaUuid}/registros/${registroUuid}/resolver-alerta`,
+    payload,
   );
   return data;
 }

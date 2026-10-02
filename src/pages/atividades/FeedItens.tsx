@@ -40,8 +40,7 @@ const COR = {
 
 export interface AcoesFeed {
   requerResolucao: boolean;
-  resolvendo: boolean;
-  onResolver: (visitaUuid: string, registroUuid: string) => void;
+  onResolver: (evento: AtividadeEvento) => void;
   onAbrirPlano: (evento: AtividadeEvento) => void;
   onAbrirFotos: (fotos: FotoComRegistro[], indice: number) => void;
 }
@@ -816,8 +815,7 @@ export function PostAlerta({ evento, acoes }: { evento: AtividadeEvento; acoes: 
                 variant="outlined"
                 color="inherit"
                 size="small"
-                disabled={acoes.resolvendo}
-                onClick={() => acoes.onResolver(evento.visita.id, registro.id)}
+                onClick={() => acoes.onResolver(evento)}
                 sx={{ textTransform: 'none', borderRadius: 1.25, height: 36, borderColor: '#d9d7e6' }}
               >
                 Marcar resolvido

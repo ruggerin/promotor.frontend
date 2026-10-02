@@ -37,6 +37,7 @@ import { PlanogramasListPage } from './pages/planogramas/PlanogramasListPage';
 import { PontoVendaDetailPage } from './pages/pontosVenda/PontoVendaDetailPage';
 import { PontosVendaListPage } from './pages/pontosVenda/PontosVendaListPage';
 import { RamosAtividadeListPage } from './pages/ramosAtividade/RamosAtividadeListPage';
+import { MotivosResolucaoAlertaListPage } from './pages/motivosResolucaoAlerta/MotivosResolucaoAlertaListPage';
 import { RedesLojasListPage } from './pages/redesLojas/RedesLojasListPage';
 import { TipoRegistroFormPage } from './pages/tiposRegistro/TipoRegistroFormPage';
 import { TiposRegistroListPage } from './pages/tiposRegistro/TiposRegistroListPage';
@@ -75,6 +76,7 @@ export function App() {
           <Route path="/catalogo" element={<CatalogoPage />} />
           <Route path="/redes-lojas" element={<RedesLojasListPage />} />
           <Route path="/ramos-atividade" element={<RamosAtividadeListPage />} />
+          <Route path="/motivos-resolucao-alerta" element={<MotivosResolucaoAlertaListPage />} />
           <Route path="/tipos-registro" element={<TiposRegistroListPage />} />
           {/* Rota estática antes da dinâmica — mesmo padrão de /contratos/novo. */}
           <Route path="/tipos-registro/novo" element={<TipoRegistroFormPage />} />

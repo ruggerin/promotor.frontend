@@ -351,6 +351,16 @@ export interface RamoAtividade {
   updated_at: string;
 }
 
+// Catálogo de motivos de fechamento rápido de alerta (docs/56) — por empresa, sem campo
+// `empresa` (sem uso cross-tenant pelo SUPERADMIN, diferente de RamoAtividade).
+export interface MotivoResolucaoAlerta {
+  id: string;
+  descricao: string;
+  ativo: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface SecaoAuditoria {
   id: string;
   descricao: string;
@@ -591,6 +601,10 @@ export interface VisitaRegistro {
   // true. Ver docs/19-PAINEL-ATIVIDADES.md.
   alerta_resolvido_em: string | null;
   resolvido_por: { id: string; nome: string } | null;
+  // Motivo do fechamento rápido (docs/56) — alerta_motivo_texto complementa ou substitui o
+  // catálogo (alerta_motivo null quando o motivo foi só texto livre).
+  alerta_motivo: { id: string; descricao: string } | null;
+  alerta_motivo_texto: string | null;
   // Plano de Ação em andamento nascido deste alerta — só vem no feed do Painel de Atividades
   // (docs/37-PLANOS-DE-ACAO.md §5).
   plano_acao_ativo?: { id: string; status: StatusPlanoAcao } | null;
@@ -717,6 +731,9 @@ export interface RegistroLista {
   produto_auditoria: { id: string; descricao: string } | null;
   observacao: string | null;
   status: 'aberto' | 'resolvido' | null;
+  // Motivo do fechamento rápido (docs/56) — só preenchido quando status = 'resolvido'.
+  motivo: { id: string; descricao: string } | null;
+  motivo_texto: string | null;
   // Uuid da visita de origem — o link "Ver visita" da tela, a razão de ser dela.
   visita_id: string;
 }

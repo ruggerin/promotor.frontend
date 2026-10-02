@@ -13,14 +13,14 @@ import {
   Typography,
   useMediaQuery,
 } from '@mui/material';
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import InfiniteScroll from 'react-infinite-scroll-component';
 import { useNavigate } from 'react-router-dom';
 import { GaleriaDialog } from '../../components/fotos/GaleriaDialog';
 import type { FotoComRegistro } from '../../components/fotos/tipos';
 import { usePageHeader } from '../../components/layout/PageHeaderSlot';
-import { buscarResumoAtividades, listarAtividades, resolverAlerta } from '../../lib/api/atividades';
+import { buscarResumoAtividades, listarAtividades } from '../../lib/api/atividades';
 import { buscarPollingAtividadesMs } from '../../lib/api/parametros';
 import { listarPontosVenda } from '../../lib/api/pontosVenda';
 import { listarTiposRegistro } from '../../lib/api/tiposRegistro';
@@ -29,6 +29,7 @@ import type { AtividadeEvento } from '../../types/api';
 import { NovoPlanoAcaoDialog, type AlertaOrigem } from '../planosAcao/NovoPlanoAcaoDialog';
 import { ColunaLateral } from './ColunaLateral';
 import { LinhaChegada, LinhaComentario, PostAlerta, PostFormulario, PostSaida, type AcoesFeed } from './FeedItens';
+import { ResolverAlertaDialog, type AlvoResolucao } from './ResolverAlertaDialog';
 import { agruparPorDia, datasDoPreset, ROTULO_PERIODO, rotuloDoDia, type PresetPeriodo } from './feedUtil';
 
 type Vista = 'tudo' | 'pendentes' | 'com_foto';
@@ -53,6 +54,7 @@ export function AtividadesPage() {
   const [edicao, setEdicao] = useState<{ tipo: FiltroEntidade; anchorEl: HTMLElement } | null>(null);
   const [galeria, setGaleria] = useState<{ fotos: FotoComRegistro[]; indice: number } | null>(null);
   const [alertaPlano, setAlertaPlano] = useState<AlertaOrigem | null>(null);
+  const [alvoResolver, setAlvoResolver] = useState<AlvoResolucao | null>(null);
   const telaLarga = useMediaQuery((theme) => theme.breakpoints.up('lg'));
   const [lateralAberta, setLateralAberta] = useState(false);
 
@@ -123,15 +125,10 @@ export function AtividadesPage() {
     void queryClient.invalidateQueries({ queryKey: ['atividades-resumo'] });
   }
 
-  const resolverMutation = useMutation({
-    mutationFn: ({ visitaUuid, registroUuid }: { visitaUuid: string; registroUuid: string }) => resolverAlerta(visitaUuid, registroUuid),
-    onSuccess: recarregarTudo,
-  });
-
   const acoes: AcoesFeed = {
     requerResolucao,
-    resolvendo: resolverMutation.isPending,
-    onResolver: (visitaUuid, registroUuid) => resolverMutation.mutate({ visitaUuid, registroUuid }),
+    onResolver: (e) =>
+      e.registro && setAlvoResolver({ visitaUuid: e.visita.id, registroUuid: e.registro.id, tipo: e.registro.tipo_registro.descricao, produto: e.registro.produto_auditoria?.descricao, pontoVenda: e.ponto_venda?.fantasia }),
     onAbrirPlano: (e) =>
       e.registro &&
       setAlertaPlano({
@@ -512,6 +509,8 @@ export function AtividadesPage() {
           onClose={() => setGaleria(null)}
         />
       )}
+
+      <ResolverAlertaDialog open={!!alvoResolver} alvo={alvoResolver} onClose={() => setAlvoResolver(null)} />
 
       <NovoPlanoAcaoDialog
         open={!!alertaPlano}
