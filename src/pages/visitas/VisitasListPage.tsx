@@ -11,9 +11,10 @@ import { listarUsuarios } from '../../lib/api/usuarios';
 import { listarVisitas } from '../../lib/api/visitas';
 import { useAuth } from '../../lib/auth/AuthContext';
 import type { StatusVisita, Visita } from '../../types/api';
+import { dataLocalISO } from '../../lib/formatarData';
 
 function hojeISO(): string {
-  return new Date().toISOString().slice(0, 10);
+  return dataLocalISO();
 }
 
 const STATUS_COLORS: Record<StatusVisita, 'warning' | 'success' | 'default'> = {

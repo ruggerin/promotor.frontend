@@ -20,3 +20,11 @@ export function tempoDesde(iso: string): string {
   const dias = Math.floor(horas / 24);
   return dias === 1 ? '1 dia' : `${dias} dias`;
 }
+
+// Data local (fuso do navegador) como YYYY-MM-DD — "hoje" de quem está olhando. Nunca usar
+// `toISOString().slice(0, 10)` pra isso: devolve a data em UTC, que em Manaus (UTC-4) já vira o
+// dia seguinte a partir das 20:00 (docs/50).
+export function dataLocalISO(data: Date = new Date()): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${data.getFullYear()}-${pad(data.getMonth() + 1)}-${pad(data.getDate())}`;
+}

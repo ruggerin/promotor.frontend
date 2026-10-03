@@ -36,6 +36,7 @@ import { listarTiposRegistro } from '../../lib/api/tiposRegistro';
 import { listarUsuarios } from '../../lib/api/usuarios';
 import { labelDoDia, mesmaDataLocal } from '../../lib/datas';
 import type { FotoGaleria } from '../../types/api';
+import { dataLocalISO } from '../../lib/formatarData';
 
 // Filtro em chip dinâmico (Linear/Notion/Airtable), não formulário estático — pedido explícito
 // do usuário, ver docs/23-GALERIA-DE-FOTOS.md §5.1. "período" e "ruptura" são especiais
@@ -107,7 +108,7 @@ function formatarData(iso: string): string {
 }
 
 function hojeISO(): string {
-  return new Date().toISOString().slice(0, 10);
+  return dataLocalISO();
 }
 
 // "Últimos 7 dias" = hoje + os 6 dias anteriores, 7 dias corridos no total (inclusive hoje) —
@@ -115,7 +116,7 @@ function hojeISO(): string {
 function seteDiasAtrasISO(): string {
   const data = new Date();
   data.setDate(data.getDate() - 6);
-  return data.toISOString().slice(0, 10);
+  return dataLocalISO(data);
 }
 
 const TAMANHO_CARD_PADRAO = 160;

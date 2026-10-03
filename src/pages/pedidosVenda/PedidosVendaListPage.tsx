@@ -32,6 +32,7 @@ import { listarPontosVenda } from '../../lib/api/pontosVenda';
 import type { PedidoVenda, StatusPedidoVenda } from '../../types/api';
 import { formatarDataHora } from '../planosAcao/statusPlanoAcao';
 import { formatarMoeda, STATUS_PEDIDO_VENDA } from './statusPedidoVenda';
+import { dataLocalISO } from '../../lib/formatarData';
 
 // "Aguardando autorização" é a view principal pra quem aprova (docs/38 §8).
 type FiltroStatus = 'pendentes' | 'abertos' | 'concluidos' | 'cancelados' | 'todos';
@@ -97,7 +98,7 @@ export function PedidosVendaListPage() {
         ]),
       );
       baixarCsv(
-        `pedidos-venda-${new Date().toISOString().slice(0, 10)}.csv`,
+        `pedidos-venda-${dataLocalISO()}.csv`,
         [
           'Pedido', 'Criado em', 'Status', 'Vendedor', 'Loja', 'CNPJ', 'Código loja (ERP)', 'Produto',
           'Código produto (ERP)', 'Quantidade', 'Preço tabela', 'Preço', 'Subtotal', 'Abaixo do mínimo',

@@ -24,7 +24,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { textoUltimoAcesso } from '../../lib/acesso';
 import { atualizarEmpresaSuperadmin, bloquearEmpresaSuperadmin, buscarEmpresaSuperadmin } from '../../lib/api/empresas';
 import { listarFaturas } from '../../lib/api/faturas';
-import { formatarDataSemFuso } from '../../lib/formatarData';
+import { formatarDataSemFuso, dataLocalISO } from '../../lib/formatarData';
 import type { Empresa, Fatura, StatusFatura } from '../../types/api';
 import { EmpresaFormDialog } from './EmpresaFormDialog';
 import { FaturaFormDialog } from './FaturaFormDialog';
@@ -40,7 +40,7 @@ const STATUS_FATURA_LABELS: Record<StatusFatura, string> = {
 // exibição (ver docs/01-MODELO-DE-DADOS.md#9-faturas). Comparação de string YYYY-MM-DD, sem
 // passar por Date/fuso.
 function statusFaturaExibicao(fatura: Fatura): { label: string; color: 'warning' | 'success' | 'default' | 'error' } {
-  const hoje = new Date().toISOString().slice(0, 10);
+  const hoje = dataLocalISO();
   if (fatura.status === 'PENDENTE' && fatura.vencimento < hoje) {
     return { label: 'Atrasada', color: 'error' };
   }

@@ -32,6 +32,7 @@ import { atualizarContrato, desativarContrato, listarContratos } from '../../lib
 import { listarEmpresasSuperadmin } from '../../lib/api/empresas';
 import { useAuth } from '../../lib/auth/AuthContext';
 import type { Contrato, TipoContrato } from '../../types/api';
+import { dataLocalISO } from '../../lib/formatarData';
 
 const TIPO_LABELS: Record<TipoContrato, string> = {
   COMODATO: 'Comodato',
@@ -42,7 +43,7 @@ const TIPO_LABELS: Record<TipoContrato, string> = {
 // na exibição, mesmo espírito de Fatura ("Atrasada"), ver docs/03-ADMIN-WEB.md.
 function statusExibicao(contrato: Contrato): { label: string; color: 'success' | 'error' | 'default' } {
   if (!contrato.ativo) return { label: 'Inativo', color: 'default' };
-  const hoje = new Date().toISOString().slice(0, 10);
+  const hoje = dataLocalISO();
   if (contrato.vigencia_fim.slice(0, 10) < hoje) return { label: 'Vencido', color: 'error' };
   return { label: 'Vigente', color: 'success' };
 }

@@ -46,7 +46,7 @@ import {
   type TipoItemFilaAcoes,
 } from '../../lib/api/operacaoDoDia';
 import { OrdemServicoFormDialog } from '../ordensServico/OrdemServicoFormDialog';
-import { tempoDesde } from '../../lib/formatarData';
+import { tempoDesde, dataLocalISO } from '../../lib/formatarData';
 import { LocalizacaoPromotorDialog } from './LocalizacaoPromotorDialog';
 import { NovoPlanoAcaoDialog, type AlertaOrigem } from '../planosAcao/NovoPlanoAcaoDialog';
 import { ResolverAlertaDialog, type AlvoResolucao } from '../atividades/ResolverAlertaDialog';
@@ -175,7 +175,7 @@ function formatarDataHoraAgora(): string {
 }
 
 function hojeISO(): string {
-  return new Date().toISOString().slice(0, 10);
+  return dataLocalISO();
 }
 
 function formatarDataSelecionada(iso: string): string {
