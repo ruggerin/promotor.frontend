@@ -32,6 +32,7 @@ import {
   type Theme,
 } from '@mui/material';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
+import axios from 'axios';
 import { useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePageHeader } from '../../components/layout/PageHeaderSlot';
@@ -178,6 +179,11 @@ function hojeISO(): string {
   return dataLocalISO();
 }
 
+function diaAnteriorISO(iso: string): string {
+  const [ano, mes, dia] = iso.split('-').map(Number);
+  return dataLocalISO(new Date(ano, mes - 1, dia - 1));
+}
+
 function formatarDataSelecionada(iso: string): string {
   const [ano, mes, dia] = iso.split('-').map(Number);
   const data = new Date(ano, mes - 1, dia);
@@ -263,16 +269,59 @@ export function OperacaoDoDiaPage() {
     });
   }
 
+  // Filtro de data sempre visível — loading e erro nunca prendem o usuário na tela.
+  const hoje = hojeISO();
+  const filtroData = (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mb: 1.5 }}>
+      <TextField
+        type="date"
+        size="small"
+        value={dataSelecionada}
+        slotProps={{ inputLabel: { shrink: true }, htmlInput: { max: hoje } }}
+        onChange={(e) => e.target.value && setDataSelecionada(e.target.value)}
+        sx={{ width: 160 }}
+      />
+      <Button size="small" onClick={() => setDataSelecionada(diaAnteriorISO(dataSelecionada > hoje ? hoje : dataSelecionada))}>
+        Dia anterior
+      </Button>
+      {dataSelecionada !== hoje && (
+        <Button size="small" onClick={() => setDataSelecionada(hoje)}>
+          Hoje
+        </Button>
+      )}
+    </Box>
+  );
+
   if (query.isLoading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-        <CircularProgress />
+      <Box>
+        {cabecalho}
+        {filtroData}
+        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+          <CircularProgress />
+        </Box>
       </Box>
     );
   }
 
   if (query.isError || !query.data) {
-    return <Alert severity="error">Não foi possível carregar a operação do dia.</Alert>;
+    const mensagemApi = axios.isAxiosError<{ message?: string }>(query.error) ? query.error.response?.data?.message : undefined;
+    return (
+      <Box>
+        {cabecalho}
+        {filtroData}
+        <Alert
+          severity="error"
+          action={
+            <Button color="inherit" size="small" onClick={() => void query.refetch()}>
+              Tentar de novo
+            </Button>
+          }
+        >
+          {mensagemApi ?? 'Não foi possível carregar a operação do dia. Verifique a conexão e tente de novo.'}
+        </Alert>
+      </Box>
+    );
   }
 
   const dados = query.data;
@@ -342,6 +391,12 @@ export function OperacaoDoDiaPage() {
           </Button>
         </Box>
       </Box>
+
+      {equipe.length === 0 && kpis.visitas_realizadas.total === 0 && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          Não temos dados para {formatarDataSelecionada(dados.data)}: nenhuma visita ou tarefa nesse dia. Tente outra data.
+        </Alert>
+      )}
 
       {/* KPIs */}
       {/* 6 por linha no desktop, 3 no tablet, 2 no celular — minmax(0, …) deixa o texto quebrar
