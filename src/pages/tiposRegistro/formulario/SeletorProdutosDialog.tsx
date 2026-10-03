@@ -92,7 +92,7 @@ export function SeletorProdutosDialog({ open, titulo = 'Adicionar produtos', sub
             </Typography>
           )}
         </Box>
-        <IconButton onClick={onClose}>
+        <IconButton aria-label="Fechar" onClick={onClose}>
           <CloseIcon />
         </IconButton>
       </Box>
@@ -129,7 +129,7 @@ export function SeletorProdutosDialog({ open, titulo = 'Adicionar produtos', sub
                 <Typography variant="body2" sx={{ flex: 1 }}>
                   {p.descricao}
                 </Typography>
-                <IconButton size="small" onClick={() => alternar(p)}>
+                <IconButton size="small" aria-label="Remover produto" onClick={() => alternar(p)}>
                   <CloseIcon fontSize="small" />
                 </IconButton>
               </Box>

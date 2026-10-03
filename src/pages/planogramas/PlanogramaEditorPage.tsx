@@ -499,7 +499,7 @@ export function PlanogramaEditorPage() {
       <Box sx={{ display: 'flex', gap: 3, alignItems: 'flex-start' }}>
         <Box sx={{ flex: 1, minWidth: 0 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-            <IconButton onClick={() => navigate('/planogramas')}>
+            <IconButton aria-label="Voltar para Planogramas" onClick={() => navigate('/planogramas')}>
               <ArrowBackIcon />
             </IconButton>
             <ToggleButtonGroup

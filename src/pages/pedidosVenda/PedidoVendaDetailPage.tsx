@@ -108,7 +108,7 @@ export function PedidoVendaDetailPage() {
 
   const cabecalho = usePageHeader(
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-      <IconButton size="small" onClick={() => navigate('/pedidos-venda')}>
+      <IconButton size="small" aria-label="Voltar para Pedidos de Venda" onClick={() => navigate('/pedidos-venda')}>
         <ArrowBackIcon fontSize="small" />
       </IconButton>
       <Typography variant="h6" sx={{ fontWeight: 700 }}>

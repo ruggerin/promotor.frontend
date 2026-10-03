@@ -324,6 +324,7 @@ function CartaoPergunta({
           {!aberta && (
             <IconButton
               size="small"
+              aria-label="Mais ações da pergunta"
               onClick={(e) => {
                 e.stopPropagation();
                 setMenu(e.currentTarget);

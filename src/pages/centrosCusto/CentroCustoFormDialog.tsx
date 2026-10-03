@@ -291,7 +291,7 @@ export function CentroCustoFormDialog({ open, centroCusto, onClose }: CentroCust
                   )}
                 />
               </Box>
-              <IconButton size="small" onClick={() => remove(indice)} sx={{ mt: 0.5 }}>
+              <IconButton size="small" aria-label="Remover linha" onClick={() => remove(indice)} sx={{ mt: 0.5 }}>
                 <DeleteIcon fontSize="small" />
               </IconButton>
             </Box>

@@ -571,7 +571,7 @@ function PainelProdutos({ control, tipoAtualId, nomeFormulario }: { control: Con
                     <Typography variant="body2" sx={{ flex: 1 }} noWrap>
                       {p.descricao}
                     </Typography>
-                    <IconButton size="small" onClick={() => field.onChange(field.value.filter((x) => x.uuid !== p.uuid))}>
+                    <IconButton size="small" aria-label="Remover produto" onClick={() => field.onChange(field.value.filter((x) => x.uuid !== p.uuid))}>
                       <CloseIcon fontSize="small" />
                     </IconButton>
                   </Box>
@@ -654,7 +654,7 @@ function ExcecoesPorSecao({ control }: { control: Control<FormData> }) {
                   </TextField>
                 )}
               />
-              <IconButton size="small" onClick={() => remove(i)}>
+              <IconButton size="small" aria-label="Remover" onClick={() => remove(i)}>
                 <DeleteOutlineIcon fontSize="small" />
               </IconButton>
             </Box>

@@ -372,7 +372,7 @@ function RegistroDetalheDialog({
           <Typography variant="h6" sx={{ fontWeight: 700 }}>{tituloRegistro(registro)}</Typography>
           <Typography variant="body2" color="text.secondary">{registro.tipo_registro.descricao}</Typography>
         </Box>
-        <IconButton onClick={onClose} size="small">
+        <IconButton aria-label="Fechar" onClick={onClose} size="small">
           <CloseIcon />
         </IconButton>
       </DialogTitle>
