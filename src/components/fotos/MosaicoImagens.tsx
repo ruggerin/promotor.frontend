@@ -1,6 +1,6 @@
 import { Box } from '@mui/material';
 import { AutenticatedImage } from './AutenticatedImage';
-import type { FotoComRegistro } from './tipos';
+import { descricaoDaFoto, type FotoComRegistro } from './tipos';
 
 // Grade de fotos estilo post de rede social: 1 foto ocupa a largura toda, 2+ vira grade 2
 // colunas, e a partir da 5ª um "+N" cobre a última miniatura visível em vez de esticar a grade.
@@ -37,7 +37,7 @@ export function MosaicoImagens({
         >
           <AutenticatedImage
             url={foto.imagem.url}
-            alt={foto.registro.tipo_registro.descricao}
+            alt={descricaoDaFoto(foto)}
             sx={{ width: '100%', aspectRatio: '1 / 1', objectFit: 'cover', display: 'block' }}
           />
           {indice === MAX_VISIVEIS - 1 && restante > 0 && (

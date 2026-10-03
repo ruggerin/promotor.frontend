@@ -12,7 +12,7 @@ import { useState, type ReactNode } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { ComentariosRegistro } from '../../components/ComentariosRegistro';
 import { AutenticatedImage } from '../../components/fotos/AutenticatedImage';
-import { achatarFotos, type FotoComRegistro } from '../../components/fotos/tipos';
+import { achatarFotos, descricaoDaFoto, type FotoComRegistro } from '../../components/fotos/tipos';
 import { UsuarioAvatar } from '../../components/UsuarioAvatar';
 import { criarComentario } from '../../lib/api/comentarios';
 import type { AtividadeEvento, MensagemConversa, VisitaRegistro } from '../../types/api';
@@ -159,7 +159,7 @@ function Album({
             onClick={() => onAbrir(i)}
             sx={{ position: 'relative', height: { xs: Math.round(altura * 0.7), sm: altura }, borderRadius: raio, overflow: 'hidden', cursor: 'pointer', bgcolor: '#ecebf3' }}
           >
-            <AutenticatedImage url={foto.imagem.url} alt="" sx={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+            <AutenticatedImage url={foto.imagem.url} alt={descricaoDaFoto(foto)} sx={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
             {ultimo && sobra > 0 && (
               <Box
                 sx={{
@@ -736,7 +736,7 @@ export function PostAlerta({ evento, acoes }: { evento: AtividadeEvento; acoes: 
             }}
           >
             {fotos.length > 0 ? (
-              <AutenticatedImage url={fotos[0].imagem.url} alt="" sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              <AutenticatedImage url={fotos[0].imagem.url} alt={descricaoDaFoto(fotos[0])} sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             ) : (
               <ImageOutlinedIcon sx={{ color: 'text.disabled' }} />
             )}

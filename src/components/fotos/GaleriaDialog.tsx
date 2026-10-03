@@ -7,7 +7,7 @@ import { ComentariosRegistro } from '../ComentariosRegistro';
 import { MdiIcon } from '../MdiIcon';
 import { UsuarioAvatar } from '../UsuarioAvatar';
 import { AutenticatedImage } from './AutenticatedImage';
-import type { FotoComRegistro } from './tipos';
+import { descricaoDaFoto, type FotoComRegistro } from './tipos';
 
 // Galeria (lightbox) — abre a foto clicada em tamanho grande, com setas (e ← → do teclado) pra
 // navegar entre as outras fotos do mesmo grupo, e a informação do registro (tipo, vínculo,
@@ -116,7 +116,7 @@ export function GaleriaDialog({
           <AutenticatedImage
             key={foto.imagem.id}
             url={foto.imagem.url}
-            alt={registro.tipo_registro.descricao}
+            alt={descricaoDaFoto(foto)}
             sx={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', display: 'block' }}
           />
           {temProxima && (

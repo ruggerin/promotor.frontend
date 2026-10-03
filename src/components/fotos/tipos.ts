@@ -18,3 +18,10 @@ export interface FotoComRegistro {
 export function achatarFotos(registros: VisitaRegistro[]): FotoComRegistro[] {
   return registros.flatMap((registro) => registro.imagens.map((imagem) => ({ registro, imagem })));
 }
+
+// Texto alternativo da foto (leitor de tela), montado com o que o registro já traz: tipo e
+// produto/seção/marca vinculados — ex.: "Foto — Ruptura — Detergente Clear 500ml".
+export function descricaoDaFoto({ registro }: FotoComRegistro): string {
+  const vinculo = registro.produto_auditoria?.descricao ?? registro.secao?.descricao ?? registro.marca?.descricao ?? registro.departamento?.descricao;
+  return ['Foto', registro.tipo_registro.descricao, vinculo].filter(Boolean).join(' — ');
+}
