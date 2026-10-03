@@ -1,3 +1,4 @@
+import { ptBR } from '@mui/material/locale';
 import { createTheme } from '@mui/material/styles';
 
 // Ponto único de configuração visual do admin web (docs/24-TEMA-ADMIN-WEB.md, Cenário A —
@@ -6,7 +7,8 @@ import { createTheme } from '@mui/material/styles';
 // fora daqui, todos herdam de `theme.palette`/`theme.typography` (MUI já resolve isso sozinho
 // pra Button/Chip/TextField/etc.; telas com cor "fixa" hoje, como o Drawer/AppBar padrão do
 // MUI, também herdam automaticamente sem precisar tocar em cada uma).
-export const theme = createTheme({
+export const theme = createTheme(
+  {
   palette: {
     primary: {
       main: '#4f46e5',
@@ -27,4 +29,7 @@ export const theme = createTheme({
   shape: {
     borderRadius: 10,
   },
-});
+},
+  // Textos nativos dos componentes MUI em português (paginação "1–15 de 100", "Linhas por página", etc.).
+  ptBR,
+);
