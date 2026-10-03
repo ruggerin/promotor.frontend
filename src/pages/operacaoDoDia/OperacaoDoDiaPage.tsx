@@ -175,10 +175,6 @@ function formatarDataHoraAgora(): string {
   return `${dias[agora.getDay()]} ${pad(agora.getDate())}/${pad(agora.getMonth() + 1)} · ${pad(agora.getHours())}:${pad(agora.getMinutes())}`;
 }
 
-function hojeISO(): string {
-  return dataLocalISO();
-}
-
 function diaAnteriorISO(iso: string): string {
   const [ano, mes, dia] = iso.split('-').map(Number);
   return dataLocalISO(new Date(ano, mes - 1, dia - 1));
@@ -218,11 +214,12 @@ export function OperacaoDoDiaPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [novaTarefaAberta, setNovaTarefaAberta] = useState(false);
-  // "Puxar o realizado de ontem" — docs/32-PAINEL-OPERACAO-DO-DIA.md. Comparado com hojeISO() em
-  // vez de esperar a resposta pra saber se é histórico, porque decide o refetchInterval abaixo
-  // (não faz sentido dar polling num dia parado).
-  const [dataSelecionada, setDataSelecionada] = useState(hojeISO());
-  const historicoLocal = dataSelecionada !== hojeISO();
+  // "Puxar o realizado de ontem" — docs/32-PAINEL-OPERACAO-DO-DIA.md. `null` = "hoje": não manda
+  // `data` e a API devolve o dia corrente da EMPRESA (fuso dela, docs/50 §4.3), igual pra todo
+  // usuário — o relógio do navegador nunca escolhe o dia. Decide o refetchInterval abaixo (não
+  // faz sentido dar polling num dia parado).
+  const [dataEscolhida, setDataEscolhida] = useState<string | null>(null);
+  const historicoLocal = dataEscolhida !== null;
 
   const cabecalho = usePageHeader(
     <Typography variant="h6" noWrap sx={{ fontWeight: 700 }}>
@@ -231,11 +228,19 @@ export function OperacaoDoDiaPage() {
   );
 
   const query = useQuery({
-    queryKey: ['operacao-do-dia', dataSelecionada],
-    queryFn: () => buscarOperacaoDoDia(dataSelecionada),
+    queryKey: ['operacao-do-dia', dataEscolhida],
+    queryFn: () => buscarOperacaoDoDia(dataEscolhida ?? undefined),
     refetchInterval: historicoLocal ? false : POLLING_MS,
     placeholderData: keepPreviousData,
   });
+
+  // Antes da 1ª resposta (ou se ela falhar) o relógio do navegador só serve de teto provisório
+  // do seletor; assim que a API responde, vale o "hoje" da empresa.
+  const hoje = query.data?.hoje ?? dataLocalISO();
+  const dataSelecionada = dataEscolhida ?? hoje;
+  function escolherData(valor: string) {
+    setDataEscolhida(valor >= hoje ? null : valor);
+  }
 
   // "Resolver" pergunta antes: abrir um Plano de Ação (acompanhamento multi-etapa) ou só marcar
   // como resolvido (o boolean de sempre, pedindo motivo — docs/56) — docs/37-PLANOS-DE-ACAO.md §4.8.
@@ -270,7 +275,6 @@ export function OperacaoDoDiaPage() {
   }
 
   // Filtro de data sempre visível — loading e erro nunca prendem o usuário na tela.
-  const hoje = hojeISO();
   const filtroData = (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mb: 1.5 }}>
       <TextField
@@ -278,14 +282,14 @@ export function OperacaoDoDiaPage() {
         size="small"
         value={dataSelecionada}
         slotProps={{ inputLabel: { shrink: true }, htmlInput: { max: hoje } }}
-        onChange={(e) => e.target.value && setDataSelecionada(e.target.value)}
+        onChange={(e) => e.target.value && escolherData(e.target.value)}
         sx={{ width: 160 }}
       />
-      <Button size="small" onClick={() => setDataSelecionada(diaAnteriorISO(dataSelecionada > hoje ? hoje : dataSelecionada))}>
+      <Button size="small" onClick={() => escolherData(diaAnteriorISO(dataSelecionada))}>
         Dia anterior
       </Button>
-      {dataSelecionada !== hoje && (
-        <Button size="small" onClick={() => setDataSelecionada(hoje)}>
+      {historicoLocal && (
+        <Button size="small" onClick={() => setDataEscolhida(null)}>
           Hoje
         </Button>
       )}
@@ -348,12 +352,12 @@ export function OperacaoDoDiaPage() {
             type="date"
             size="small"
             value={dataSelecionada}
-            slotProps={{ inputLabel: { shrink: true }, htmlInput: { max: hojeISO() } }}
-            onChange={(e) => e.target.value && setDataSelecionada(e.target.value)}
+            slotProps={{ inputLabel: { shrink: true }, htmlInput: { max: hoje } }}
+            onChange={(e) => e.target.value && escolherData(e.target.value)}
             sx={{ width: 160 }}
           />
           {historicoLocal && (
-            <Button size="small" onClick={() => setDataSelecionada(hojeISO())}>
+            <Button size="small" onClick={() => setDataEscolhida(null)}>
               Hoje
             </Button>
           )}
@@ -812,7 +816,7 @@ export function OperacaoDoDiaPage() {
         alvo={alvoResolver}
         onClose={() => {
           setAlvoResolver(null);
-          void queryClient.invalidateQueries({ queryKey: ['operacao-do-dia', dataSelecionada] });
+          void queryClient.invalidateQueries({ queryKey: ['operacao-do-dia'] });
         }}
       />
       <LocalizacaoPromotorDialog linha={localizando} onClose={() => setLocalizando(null)} />

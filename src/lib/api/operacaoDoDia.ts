@@ -61,6 +61,8 @@ export interface LinhaRupturaPorSku {
 
 export interface OperacaoDoDiaResponse {
   data: string;
+  // "Hoje" no fuso da empresa (docs/50 §4.3) — a fonte da verdade do dia, não o relógio do navegador.
+  hoje: string;
   // true quando `data` não é hoje — sinal/fila de ações/rupturas por SKU somem da resposta
   // nesse caso (são sempre o estado atual, nunca "daquele dia" — ver
   // docs/32-PAINEL-OPERACAO-DO-DIA.md).
