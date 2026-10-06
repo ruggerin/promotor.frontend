@@ -17,6 +17,9 @@ import { IlustracaoLogin } from './login/IlustracaoLogin';
 // Tela dividida (protótipo docs/login-prototipo.html): formulário à esquerda, painel ilustrado
 // e animado à direita; abaixo de md empilha, formulário primeiro.
 
+// Termos e Política são páginas públicas da própria API (docs/58 §5.2), fora do prefixo /api.
+const URL_SITE = String(import.meta.env.VITE_API_URL ?? '').replace(/\/api\/?$/, '');
+
 const loginSchema = z.object({
   email: z.string().min(1, 'Obrigatório').email('E-mail inválido'),
   senha: z.string().min(1, 'Obrigatório'),
@@ -196,6 +199,17 @@ export function LoginPage() {
               >
                 {isSubmitting ? 'Entrando…' : 'Entrar'}
               </ButtonBase>
+              <Typography sx={{ fontSize: 13, color: '#6b6889', textAlign: 'center', lineHeight: 1.5 }}>
+                Ao entrar, você concorda com os{' '}
+                <Link href={`${URL_SITE}/termos-de-uso`} target="_blank" rel="noopener" underline="hover" sx={{ fontWeight: 500 }}>
+                  Termos de Uso
+                </Link>{' '}
+                e a{' '}
+                <Link href={`${URL_SITE}/politica-de-privacidade`} target="_blank" rel="noopener" underline="hover" sx={{ fontWeight: 500 }}>
+                  Política de Privacidade
+                </Link>
+                .
+              </Typography>
             </Box>
 
             <Typography sx={{ fontSize: 13, color: '#6b6889', textAlign: 'center', lineHeight: 1.5 }}>

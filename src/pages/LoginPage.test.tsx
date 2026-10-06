@@ -37,6 +37,16 @@ describe('LoginPage', () => {
     vi.clearAllMocks();
   });
 
+  it('linka os Termos de Uso e a Política de Privacidade públicos em nova aba', () => {
+    renderComProviders(<LoginPage />, { rota: '/login' });
+
+    const termos = screen.getByRole('link', { name: 'Termos de Uso' });
+    const politica = screen.getByRole('link', { name: 'Política de Privacidade' });
+    expect(termos.getAttribute('href')).toMatch(/\/termos-de-uso$/);
+    expect(politica.getAttribute('href')).toMatch(/\/politica-de-privacidade$/);
+    expect(termos).toHaveAttribute('target', '_blank');
+  });
+
   it('mostra erro de campo obrigatório ao submeter vazio, sem chamar a API', async () => {
     const usuario = userEvent.setup();
     renderComProviders(<LoginPage />, { rota: '/login' });
