@@ -54,7 +54,7 @@ describe('LoginPage', () => {
     renderComProviders(<LoginPage />, { rota: '/login' });
 
     await usuario.type(screen.getByLabelText(/e-mail/i), 'nao-e-um-email');
-    await usuario.type(screen.getByLabelText(/senha/i), 'senha12345');
+    await usuario.type(screen.getByLabelText('Senha'), 'senha12345');
     await usuario.click(screen.getByRole('button', { name: /entrar/i }));
 
     expect(await screen.findByText('E-mail inválido')).toBeInTheDocument();
@@ -67,7 +67,7 @@ describe('LoginPage', () => {
     renderComProviders(<LoginPage />, { rota: '/login' });
 
     await usuario.type(screen.getByLabelText(/e-mail/i), 'admin@teste.com');
-    await usuario.type(screen.getByLabelText(/senha/i), 'senha12345');
+    await usuario.type(screen.getByLabelText('Senha'), 'senha12345');
     await usuario.click(screen.getByRole('button', { name: /entrar/i }));
 
     await waitFor(() => {
@@ -84,7 +84,7 @@ describe('LoginPage', () => {
     renderComProviders(<LoginPage />, { rota: '/login' });
 
     await usuario.type(screen.getByLabelText(/e-mail/i), 'admin@teste.com');
-    await usuario.type(screen.getByLabelText(/senha/i), 'senha-errada');
+    await usuario.type(screen.getByLabelText('Senha'), 'senha-errada');
     await usuario.click(screen.getByRole('button', { name: /entrar/i }));
 
     expect(await screen.findByText('Credenciais inválidas.')).toBeInTheDocument();
@@ -96,7 +96,7 @@ describe('LoginPage', () => {
     renderComProviders(<LoginPage />, { rota: '/login' });
 
     await usuario.type(screen.getByLabelText(/e-mail/i), 'admin@teste.com');
-    await usuario.type(screen.getByLabelText(/senha/i), 'senha12345');
+    await usuario.type(screen.getByLabelText('Senha'), 'senha12345');
     await usuario.click(screen.getByRole('button', { name: /entrar/i }));
 
     expect(await screen.findByText(/não foi possível conectar/i)).toBeInTheDocument();
