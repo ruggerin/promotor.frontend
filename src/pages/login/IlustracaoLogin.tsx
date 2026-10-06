@@ -261,10 +261,10 @@ export function IlustracaoLogin() {
           component="h2"
           sx={{ color: '#fff', fontSize: { xs: 20, md: 24 }, lineHeight: 1.25, fontWeight: 600, mb: 1.25, textWrap: 'balance' }}
         >
-          Sua equipe de campo, visível em tempo real
+          Sua operação de trade em ordem, loja por loja
         </Typography>
         <Typography sx={{ color: 'rgba(255,255,255,.84)', fontSize: 15, lineHeight: 1.55 }}>
-          Check-in por GPS, registros de gôndola e rupturas chegam ao painel enquanto o promotor ainda está na loja.
+          Registros de gôndola, rupturas, alertas estratégicos e visitas organizados num só lugar para a equipe agir rápido no PDV.
         </Typography>
       </Box>
     </Box>
