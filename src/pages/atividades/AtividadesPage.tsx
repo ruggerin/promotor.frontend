@@ -31,6 +31,7 @@ import { ColunaLateral } from './ColunaLateral';
 import { LinhaChegada, LinhaComentario, PostAlerta, PostFormulario, PostSaida, type AcoesFeed } from './FeedItens';
 import { ResolverAlertaDialog, type AlvoResolucao } from './ResolverAlertaDialog';
 import { agruparPorDia, datasDoPreset, ROTULO_PERIODO, rotuloDoDia, type PresetPeriodo } from './feedUtil';
+import { horus } from '../../theme';
 
 type Vista = 'tudo' | 'pendentes' | 'com_foto';
 type FiltroEntidade = 'periodo' | 'promotor' | 'loja' | 'tipo';
@@ -161,7 +162,7 @@ export function AtividadesPage() {
       <Typography variant="h6" noWrap sx={{ fontWeight: 700 }}>
         Atividades
       </Typography>
-      <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 1, fontSize: 13, color: '#15803d', fontWeight: 500 }}>
+      <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 1, fontSize: 13, color: horus.ok, fontWeight: 500 }}>
         <Box component="span" sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#16a34a', display: 'block' }} />
         Ao vivo · atualiza sozinho
       </Box>
@@ -179,11 +180,11 @@ export function AtividadesPage() {
         textTransform: 'none',
         fontSize: 14,
         fontWeight: ativo ? 600 : 400,
-        color: ativo ? '#3730a3' : '#1a1830',
-        bgcolor: ativo ? '#eef0ff' : '#fff',
+        color: ativo ? horus.indigoEscuro : horus.texto,
+        bgcolor: ativo ? horus.indigoClaro : horus.painel,
         border: '1px solid',
-        borderColor: ativo ? '#c7cbff' : '#d9d7e6',
-        '&:hover': { bgcolor: ativo ? '#e3e6ff' : '#f7f6fb' },
+        borderColor: ativo ? horus.bordaCampo : horus.bordaCampo,
+        '&:hover': { bgcolor: ativo ? horus.indigoClaro : horus.hover },
       }}
     >
       {rotulo}
@@ -199,8 +200,8 @@ export function AtividadesPage() {
         px: { xs: 1.5, sm: 3 },
         pb: 6,
         minHeight: 'calc(100vh - 64px)',
-        bgcolor: '#f1eff6',
-        backgroundImage: 'radial-gradient(#e0dcec 1.1px, transparent 1.1px)',
+        bgcolor: horus.cinzaSuave,
+        backgroundImage: `radial-gradient(${horus.bordaCampo} 1.1px, transparent 1.1px)`,
         backgroundSize: '22px 22px',
       }}
     >
@@ -250,7 +251,7 @@ export function AtividadesPage() {
             Limpar filtros
           </Button>
         )}
-        <Box sx={{ width: '1px', height: 24, bgcolor: '#e4e3ee', mx: 0.5 }} />
+        <Box sx={{ width: '1px', height: 24, bgcolor: horus.borda, mx: 0.5 }} />
         <ToggleButtonGroup
           exclusive
           value={vista}
@@ -258,7 +259,7 @@ export function AtividadesPage() {
           sx={{
             p: '3px',
             borderRadius: 99,
-            bgcolor: '#e9e7f2',
+            bgcolor: horus.cinzaSuave,
             '& .MuiToggleButton-root': {
               border: 0,
               borderRadius: '99px !important',
@@ -266,10 +267,10 @@ export function AtividadesPage() {
               px: 1.75,
               textTransform: 'none',
               fontSize: 13,
-              color: '#1a1830',
+              color: horus.texto,
               gap: 0.75,
             },
-            '& .Mui-selected': { bgcolor: '#fff !important', fontWeight: 600, boxShadow: '0 1px 2px rgba(20,18,50,0.14)' },
+            '& .Mui-selected': { bgcolor: `${horus.painel} !important`, fontWeight: 600, boxShadow: '0 1px 2px rgba(20,18,50,0.14)' },
           }}
         >
           <ToggleButton value="tudo">Tudo</ToggleButton>
@@ -415,7 +416,7 @@ export function AtividadesPage() {
             </Typography>
           )}
           {!eventosQuery.isLoading && !eventosQuery.isError && eventos.length === 0 && (
-            <Box sx={{ textAlign: 'center', py: 6, color: '#5b5873' }}>Nada por aqui ainda pros filtros escolhidos.</Box>
+            <Box sx={{ textAlign: 'center', py: 6, color: horus.textoSecundario }}>Nada por aqui ainda pros filtros escolhidos.</Box>
           )}
 
           <InfiniteScroll
@@ -436,10 +437,10 @@ export function AtividadesPage() {
                 <Box key={grupo.chave} sx={{ display: 'flex', flexDirection: 'column', gap: 1.75, mb: 1.75 }}>
                   {/* Separador de dia — pílula centralizada, grudada no topo ao rolar (64px = AppBar). */}
                   <Box sx={{ position: 'sticky', top: { xs: 56, sm: 64 }, zIndex: 2, display: 'flex', justifyContent: 'center', pt: 2, pb: 0.5 }}>
-                    <Box sx={{ px: 1.75, py: 0.75, borderRadius: 99, bgcolor: '#fff', border: '1px solid #e7e5f0', fontSize: 13, fontWeight: 600 }}>
+                    <Box sx={{ px: 1.75, py: 0.75, borderRadius: 99, bgcolor: horus.painel, border: `1px solid ${horus.borda}`, fontSize: 13, fontWeight: 600 }}>
                       {dia.destaque}
                       {dia.resto && (
-                        <Box component="span" sx={{ color: '#5b5873', fontWeight: 400 }}>
+                        <Box component="span" sx={{ color: horus.textoSecundario, fontWeight: 400 }}>
                           {' · '}
                           {dia.resto}
                         </Box>
@@ -470,14 +471,14 @@ export function AtividadesPage() {
               sx={{
                 justifyContent: 'space-between',
                 textTransform: 'none',
-                color: '#1a1830',
-                bgcolor: '#fff',
-                border: '1px solid #e7e5f0',
+                color: horus.texto,
+                bgcolor: horus.painel,
+                border: `1px solid ${horus.borda}`,
                 borderRadius: 1.5,
                 px: 2,
                 py: 1.25,
                 fontSize: 14,
-                '&:hover': { bgcolor: '#faf9fd' },
+                '&:hover': { bgcolor: horus.hover },
               }}
             >
               <Box component="span" sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>

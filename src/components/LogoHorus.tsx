@@ -1,3 +1,5 @@
+import { horus } from '../theme';
+
 /** Logotipo Horus (Manual da marca) — menu lateral e tela de login. */
 export function LogoHorus({ largura }: { largura: number }) {
   return (
@@ -15,7 +17,8 @@ export function LogoHorus({ largura }: { largura: number }) {
         fillRule="evenodd"
         d="M246,38 A82,82 0 1 1 246,202 A82,82 0 1 1 246,38 Z M246,74 A46,46 0 1 0 246,166 A46,46 0 1 0 246,74 Z"
       />
-      <g fill="#3730a3" fillRule="evenodd">
+      {/* "ORUS" acompanha o tema: índigo escuro no claro, lavanda no escuro (docs/65). */}
+      <g fill={horus.indigoEscuro} fillRule="evenodd">
         <path transform="translate(352,0)" d="M0,200 V40 H70 A49,49 0 0 1 70,138 H36 V200 Z M36,76 V102 H70 A13,13 0 0 0 70,76 Z" />
         <path transform="translate(352,0)" d="M58,126 H100 L140,200 H98 Z" />
         <path transform="translate(516,0)" d="M0,40 V130 A70,70 0 0 0 140,130 V40 H104 V130 A34,34 0 0 1 36,130 V40 Z" />

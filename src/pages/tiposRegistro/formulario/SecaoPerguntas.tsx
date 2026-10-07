@@ -51,6 +51,7 @@ import {
   type FormData,
 } from './modelo';
 import { SeletorProdutosDialog } from './SeletorProdutosDialog';
+import { horus } from '../../../theme';
 
 interface Props {
   control: Control<FormData>;
@@ -189,7 +190,7 @@ function LinhaFoto({ control }: { control: Control<FormData> }) {
       name="exige_foto"
       control={control}
       render={({ field }) => (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, border: 1, borderColor: 'divider', borderRadius: 2, px: 1.75, py: 1.25, bgcolor: 'grey.50' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, border: 1, borderColor: 'divider', borderRadius: 2, px: 1.75, py: 1.25, bgcolor: horus.subcard }}>
           <Box sx={{ width: 34, height: 34, borderRadius: 1.5, border: 1, borderColor: 'divider', bgcolor: 'background.paper', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <PhotoCameraOutlinedIcon fontSize="small" />
           </Box>
@@ -461,7 +462,7 @@ function CartaoPergunta({
         )}
 
         {!aberta && condicional && (
-          <Box sx={{ px: 2, py: 0.75, bgcolor: 'grey.50', borderTop: 1, borderColor: 'divider' }}>
+          <Box sx={{ px: 2, py: 0.75, bgcolor: horus.subcard, borderTop: 1, borderColor: 'divider' }}>
             <Typography variant="caption" color="primary">
               Só aparece se "{pai?.rotulo || campo.depende_de_chave}" for {rotuloValorCondicao(pai, campo.depende_de_valor)}
             </Typography>
@@ -532,7 +533,7 @@ function OpcoesMultipla({ control, indice }: { control: Control<FormData>; indic
           setNova('');
         };
         return (
-          <Box sx={{ mt: 2, p: 1.5, borderRadius: 2, bgcolor: 'grey.50', border: 1, borderColor: 'divider' }}>
+          <Box sx={{ mt: 2, p: 1.5, borderRadius: 2, bgcolor: horus.subcard, border: 1, borderColor: 'divider' }}>
             <Typography variant="body2" sx={{ fontWeight: 700, mb: 1 }}>
               Opções de resposta
             </Typography>
@@ -633,7 +634,7 @@ function ConfigChecklist({
         : (`campos.${indice}.sortimento_marca_uuid` as const);
 
   return (
-    <Box sx={{ mt: 2, p: 1.75, borderRadius: 2, bgcolor: 'grey.50', border: 1, borderColor: 'divider' }}>
+    <Box sx={{ mt: 2, p: 1.75, borderRadius: 2, bgcolor: horus.subcard, border: 1, borderColor: 'divider' }}>
       <Typography variant="body2" sx={{ fontWeight: 700, mb: 1 }}>
         Quais produtos o promotor confere?
       </Typography>
@@ -841,7 +842,7 @@ function Condicao({ control, setValue, indice }: { control: Control<FormData>; s
       )}
       <IconButton
         size="small"
-        title="Aparecer sempre"
+        title="Aparecer sempre" aria-label="Aparecer sempre"
         onClick={() => {
           setValue(`campos.${indice}.depende_de_chave`, null, { shouldDirty: true });
           setValue(`campos.${indice}.depende_de_valor`, null, { shouldDirty: true });

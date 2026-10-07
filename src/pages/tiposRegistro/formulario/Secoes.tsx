@@ -45,6 +45,7 @@ import {
 } from './modelo';
 import { OPCOES_AVANCADAS, OPCOES_QUANDO, OPCOES_SOBRE } from './rotulos';
 import { SeletorProdutosDialog } from './SeletorProdutosDialog';
+import { horus } from '../../../theme';
 
 // ---------------------------------------------------------------- blocos visuais compartilhados
 
@@ -176,7 +177,7 @@ function SeletorIcone({ valor, onChange }: { valor: string | null; onChange: (v:
         endIcon={<KeyboardArrowDownIcon />}
         sx={{ height: 40, borderColor: 'divider', gap: 0.5 }}
       >
-        <Box sx={{ width: 26, height: 26, borderRadius: 1, bgcolor: 'grey.100', display: 'flex', alignItems: 'center', justifyContent: 'center', mr: 0.5 }}>
+        <Box sx={{ width: 26, height: 26, borderRadius: 1, bgcolor: horus.cinzaSuave, display: 'flex', alignItems: 'center', justifyContent: 'center', mr: 0.5 }}>
           {valor ? <MdiIcon icone={valor} size={18} /> : <Typography variant="caption">?</Typography>}
         </Box>
         {valor ? 'Trocar' : 'Escolher'}
@@ -190,7 +191,7 @@ function SeletorIcone({ valor, onChange }: { valor: string | null; onChange: (v:
             {ICONES.map((i) => (
               <IconButton
                 key={i}
-                title={i}
+                title={i} aria-label={i}
                 onClick={() => {
                   onChange(i);
                   setAncora(null);
@@ -458,20 +459,20 @@ function ContagemLojas({ redes, lojas }: { redes: string[]; lojas: { id: string;
 
   if (redes.length === 0 && lojas.length === 0) {
     return (
-      <Box sx={{ mt: 1.5, p: 1.25, borderRadius: 2, bgcolor: '#fffbeb', color: '#92400e' }}>
+      <Box sx={{ mt: 1.5, p: 1.25, borderRadius: 2, bgcolor: horus.ambarClaro, color: horus.ambarEscuro }}>
         <Typography variant="caption">Nenhuma rede nem loja escolhida — do jeito que está, vira pendência em todas as lojas.</Typography>
       </Box>
     );
   }
 
   return (
-    <Box sx={{ mt: 1.5, display: 'flex', alignItems: 'center', gap: 1, p: 1.25, borderRadius: 2, bgcolor: '#f0fdf4', color: '#166534' }}>
+    <Box sx={{ mt: 1.5, display: 'flex', alignItems: 'center', gap: 1, p: 1.25, borderRadius: 2, bgcolor: horus.okClaro, color: horus.ok }}>
       <CheckIcon sx={{ fontSize: 18 }} />
       <Typography variant="caption">
         {carregando ? 'Contando lojas…' : `Vira pendência em ${todas.length}${truncado ? '+' : ''} loja${todas.length === 1 ? '' : 's'}.`}
       </Typography>
       {!carregando && todas.length > 0 && (
-        <Link component="button" variant="caption" sx={{ fontWeight: 700, color: '#166534' }} onClick={() => setVer(true)}>
+        <Link component="button" variant="caption" sx={{ fontWeight: 700, color: horus.ok }} onClick={() => setVer(true)}>
           Ver lojas
         </Link>
       )}
@@ -541,7 +542,7 @@ function PainelProdutos({ control, tipoAtualId, nomeFormulario }: { control: Con
         const visiveis = field.value.filter((p) => p.descricao.toLowerCase().includes(filtro.trim().toLowerCase()));
         return (
           <Box sx={{ mt: 2, border: 1, borderColor: 'divider', borderRadius: 2.5, overflow: 'hidden' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.25, bgcolor: 'grey.50', borderBottom: 1, borderColor: 'divider' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.25, bgcolor: horus.subcard, borderBottom: 1, borderColor: 'divider' }}>
               <Typography variant="body2" sx={{ fontWeight: 700, flex: 1 }}>
                 Produtos <Typography component="span" variant="body2" color="text.secondary">({field.value.length})</Typography>
               </Typography>

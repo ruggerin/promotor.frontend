@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { formatarDataSemFuso, tempoDesde } from './formatarData';
+import { dataLocalISO, formatarDataSemFuso, tempoDesde } from './formatarData';
 import { FUSO_PADRAO, FUSOS_BRASIL, rotuloFuso } from './fusos';
 
 describe('tempoDesde', () => {
@@ -37,5 +37,19 @@ describe('fusos do Brasil (docs/50)', () => {
     expect(rotuloFuso('America/Manaus')).toMatch(/Amazonas \(UTC−4\)/);
     expect(rotuloFuso('Europe/Lisbon')).toBe('Europe/Lisbon');
     expect(rotuloFuso(null)).toBe('—');
+  });
+});
+
+describe('dataLocalISO (bug do "hoje" em UTC, docs/50)', () => {
+  it('usa a data local, não a UTC, perto da meia-noite', () => {
+    // 23:30 local do dia 3 — em UTC (UTC-4) já seria dia 4; toISOString() errava aqui.
+    expect(dataLocalISO(new Date(2026, 9, 3, 23, 30))).toBe('2026-10-03');
+    expect(dataLocalISO(new Date(2026, 9, 4, 0, 5))).toBe('2026-10-04');
+  });
+
+  it('completa mês e dia com zero e cruza virada de mês e de ano', () => {
+    expect(dataLocalISO(new Date(2026, 0, 5))).toBe('2026-01-05');
+    expect(dataLocalISO(new Date(2026, 11, 31, 23, 59))).toBe('2026-12-31');
+    expect(dataLocalISO(new Date(2027, 0, 1, 0, 0))).toBe('2027-01-01');
   });
 });

@@ -12,7 +12,7 @@ import { z } from 'zod';
 import { LogoHorus } from '../components/LogoHorus';
 import { useAuth } from '../lib/auth/AuthContext';
 import { horus } from '../theme';
-import { IlustracaoLogin } from './login/IlustracaoLogin';
+import { IlustracaoLogin, TELA_BAIXA } from './login/IlustracaoLogin';
 
 // Tela dividida (protótipo docs/login-prototipo.html): formulário à esquerda, painel ilustrado
 // e animado à direita; abaixo de md empilha, formulário primeiro.
@@ -76,6 +76,11 @@ export function LoginPage() {
       component="main"
       sx={{
         minHeight: '100vh',
+        // Altura real da tela no celular (descontando a barra de endereço que aparece/some).
+        '@supports (min-height: 100dvh)': { minHeight: '100dvh' },
+        // No desktop a tela trava na altura da janela: o painel ilustrado sempre cabe inteiro e,
+        // se faltar espaço, só o formulário rola.
+        height: { md: '100vh' },
         display: 'grid',
         gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'minmax(0, 1fr) minmax(0, 1fr)' },
         bgcolor: '#fff',
@@ -86,19 +91,39 @@ export function LoginPage() {
       <Box
         component="section"
         aria-label="Entrar no painel"
-        sx={{ display: 'flex', flexDirection: 'column', gap: 4, px: 'clamp(16px, 6vw, 72px)', py: { xs: 3.5, md: 5 }, minWidth: 0 }}
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 4,
+          px: 'clamp(16px, 6vw, 72px)',
+          py: { xs: 3.5, md: 5 },
+          minWidth: 0,
+          overflowY: { md: 'auto' },
+          [TELA_BAIXA]: { gap: 2, py: 3 },
+        }}
       >
         <LogoHorus largura={132} />
 
         <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Box sx={{ width: '100%', maxWidth: 380, display: 'flex', flexDirection: 'column', gap: 3 }}>
+          <Box sx={{ width: '100%', maxWidth: 380, display: 'flex', flexDirection: 'column', gap: 3, [TELA_BAIXA]: { gap: 2 } }}>
             <div>
               <Typography
-                sx={{ fontSize: 12, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'primary.main', mb: 1 }}
+                sx={{
+                  fontSize: 12,
+                  fontWeight: 600,
+                  letterSpacing: '0.08em',
+                  textTransform: 'uppercase',
+                  color: 'primary.main',
+                  mb: 1,
+                  [TELA_BAIXA]: { display: 'none' },
+                }}
               >
                 Painel de gestão
               </Typography>
-              <Typography component="h1" sx={{ fontSize: 28, lineHeight: 1.2, fontWeight: 700, textWrap: 'balance' }}>
+              <Typography
+                component="h1"
+                sx={{ fontSize: 28, lineHeight: 1.2, fontWeight: 700, textWrap: 'balance', [TELA_BAIXA]: { fontSize: 24 } }}
+              >
                 Bem-vindo de volta
               </Typography>
               <Typography sx={{ mt: 1, color: '#6b6889', fontSize: 15, lineHeight: 1.5 }}>
@@ -110,7 +135,7 @@ export function LoginPage() {
               component="form"
               onSubmit={(e) => void handleSubmit(onSubmit)(e)}
               noValidate
-              sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}
+              sx={{ display: 'flex', flexDirection: 'column', gap: 2, [TELA_BAIXA]: { gap: 1.5 } }}
             >
               {erro && <Aviso tom="erro">{erro}</Aviso>}
 
@@ -187,6 +212,7 @@ export function LoginPage() {
                 disabled={isSubmitting}
                 sx={{
                   height: 48,
+                  [TELA_BAIXA]: { height: 44 },
                   borderRadius: '10px',
                   bgcolor: 'primary.main',
                   color: '#fff',
@@ -211,10 +237,6 @@ export function LoginPage() {
                 .
               </Typography>
             </Box>
-
-            <Typography sx={{ fontSize: 13, color: '#6b6889', textAlign: 'center', lineHeight: 1.5 }}>
-              Ainda sem acesso? Peça ao administrador da sua empresa para criar seu usuário.
-            </Typography>
           </Box>
         </Box>
 
@@ -267,6 +289,7 @@ function CampoLogin({ id, rotulo, icone, erro, acao, ref, ...input }: CampoLogin
           alignItems: 'center',
           gap: 1.25,
           height: 48,
+          [TELA_BAIXA]: { height: 44 },
           px: 1.5,
           border: '1px solid',
           borderColor: erro ? horus.problema : '#e2e1ef',

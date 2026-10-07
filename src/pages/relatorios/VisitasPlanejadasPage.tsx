@@ -8,9 +8,20 @@ import { usePageHeader } from '../../components/layout/PageHeaderSlot';
 import { TituloComAtualizar } from '../../components/RefreshButton';
 import { FiltroPeriodo, hojeISO } from '../../components/relatorios/FiltroPeriodo';
 import { SeletorPontoVenda } from '../../components/relatorios/SeletorPontoVenda';
-import { baixarPdfVisitasPlanejadas, buscarVisitasPlanejadasXExecutadas, type TotalPlanejadoExecutado } from '../../lib/api/relatorios';
+import { SeletorComparativo, Variacao } from '../../components/relatorios/Comparativo';
+import { AlternarVisao, GraficoCumprimento, type Visao } from '../../components/relatorios/Graficos';
+import { baixarPdfVisitasPlanejadas, buscarVisitasPlanejadasXExecutadas, type TipoComparativo, type TotalPlanejadoExecutado } from '../../lib/api/relatorios';
 import { baixarBlob, baixarCsv } from '../../lib/csv';
 import { listarUsuarios } from '../../lib/api/usuarios';
+import { horus } from '../../theme';
+
+const RESPONSAVEL_ROTULOS: Record<string, string> = {
+  PROMOTOR: 'Promotor',
+  LOJA: 'Loja',
+  EMPRESA: 'Empresa',
+  OUTRO: 'Outro',
+  NAO_INFORMADO: 'Sem informação (antes do registro de motivo)',
+};
 
 function formatarDia(iso: string): string {
   const [ano, mes, dia] = iso.split('-');
@@ -22,7 +33,7 @@ function Percentual({ valor }: { valor: number | null }) {
   return <Chip size="small" label={`${valor}%`} color={valor >= 90 ? 'success' : valor >= 60 ? 'warning' : 'error'} />;
 }
 
-function Kpi({ rotulo, valor, cor }: { rotulo: string; valor: number | string; cor?: string }) {
+function Kpi({ rotulo, valor, cor, extra }: { rotulo: string; valor: number | string; cor?: string; extra?: React.ReactNode }) {
   return (
     <Paper sx={{ p: 2, flex: '1 1 140px' }}>
       <Typography variant="caption" color="text.secondary">
@@ -31,6 +42,7 @@ function Kpi({ rotulo, valor, cor }: { rotulo: string; valor: number | string; c
       <Typography variant="h5" sx={{ fontWeight: 700, color: cor }}>
         {valor}
       </Typography>
+      {extra}
     </Paper>
   );
 }
@@ -44,6 +56,8 @@ export function VisitasPlanejadasPage() {
   const [fim, setFim] = useState(hojeISO());
   const [promotorUuid, setPromotorUuid] = useState<string | null>(null);
   const [pontoVendaUuid, setPontoVendaUuid] = useState<string | null>(null);
+  const [comparar, setComparar] = useState<TipoComparativo | ''>('');
+  const [visao, setVisao] = useState<Visao>('tabela');
 
   const cabecalho = usePageHeader(<TituloComAtualizar titulo="Cumprimento de visitas" />);
 
@@ -53,9 +67,9 @@ export function VisitasPlanejadasPage() {
   });
 
   const query = useQuery({
-    queryKey: ['relatorio-visitas-planejadas', { inicio, fim, promotorUuid, pontoVendaUuid }],
+    queryKey: ['relatorio-visitas-planejadas', { inicio, fim, promotorUuid, pontoVendaUuid, comparar }],
     queryFn: () =>
-      buscarVisitasPlanejadasXExecutadas({ data_inicio: inicio, data_fim: fim, usuario_uuid: promotorUuid, ponto_venda_uuid: pontoVendaUuid }),
+      buscarVisitasPlanejadasXExecutadas({ data_inicio: inicio, data_fim: fim, usuario_uuid: promotorUuid, ponto_venda_uuid: pontoVendaUuid, comparar: comparar || null }),
     enabled: Boolean(inicio && fim),
   });
 
@@ -68,6 +82,7 @@ export function VisitasPlanejadasPage() {
   const erro =
     axios.isAxiosError<{ message?: string }>(query.error) ? (query.error.response?.data.message ?? 'Não foi possível carregar o relatório.') : null;
   const total: TotalPlanejadoExecutado | undefined = query.data?.total;
+  const comp: TotalPlanejadoExecutado | undefined = query.data?.comparativo?.total;
 
   return (
     <Box>
@@ -75,7 +90,9 @@ export function VisitasPlanejadasPage() {
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         Compara o que foi <strong>planejado</strong> (Ordens de Serviço com prazo no período) com o que foi{' '}
         <strong>executado</strong>. Visita espontânea é a que aconteceu sem Ordem de Serviço — fica de fora do
-        percentual de cumprimento. Ordens canceladas ou aguardando aprovação não entram no planejado.
+        percentual de cumprimento. Ordens canceladas não entram no planejado, mas são contadas à parte — com quem causou e o motivo. O
+        “cumprimento ajustado” soma ao planejado as visitas canceladas por culpa do promotor: faltar e justificar
+        não melhora o número dele.
       </Typography>
 
       <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 2, alignItems: 'center' }}>
@@ -90,6 +107,16 @@ export function VisitasPlanejadasPage() {
           renderInput={(params) => <TextField {...params} label="Promotor" />}
         />
         <SeletorPontoVenda onChange={setPontoVendaUuid} />
+        <SeletorComparativo valor={comparar} onChange={setComparar} />
+      </Box>
+      {query.data?.comparativo && (
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+          Comparando com {formatarDia(query.data.comparativo.periodo.data_inicio)} a {formatarDia(query.data.comparativo.periodo.data_fim)}.
+        </Typography>
+      )}
+
+      <Box sx={{ mb: 2 }}>
+        <AlternarVisao valor={visao} onChange={setVisao} />
       </Box>
 
       <Button
@@ -109,10 +136,10 @@ export function VisitasPlanejadasPage() {
         onClick={() =>
           baixarCsv(
             `cumprimento-visitas-${inicio}-a-${fim}.csv`,
-            ['Dia', 'Promotor', 'Planejadas', 'Cumpridas', 'Em andamento', 'Atrasadas', 'A vencer', 'Espontaneas', 'Cumprimento (%)'],
+            ['Dia', 'Promotor', 'Planejadas', 'Cumpridas', 'Em andamento', 'Atrasadas', 'A vencer', 'Canceladas', 'Espontaneas', 'Cumprimento (%)', 'Cumprimento ajustado (%)'],
             (query.data?.linhas ?? []).map((l) => [
               formatarDia(l.data), l.promotor?.nome ?? 'Fila aberta', l.planejadas, l.cumpridas, l.em_andamento,
-              l.atrasadas, l.a_vencer, l.espontaneas, l.percentual_cumprimento,
+              l.atrasadas, l.a_vencer, l.canceladas, l.espontaneas, l.percentual_cumprimento, l.percentual_cumprimento_ajustado,
             ]),
           )
         }
@@ -128,16 +155,43 @@ export function VisitasPlanejadasPage() {
 
       {total && (
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 2 }}>
-          <Kpi rotulo="Planejadas" valor={total.planejadas} />
-          <Kpi rotulo="Cumpridas" valor={total.cumpridas} cor="#16a34a" />
+          <Kpi rotulo="Planejadas" valor={total.planejadas} extra={<Variacao atual={total.planejadas} anterior={comp?.planejadas} />} />
+          <Kpi rotulo="Cumpridas" valor={total.cumpridas} cor="#16a34a" extra={<Variacao atual={total.cumpridas} anterior={comp?.cumpridas} />} />
           <Kpi rotulo="Em andamento" valor={total.em_andamento} />
-          <Kpi rotulo="Atrasadas" valor={total.atrasadas} cor={total.atrasadas > 0 ? '#dc2626' : undefined} />
+          <Kpi rotulo="Atrasadas" valor={total.atrasadas} cor={total.atrasadas > 0 ? '#dc2626' : undefined} extra={<Variacao atual={total.atrasadas} anterior={comp?.atrasadas} melhorQuandoMaior={false} />} />
           <Kpi rotulo="A vencer" valor={total.a_vencer} />
+          <Kpi rotulo="Canceladas" valor={total.canceladas} cor={total.canceladas > 0 ? horus.ambarEscuro : undefined} extra={<Variacao atual={total.canceladas} anterior={comp?.canceladas} melhorQuandoMaior={false} />} />
           <Kpi rotulo="Espontâneas" valor={total.espontaneas} />
-          <Kpi rotulo="Cumprimento" valor={total.percentual_cumprimento === null ? '—' : `${total.percentual_cumprimento}%`} />
+          <Kpi rotulo="Cumprimento" valor={total.percentual_cumprimento === null ? '—' : `${total.percentual_cumprimento}%`} extra={<Variacao atual={total.percentual_cumprimento} anterior={comp?.percentual_cumprimento} sufixo="%" />} />
+          <Kpi rotulo="Cumprimento ajustado" valor={total.percentual_cumprimento_ajustado === null ? '—' : `${total.percentual_cumprimento_ajustado}%`} extra={<Variacao atual={total.percentual_cumprimento_ajustado} anterior={comp?.percentual_cumprimento_ajustado} sufixo="%" />} />
         </Box>
       )}
 
+      {total && total.canceladas > 0 && (
+        <Paper sx={{ p: 2, mb: 2 }}>
+          <Typography variant="subtitle2" sx={{ mb: 1 }}>
+            Visitas canceladas no período
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 1 }}>
+            {Object.entries(total.canceladas_por_responsavel).map(([responsavel, qtd]) => (
+              <Chip key={responsavel} size="small" label={`${RESPONSAVEL_ROTULOS[responsavel] ?? responsavel}: ${qtd}`} color={responsavel === 'PROMOTOR' ? 'warning' : 'default'} />
+            ))}
+          </Box>
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            {total.canceladas_por_motivo.map((m) => (
+              <Chip key={m.motivo} size="small" variant="outlined" label={`${m.motivo}: ${m.quantidade}`} />
+            ))}
+          </Box>
+        </Paper>
+      )}
+
+      {visao === 'grafico' && query.data && (
+        <Paper sx={{ p: 2 }}>
+          <GraficoCumprimento linhas={query.data.linhas} />
+        </Paper>
+      )}
+
+      {visao === 'tabela' && (
       <TableContainer component={Paper}>
         <Table size="small">
           <TableHead>
@@ -149,6 +203,7 @@ export function VisitasPlanejadasPage() {
               <TableCell align="right">Em andamento</TableCell>
               <TableCell align="right">Atrasadas</TableCell>
               <TableCell align="right">A vencer</TableCell>
+              <TableCell align="right">Canceladas</TableCell>
               <TableCell align="right">Espontâneas</TableCell>
               <TableCell align="right">Cumprimento</TableCell>
             </TableRow>
@@ -156,14 +211,14 @@ export function VisitasPlanejadasPage() {
           <TableBody>
             {query.isLoading && (
               <TableRow>
-                <TableCell colSpan={9} align="center">
+                <TableCell colSpan={10} align="center">
                   <CircularProgress size={24} />
                 </TableCell>
               </TableRow>
             )}
             {query.data?.linhas.length === 0 && (
               <TableRow>
-                <TableCell colSpan={9} align="center">
+                <TableCell colSpan={10} align="center">
                   Nada planejado nem executado nesse período.
                 </TableCell>
               </TableRow>
@@ -179,6 +234,7 @@ export function VisitasPlanejadasPage() {
                   {l.atrasadas}
                 </TableCell>
                 <TableCell align="right">{l.a_vencer}</TableCell>
+                <TableCell align="right">{l.canceladas}</TableCell>
                 <TableCell align="right">{l.espontaneas}</TableCell>
                 <TableCell align="right">
                   <Percentual valor={l.percentual_cumprimento} />
@@ -188,6 +244,7 @@ export function VisitasPlanejadasPage() {
           </TableBody>
         </Table>
       </TableContainer>
+      )}
     </Box>
   );
 }

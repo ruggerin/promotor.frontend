@@ -7,6 +7,7 @@ import { listarCampanhas } from '../../../lib/api/campanhas';
 import { listarRedesLojas } from '../../../lib/api/redesLojas';
 import { quandoAparece, sobreOQue, type FormData } from './modelo';
 import { PreviaApp } from './PreviaApp';
+import { horus } from '../../../theme';
 
 /**
  * Lateral fixa do editor (protótipo "Formulário — revisão de UX"): um resumo em linguagem de gente
@@ -112,7 +113,7 @@ function Resumo({ d }: { d: FormData }) {
         {d.exige_foto ? 'Com foto.' : 'Sem foto.'}
       </Typography>
       {avisos.map((a) => (
-        <Box key={a} sx={{ display: 'flex', gap: 1, mt: 1.5, p: 1.25, borderRadius: 2, bgcolor: '#fffbeb', color: '#92400e' }}>
+        <Box key={a} sx={{ display: 'flex', gap: 1, mt: 1.5, p: 1.25, borderRadius: 2, bgcolor: horus.ambarClaro, color: horus.ambarEscuro }}>
           <WarningAmberIcon sx={{ fontSize: 18, mt: 0.1 }} />
           <Typography variant="caption">{a}</Typography>
         </Box>

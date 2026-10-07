@@ -645,7 +645,7 @@ export function PlanejadorVisitasPage() {
                       />
                       <IconButton
                         size="small"
-                        title="Fechar busca"
+                        title="Fechar busca" aria-label="Fechar busca"
                         onClick={() => {
                           setBuscaLoja('');
                           setBuscaAberta(false);

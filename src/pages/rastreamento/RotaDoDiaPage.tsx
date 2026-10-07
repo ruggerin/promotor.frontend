@@ -11,6 +11,7 @@ import { ZoomComCtrl } from '../../components/mapa/ZoomComCtrl';
 import { TituloComAtualizar } from '../../components/RefreshButton';
 import { buscarRotaDoDia, listarPromotoresRota, type RotaDoDia } from '../../lib/api/rotas';
 import type { AfastamentoTrecho } from '../../types/api';
+import { horus } from '../../theme';
 
 // Rota do dia — por onde o promotor passou num dia: trajeto seguindo as ruas, visitas numeradas
 // com chegada/saída, paradas fora de loja e trechos sem sinal. docs/48-ROTA-DO-DIA.md; protótipo
@@ -486,8 +487,8 @@ function ItemLinhaDoTempo({
         cursor: 'pointer',
         borderLeft: '3px solid',
         borderLeftColor: selecionado ? COR.rota : 'transparent',
-        bgcolor: selecionado ? '#eef0ff' : 'transparent',
-        '&:hover': { bgcolor: selecionado ? '#eef0ff' : 'action.hover' },
+        bgcolor: selecionado ? horus.indigoClaro : 'transparent',
+        '&:hover': { bgcolor: selecionado ? horus.indigoClaro : 'action.hover' },
       }}
     >
       <Typography sx={{ fontFamily: '"IBM Plex Mono", monospace', fontSize: 12, color: 'text.secondary', pt: 0.25 }}>{hora(evento.em)}</Typography>
@@ -530,7 +531,7 @@ function ItemLinhaDoTempo({
               fontWeight: 700,
               px: 1,
               borderRadius: 99,
-              bgcolor: evento.tipo === 'parada' ? '#ffedd5' : evento.tipo === 'afastamento' ? '#fee2e2' : 'action.hover',
+              bgcolor: evento.tipo === 'parada' ? horus.ambarClaro : evento.tipo === 'afastamento' ? horus.problemaClaro : 'action.hover',
               color: evento.tipo === 'parada' ? COR.parada : evento.tipo === 'afastamento' ? COR.fora : 'text.secondary',
             }}
           >

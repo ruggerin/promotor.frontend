@@ -23,6 +23,7 @@ import { diasDesde, textoUltimoAcesso } from '../../lib/acesso';
 import { listarEmpresasSuperadmin } from '../../lib/api/empresas';
 import type { PlanoEmpresa } from '../../types/api';
 import { EmpresaFormDialog } from './EmpresaFormDialog';
+import { horus } from '../../theme';
 
 const PLANO_LABELS: Record<PlanoEmpresa, string> = {
   GRATUITO: 'Gratuito',
@@ -45,7 +46,7 @@ function AtividadeEmpresa({ ultima }: { ultima: string | null }) {
   return (
     <Typography
       variant="body2"
-      sx={{ color: ultima === null ? 'text.secondary' : parado ? '#b45309' : undefined, fontWeight: parado ? 700 : 400, whiteSpace: 'nowrap' }}
+      sx={{ color: ultima === null ? 'text.secondary' : parado ? horus.ambarEscuro : undefined, fontWeight: parado ? 700 : 400, whiteSpace: 'nowrap' }}
     >
       {textoUltimoAcesso(ultima)}
     </Typography>

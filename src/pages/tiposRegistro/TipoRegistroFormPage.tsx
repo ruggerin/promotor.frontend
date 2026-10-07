@@ -29,6 +29,7 @@ import {
   SecaoQuandoAparece,
   SecaoSobreOQue,
 } from './formulario/Secoes';
+import { horus } from '../../theme';
 
 type NumeroSecao = 1 | 2 | 3 | 4 | 5;
 
@@ -283,7 +284,7 @@ export function TipoRegistroFormPage() {
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    bgcolor: ativa ? 'primary.main' : 'grey.200',
+                    bgcolor: ativa ? 'primary.main' : horus.borda,
                     color: ativa ? '#fff' : 'text.secondary',
                   }}
                 >
@@ -298,7 +299,7 @@ export function TipoRegistroFormPage() {
         </Box>
       </Box>
 
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 1fr) 330px' }, gap: 3, px: 4, py: 3, bgcolor: '#f7f6fb', minHeight: '100%' }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 1fr) 330px' }, gap: 3, px: 4, py: 3, bgcolor: horus.hover, minHeight: '100%' }}>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {erroGeral && (
             <Alert severity="error" onClose={() => setErroGeral(null)}>
@@ -352,7 +353,7 @@ function TituloAtual({ control, fallback }: { control: Control<FormData>; fallba
 function IconeCabecalho({ control }: { control: Control<FormData> }) {
   const icone = useWatch({ control, name: 'icone' });
   return (
-    <Box sx={{ width: 44, height: 44, borderRadius: 2, bgcolor: '#eef2ff', color: 'primary.main', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+    <Box sx={{ width: 44, height: 44, borderRadius: 2, bgcolor: horus.indigoClaro, color: 'primary.main', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
       {icone ? <MdiIcon icone={icone} size={24} /> : <DescriptionOutlinedIcon />}
     </Box>
   );
@@ -395,7 +396,7 @@ function SubtituloCabecalho({ control }: { control: Control<FormData> }) {
 function IconePendente({ control }: { control: Control<FormData> }) {
   const icone = useWatch({ control, name: 'icone' });
   if (icone) return null;
-  return <Chip size="small" label="Escolha um ícone" sx={{ bgcolor: '#fef3c7', color: '#92400e', fontWeight: 700 }} />;
+  return <Chip size="small" label="Escolha um ícone" sx={{ bgcolor: horus.ambarClaro, color: horus.ambarEscuro, fontWeight: 700 }} />;
 }
 
 function ResumoSecao({ control, n }: { control: Control<FormData>; n: NumeroSecao }) {

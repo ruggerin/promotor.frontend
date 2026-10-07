@@ -1,4 +1,4 @@
-import type { OrdemServico, PaginatedMeta, PrioridadeVisita, StatusOrdemServico } from '../../types/api';
+import type { OrdemServico, OrigemOrdemServico, PaginatedMeta, PrioridadeVisita, ResponsavelNaoExecucao, StatusOrdemServico } from '../../types/api';
 import { apiClient } from './client';
 
 export interface OrdensServicoListParams {
@@ -11,6 +11,18 @@ export interface OrdensServicoListParams {
   // Janela de data contra prazo_fim (mesmo campo usado pra calcular "Atrasada"/"Expirada").
   prazo_de?: string;
   prazo_ate?: string;
+  // Só PENDENTE com prazo terminado antes de hoje NO FUSO DA EMPRESA (docs/59) — a fila de
+  // "Visitas não realizadas".
+  vencidas?: boolean;
+  origem?: OrigemOrdemServico;
+  por_pagina?: number;
+}
+
+// Cancelar sempre pede justificativa (docs/59): quem causou + motivo do catálogo e/ou texto livre.
+export interface JustificativaCancelamento {
+  responsavel_nao_execucao: ResponsavelNaoExecucao;
+  motivo_uuid?: string | null;
+  motivo_texto?: string | null;
 }
 
 export interface OrdensServicoListResponse {
@@ -27,6 +39,9 @@ export async function listarOrdensServico(params: OrdensServicoListParams = {}):
       usuario_uuid: params.usuario_uuid,
       prazo_de: params.prazo_de || undefined,
       prazo_ate: params.prazo_ate || undefined,
+      vencidas: params.vencidas ? 1 : undefined,
+      origem: params.origem,
+      por_pagina: params.por_pagina,
     },
   });
   return data;
@@ -62,7 +77,7 @@ export async function criarOrdemServico(payload: OrdemServicoPayload): Promise<{
 
 export async function atualizarOrdemServico(
   uuid: string,
-  payload: Partial<OrdemServicoPayload> & { status?: 'CANCELADA' },
+  payload: Partial<OrdemServicoPayload> & { status?: 'CANCELADA' } & Partial<JustificativaCancelamento>,
 ): Promise<{ ordem_servico: OrdemServico }> {
   const { data } = await apiClient.put<{ ordem_servico: OrdemServico }>(`/ordens-servico/${uuid}`, payload);
   return data;
@@ -85,7 +100,10 @@ export async function rejeitarOrdemServico(uuid: string, motivo?: string): Promi
 
 // Cancelamento em lote, independente de Direcionamento — checkbox na listagem + "cancelar
 // selecionadas" (docs/25 §2 decisão 7). Só cancela as que ainda estão PENDENTE.
-export async function cancelarOrdensServicoEmLote(uuids: string[]): Promise<{ canceladas: number }> {
-  const { data } = await apiClient.post<{ canceladas: number }>('/ordens-servico/cancelar-em-lote', { uuids });
+export async function cancelarOrdensServicoEmLote(
+  uuids: string[],
+  justificativa: JustificativaCancelamento,
+): Promise<{ canceladas: number }> {
+  const { data } = await apiClient.post<{ canceladas: number }>('/ordens-servico/cancelar-em-lote', { uuids, ...justificativa });
   return data;
 }

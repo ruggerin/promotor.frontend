@@ -223,14 +223,14 @@ function FormularioPlano({ alerta, onClose }: { alerta: AlertaOrigem | null; onC
                 <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', flexGrow: 1 }}>
                   ETAPA {i + 1}
                 </Typography>
-                <IconButton size="small" disabled={i === 0} onClick={() => moverEtapa(i, -1)} title="Subir">
+                <IconButton size="small" disabled={i === 0} onClick={() => moverEtapa(i, -1)} title="Subir" aria-label="Subir">
                   <ArrowUpwardIcon fontSize="small" />
                 </IconButton>
                 <IconButton
                   size="small"
                   disabled={i === etapas.length - 1}
                   onClick={() => moverEtapa(i, 1)}
-                  title="Descer"
+                  title="Descer" aria-label="Descer"
                 >
                   <ArrowDownwardIcon fontSize="small" />
                 </IconButton>
@@ -238,7 +238,7 @@ function FormularioPlano({ alerta, onClose }: { alerta: AlertaOrigem | null; onC
                   size="small"
                   disabled={etapas.length === 1}
                   onClick={() => setEtapas((atual) => atual.filter((_, j) => j !== i))}
-                  title="Remover etapa"
+                  title="Remover etapa" aria-label="Remover etapa"
                 >
                   <DeleteOutlinedIcon fontSize="small" />
                 </IconButton>

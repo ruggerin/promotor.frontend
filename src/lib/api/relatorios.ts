@@ -11,7 +11,11 @@ export interface FiltrosRelatorio {
   data_fim?: string;
   usuario_uuid?: string | null;
   ponto_venda_uuid?: string | null;
+  // Comparativo de períodos (docs/59 §4.3) — o backend calcula o período equivalente.
+  comparar?: TipoComparativo | null;
 }
+
+export type TipoComparativo = 'anterior' | 'ano_anterior';
 
 export interface LinhaPlanejadoExecutado {
   data: string;
@@ -22,7 +26,10 @@ export interface LinhaPlanejadoExecutado {
   atrasadas: number;
   a_vencer: number;
   espontaneas: number;
+  canceladas: number;
+  canceladas_promotor: number;
   percentual_cumprimento: number | null;
+  percentual_cumprimento_ajustado: number | null;
 }
 
 export interface TotalPlanejadoExecutado {
@@ -32,13 +39,20 @@ export interface TotalPlanejadoExecutado {
   atrasadas: number;
   a_vencer: number;
   espontaneas: number;
+  canceladas: number;
+  canceladas_promotor: number;
   percentual_cumprimento: number | null;
+  // Cancelar por culpa do promotor entra no denominador (docs/59 §3.4).
+  percentual_cumprimento_ajustado: number | null;
+  canceladas_por_responsavel: Record<string, number>;
+  canceladas_por_motivo: { motivo: string; quantidade: number }[];
 }
 
 export interface RelatorioPlanejadoExecutado {
   periodo: { data_inicio: string; data_fim: string };
   linhas: LinhaPlanejadoExecutado[];
   total: TotalPlanejadoExecutado;
+  comparativo?: { tipo: TipoComparativo; periodo: { data_inicio: string; data_fim: string }; total: TotalPlanejadoExecutado };
 }
 
 export async function buscarVisitasPlanejadasXExecutadas(filtros: FiltrosRelatorio): Promise<RelatorioPlanejadoExecutado> {
@@ -49,6 +63,57 @@ export async function buscarVisitasPlanejadasXExecutadas(filtros: FiltrosRelator
       data_fim: filtros.data_fim || undefined,
       usuario_uuid: filtros.usuario_uuid || undefined,
       ponto_venda_uuid: filtros.ponto_venda_uuid || undefined,
+      comparar: filtros.comparar || undefined,
+    },
+  });
+  return data;
+}
+
+// Tempo dentro do PDV (docs/59 §4.2) — média/mediana por loja, promotor, rede ou dia.
+export type AgruparTempoNaLoja = 'loja' | 'promotor' | 'rede' | 'dia';
+
+export interface ResumoTempoNaLoja {
+  visitas: number;
+  tempo_total_minutos: number;
+  media_minutos: number | null;
+  mediana_minutos: number | null;
+  // Produtos distintos registrados nas visitas; null = sem registro por produto ("sem informação", nunca 0).
+  itens_trabalhados: number | null;
+  minutos_por_item: number | null;
+}
+
+export interface LinhaTempoNaLoja extends ResumoTempoNaLoja {
+  chave: string;
+  nome: string;
+  media_minutos_comparativo?: number | null;
+}
+
+export interface RelatorioTempoNaLoja {
+  periodo: { data_inicio: string; data_fim: string };
+  agrupar: AgruparTempoNaLoja;
+  linhas: LinhaTempoNaLoja[];
+  // `desconsideradas`: visitas fora da faixa válida (< 2 min ou > 12 h), de fora da média.
+  total: ResumoTempoNaLoja & { desconsideradas: number };
+  comparativo?: {
+    tipo: TipoComparativo;
+    periodo: { data_inicio: string; data_fim: string };
+    total: ResumoTempoNaLoja & { desconsideradas: number };
+  };
+}
+
+export async function buscarTempoNaLoja(
+  filtros: FiltrosRelatorio & { agrupar: AgruparTempoNaLoja; rede_loja_uuid?: string | null },
+): Promise<RelatorioTempoNaLoja> {
+  const { data } = await apiClient.get<RelatorioTempoNaLoja>('/relatorios/tempo-na-loja', {
+    params: {
+      tz: fusoLocal(),
+      agrupar: filtros.agrupar,
+      data_inicio: filtros.data_inicio || undefined,
+      data_fim: filtros.data_fim || undefined,
+      usuario_uuid: filtros.usuario_uuid || undefined,
+      ponto_venda_uuid: filtros.ponto_venda_uuid || undefined,
+      rede_loja_uuid: filtros.rede_loja_uuid || undefined,
+      comparar: filtros.comparar || undefined,
     },
   });
   return data;

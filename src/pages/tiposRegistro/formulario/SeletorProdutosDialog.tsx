@@ -23,6 +23,7 @@ import { listarMarcas } from '../../../lib/api/marcas';
 import { listarProdutos } from '../../../lib/api/produtos';
 import { listarSecoes } from '../../../lib/api/secoes';
 import { listarTiposRegistro } from '../../../lib/api/tiposRegistro';
+import { horus } from '../../../theme';
 
 export interface ProdutoEscolhido {
   uuid: string;
@@ -111,7 +112,7 @@ export function SeletorProdutosDialog({ open, titulo = 'Adicionar produtos', sub
           {aba === 'copiar' && <AbaCopiar tipoAtualId={tipoAtualId ?? null} onAdicionar={adicionar} />}
         </Box>
 
-        <Box sx={{ width: 360, borderLeft: 1, borderColor: 'divider', bgcolor: 'grey.50', p: 3, display: 'flex', flexDirection: 'column' }}>
+        <Box sx={{ width: 360, borderLeft: 1, borderColor: 'divider', bgcolor: horus.subcard, p: 3, display: 'flex', flexDirection: 'column' }}>
           <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5 }}>
             Vão entrar <Typography component="span" color="text.secondary">({lista.length})</Typography>
           </Typography>
@@ -297,7 +298,7 @@ function AbaBuscar({
             >
               <Checkbox checked={marcado} disabled={ja} size="small" />
               <Box
-                sx={{ width: 40, height: 40, borderRadius: 1.5, bgcolor: 'grey.100', flexShrink: 0, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                sx={{ width: 40, height: 40, borderRadius: 1.5, bgcolor: horus.cinzaSuave, flexShrink: 0, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
               >
                 {p.imagem_url ? (
                   <Box component="img" src={p.imagem_url} alt="" sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />

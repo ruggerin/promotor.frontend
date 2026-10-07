@@ -3,13 +3,11 @@ import {
   Alert,
   Box,
   Button,
-  Checkbox,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
   FormControlLabel,
-  FormGroup,
   Switch,
   TextField,
   Typography,
@@ -21,77 +19,9 @@ import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { atualizarPerfil, criarPerfil } from '../../lib/api/perfis';
 import { useAuth } from '../../lib/auth/AuthContext';
+import { PERMISSOES_DE_TELA } from '../../lib/acesso/telas';
 import type { Perfil, Permissao } from '../../types/api';
-
-const PERMISSOES: { value: Permissao; label: string }[] = [
-  { value: 'pontos_venda.gerenciar', label: 'Pontos de venda' },
-  {
-    value: 'catalogo.gerenciar',
-    label: 'Catálogo (departamentos, seções, marcas, produtos)',
-  },
-  { value: 'campanhas.gerenciar', label: 'Campanhas de auditoria' },
-  { value: 'parametros.gerenciar', label: 'Parâmetros' },
-  { value: 'usuarios.gerenciar', label: 'Usuários' },
-  { value: 'contratos.gerenciar', label: 'Contratos (comodato, ponto extra)' },
-  { value: 'ordens_servico.gerenciar', label: 'Ordens de serviço' },
-  {
-    value: 'centros_custo.gerenciar',
-    label: 'Centros de custo (dado financeiro)',
-  },
-  {
-    value: 'pontos_venda.visualizar_todos',
-    label: 'Ver todos os pontos de venda no app (ignora vínculo) — única atribuível a Promotor',
-  },
-  {
-    value: 'visitas.intervir',
-    label: 'Intervir em visita (cancelar, forçar checkout, corrigir horários) — só tem efeito em Gestor',
-  },
-  {
-    value: 'rastreamento.visualizar',
-    label: 'Ver o mapa ao vivo com a posição dos promotores — só tem efeito em Gestor',
-  },
-  {
-    value: 'rastreamento.trajeto',
-    label: 'Ver a rota do dia (por onde o promotor passou, paradas fora de loja) — só tem efeito em Gestor',
-  },
-  {
-    value: 'pedidos.gerenciar',
-    label: 'Gravar pedidos do ERP (pensada pro integrador externo) — só tem efeito em Gestor',
-  },
-  // Planos de Ação (docs/37-PLANOS-DE-ACAO.md §6) — fatiadas por ação: quem movimenta etapa no dia
-  // a dia não é necessariamente quem pode dar o problema como resolvido (concluir).
-  {
-    value: 'planos_acao.visualizar',
-    label: 'Planos de Ação — visualizar lista e detalhe',
-  },
-  {
-    value: 'planos_acao.criar',
-    label: 'Planos de Ação — abrir plano a partir de um alerta',
-  },
-  {
-    value: 'planos_acao.movimentar_etapa',
-    label: 'Planos de Ação — movimentar etapa (marcar feita, anexar evidência, bloquear)',
-  },
-  {
-    value: 'planos_acao.concluir',
-    label: 'Planos de Ação — concluir o plano (confirmar que o problema foi resolvido)',
-  },
-  { value: 'planos_acao.cancelar', label: 'Planos de Ação — cancelar o plano' },
-  // Pedido de Venda (docs/38-PEDIDO-VENDEDOR.md §5) — valem também pra Promotor: "criar" é o que
-  // liga o "modo Vendedor" no app. Quem cria nunca aprova o próprio pedido, mesmo tendo "aprovar".
-  {
-    value: 'pedidos_venda.visualizar',
-    label: 'Pedidos de Venda — visualizar (sem "aprovar", só os próprios)',
-  },
-  {
-    value: 'pedidos_venda.criar',
-    label: 'Pedidos de Venda — tirar pedido (liga o "modo Vendedor" no app do Promotor)',
-  },
-  {
-    value: 'pedidos_venda.aprovar',
-    label: 'Pedidos de Venda — autorizar preço abaixo do mínimo (vê os pedidos de todos)',
-  },
-];
+import { PermissoesPorTela } from './PermissoesPorTela';
 
 const schema = z.object({
   nome: z.string().min(1, 'Obrigatório').max(255),
@@ -102,10 +32,11 @@ const schema = z.object({
 
 type PerfilFormData = z.infer<typeof schema>;
 
+// Perfil novo nasce vendo todas as telas e sem nenhuma ação (docs/64 §2.4).
 const DEFAULT_VALUES: PerfilFormData = {
   nome: '',
   descricao: '',
-  permissoes: [],
+  permissoes: PERMISSOES_DE_TELA,
   ativo: true,
 };
 
@@ -241,41 +172,17 @@ export function PerfilFormDialog({ open, perfil, onClose }: PerfilFormDialogProp
           />
 
           <Typography variant="subtitle2" sx={{ mt: 2 }}>
-            Permissões
+            Telas e permissões
           </Typography>
           <Typography variant="caption" color="text.secondary">
-            A maioria é permissão de escrita no admin web, atribuível só a Gestor — a única exceção é "ver todos os
-            pontos de venda", que também vale pra Promotor (visibilidade no app, ver
-            docs/12-VISIBILIDADE-PONTOS-DE-VENDA.md).
+            Marque as telas que este perfil acessa; as ações de cada tela aparecem embaixo dela. Tela desmarcada some do
+            menu e a API recusa o acesso. Vale para Gestor (o Administrador sempre vê tudo).
           </Typography>
           <Controller
             name="permissoes"
             control={control}
             render={({ field }) => (
-              <FormGroup>
-                {PERMISSOES.map((permissao) => {
-                  const bloqueada = permissao.value.startsWith('pedidos_venda.') && !pedidosVendaHabilitado;
-                  return (
-                    <FormControlLabel
-                      key={permissao.value}
-                      disabled={bloqueada}
-                      control={
-                        <Checkbox
-                          checked={field.value.includes(permissao.value)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              field.onChange([...field.value, permissao.value]);
-                            } else {
-                              field.onChange(field.value.filter((v) => v !== permissao.value));
-                            }
-                          }}
-                        />
-                      }
-                      label={bloqueada ? `${permissao.label} — módulo não contratado` : permissao.label}
-                    />
-                  );
-                })}
-              </FormGroup>
+              <PermissoesPorTela valor={field.value} onChange={field.onChange} pedidosVendaHabilitado={pedidosVendaHabilitado} />
             )}
           />
 

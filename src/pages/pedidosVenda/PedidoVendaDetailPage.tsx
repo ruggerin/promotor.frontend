@@ -463,7 +463,7 @@ function EdicaoItens({
                     size="small"
                     onClick={() => setLinhas((atual) => atual.filter((_, i) => i !== idx))}
                     disabled={linhas.length === 1}
-                    title={linhas.length === 1 ? 'O pedido precisa de pelo menos um item — cancele o pedido' : 'Remover'}
+                    title={linhas.length === 1 ? 'O pedido precisa de pelo menos um item — cancele o pedido' : 'Remover'} aria-label={linhas.length === 1 ? 'O pedido precisa de pelo menos um item — cancele o pedido' : 'Remover'}
                   >
                     <DeleteOutlineIcon fontSize="small" />
                   </IconButton>

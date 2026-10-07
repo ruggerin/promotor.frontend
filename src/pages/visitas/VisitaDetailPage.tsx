@@ -762,7 +762,7 @@ export function VisitaDetailPage() {
   // permite pular a chamada num render e chamar no outro.
   const cabecalho = usePageHeader(
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
-      <IconButton size="small" onClick={() => navigate('/visitas')} title="Voltar para Visitas">
+      <IconButton size="small" onClick={() => navigate('/visitas')} title="Voltar para Visitas" aria-label="Voltar para Visitas">
         <ArrowBackIcon fontSize="small" />
       </IconButton>
       <Typography variant="h6" noWrap sx={{ fontWeight: 700 }}>

@@ -164,7 +164,7 @@ export function RastreamentoPage() {
                     size="small"
                     component={RouterLink}
                     to={`/rota-do-dia?usuario=${l.id}`}
-                    title="Ver rota do dia"
+                    title="Ver rota do dia" aria-label="Ver rota do dia"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <AltRouteIcon fontSize="small" />

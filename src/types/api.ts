@@ -23,7 +23,22 @@ export type Permissao =
   | 'planos_acao.cancelar'
   | 'pedidos_venda.visualizar'
   | 'pedidos_venda.criar'
-  | 'pedidos_venda.aprovar';
+  | 'pedidos_venda.aprovar'
+  | 'relatorios.personalizados.gerenciar'
+  // Acesso a tela (docs/64) — ver lib/acesso/telas.ts.
+  | 'tela.operacao_dia'
+  | 'tela.atividades'
+  | 'tela.visitas'
+  | 'tela.registros'
+  | 'tela.ordens_servico'
+  | 'tela.campanhas'
+  | 'tela.relatorios'
+  | 'tela.lojas'
+  | 'tela.catalogo'
+  | 'tela.formularios'
+  | 'tela.configuracoes';
+// Tema do admin (docs/65): `sistema` segue o sistema operacional.
+export type PreferenciaTema = 'claro' | 'escuro' | 'sistema';
 export type PlanoEmpresa = 'GRATUITO' | 'START' | 'PRO' | 'BUSINESS';
 export type StatusVisita = 'ABERTA' | 'FINALIZADA' | 'CANCELADA';
 // PROMOTOR = checkout normal pelo app (com GPS); ADMIN = forçado por um gestor (sem GPS);
@@ -123,6 +138,10 @@ export interface AcessoUsuario {
   ultimo_em: string | null;
   mobile_em: string | null;
   admin_em: string | null;
+  // Data e hora (ISO) do último acesso — geral e por app. Null quando só há o dia (sem horário).
+  ultimo_horario?: string | null;
+  mobile_horario?: string | null;
+  admin_horario?: string | null;
   dias_ativos_30d: number;
   dias_sem_acesso: number | null;
   sumido: boolean;
@@ -204,6 +223,8 @@ export interface Usuario {
   // precisa passar pelo axios (com o Authorization já injetado), não um <img src> comum. Ver
   // components/UsuarioAvatar.tsx.
   foto_url: string | null;
+  // Tema do admin escolhido pelo próprio usuário (docs/65) — null = nunca escolheu (claro).
+  tema?: PreferenciaTema | null;
   empresa?: Empresa;
   // Só tem valor pra user_type GESTOR — ADMIN sempre tem acesso total, PROMOTOR/SUPERADMIN
   // não usam perfil.
@@ -898,6 +919,18 @@ export interface FormularioOrdemServico {
   obrigatorio: boolean;
   calcula_percentual_compliance: boolean;
   respondido_em: string | null;
+}
+
+// Quem "causou" uma visita planejada não acontecer (docs/59).
+export type ResponsavelNaoExecucao = 'PROMOTOR' | 'LOJA' | 'EMPRESA' | 'OUTRO';
+
+// Catálogo de motivos de cancelamento de visita não realizada (docs/59), por empresa.
+export interface MotivoNaoExecucao {
+  id: string;
+  descricao: string;
+  ativo: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface OrdemServico {

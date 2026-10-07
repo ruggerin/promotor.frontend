@@ -4,6 +4,7 @@ import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import { Box, IconButton, Slider, Tooltip, Typography } from '@mui/material';
 import { useRef, useState } from 'react';
 import type { Planograma, PlanogramaBloco, PlanogramaPrateleira } from '../../types/api';
+import { horus } from '../../theme';
 
 const ZOOM_PADRAO = 100;
 const ZOOM_MIN = 50;
@@ -115,7 +116,7 @@ export function VisualizacaoProporcional({ planograma }: { planograma: Planogram
             border: '1px solid',
             borderColor: 'divider',
             borderRadius: 1,
-            bgcolor: 'grey.50',
+            bgcolor: horus.subcard,
             cursor: arrastando.current ? 'grabbing' : 'grab',
             userSelect: 'none',
           }}

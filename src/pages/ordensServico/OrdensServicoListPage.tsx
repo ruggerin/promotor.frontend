@@ -35,14 +35,13 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { useEffect, useState } from 'react';
 import {
   aprovarOrdemServico,
-  atualizarOrdemServico,
-  cancelarOrdensServicoEmLote,
   listarOrdensServico,
   rejeitarOrdemServico,
 } from '../../lib/api/ordensServico';
 import { listarPontosVenda } from '../../lib/api/pontosVenda';
 import { listarUsuarios } from '../../lib/api/usuarios';
 import type { OrdemServico, OrigemOrdemServico, StatusOrdemServico } from '../../types/api';
+import { CancelarVisitasDialog } from '../../components/ordensServico/CancelarVisitasDialog';
 import { OrdemServicoFormDialog } from './OrdemServicoFormDialog';
 
 type ChipColor = 'warning' | 'info' | 'success' | 'default' | 'error';
@@ -158,15 +157,6 @@ export function OrdensServicoListPage() {
     placeholderData: keepPreviousData,
   });
 
-  const cancelarMutation = useMutation({
-    mutationFn: (os: OrdemServico) => atualizarOrdemServico(os.id, { status: 'CANCELADA' }),
-    onSuccess: () => {
-      setErro(null);
-      void queryClient.invalidateQueries({ queryKey: ['ordens-servico'] });
-    },
-    onError: () => setErro('Não foi possível cancelar a ordem de serviço.'),
-  });
-
   const aprovarMutation = useMutation({
     mutationFn: (os: OrdemServico) => aprovarOrdemServico(os.id),
     onSuccess: () => {
@@ -187,26 +177,15 @@ export function OrdensServicoListPage() {
     onError: () => setErro('Não foi possível rejeitar a solicitação.'),
   });
 
-  const cancelarEmLoteMutation = useMutation({
-    mutationFn: (uuids: string[]) => cancelarOrdensServicoEmLote(uuids),
-    onSuccess: () => {
-      setErro(null);
-      setSelecionadas(new Set());
-      void queryClient.invalidateQueries({ queryKey: ['ordens-servico'] });
-    },
-    onError: () => setErro('Não foi possível cancelar as ordens de serviço selecionadas.'),
-  });
+  // Cancelar sempre passa pelo diálogo de justificativa (docs/59) — sem "confirm" vazio.
+  const [aCancelar, setACancelar] = useState<OrdemServico[]>([]);
 
   function cancelar(os: OrdemServico) {
-    if (window.confirm(`Cancelar a ordem de serviço de "${os.ponto_venda?.fantasia}"?`)) {
-      cancelarMutation.mutate(os);
-    }
+    setACancelar([os]);
   }
 
   function cancelarSelecionadas() {
-    if (window.confirm(`Cancelar as ${selecionadas.size} ordens de serviço selecionadas?`)) {
-      cancelarEmLoteMutation.mutate([...selecionadas]);
-    }
+    setACancelar(ordensServico.filter((os) => selecionadas.has(os.id)));
   }
 
   const ordensServico = query.data?.ordens_servico ?? [];
@@ -354,11 +333,10 @@ export function OrdensServicoListPage() {
           <Button
             variant="outlined"
             color="error"
-            disabled={cancelarEmLoteMutation.isPending}
             onClick={cancelarSelecionadas}
             sx={{ ml: 'auto' }}
           >
-            {cancelarEmLoteMutation.isPending ? 'Cancelando...' : `Cancelar selecionadas (${selecionadas.size})`}
+            {`Cancelar selecionadas (${selecionadas.size})`}
           </Button>
         )}
       </Paper>
@@ -530,6 +508,13 @@ export function OrdensServicoListPage() {
         />
       </TableContainer>
 
+      <CancelarVisitasDialog
+        alvos={aCancelar}
+        onClose={(cancelou) => {
+          if (cancelou) setSelecionadas(new Set());
+          setACancelar([]);
+        }}
+      />
       <OrdemServicoFormDialog open={dialogAberto} ordemServico={emEdicao} onClose={() => setDialogAberto(false)} />
 
       <Dialog open={!!rejeitando} onClose={() => setRejeitando(null)} maxWidth="xs" fullWidth>

@@ -30,6 +30,12 @@ import { PedidoVendaDetailPage } from './pages/pedidosVenda/PedidoVendaDetailPag
 import { PedidosVendaListPage } from './pages/pedidosVenda/PedidosVendaListPage';
 import { RespostasFormularioPage } from './pages/relatorios/RespostasFormularioPage';
 import { VisitasPlanejadasPage } from './pages/relatorios/VisitasPlanejadasPage';
+import { TempoNaLojaPage } from './pages/relatorios/TempoNaLojaPage';
+import { RelatoriosPersonalizadosListPage } from './pages/relatoriosPersonalizados/RelatoriosPersonalizadosListPage';
+import { RelatorioPersonalizadoPage } from './pages/relatoriosPersonalizados/RelatorioPersonalizadoPage';
+import { RelatorioEditorPage } from './pages/relatoriosPersonalizados/RelatorioEditorPage';
+import { VisitasNaoRealizadasPage } from './pages/ordensServico/VisitasNaoRealizadasPage';
+import { MotivosNaoExecucaoListPage } from './pages/motivosNaoExecucao/MotivosNaoExecucaoListPage';
 import { RastreamentoPage } from './pages/rastreamento/RastreamentoPage';
 import { RotaDoDiaPage } from './pages/rastreamento/RotaDoDiaPage';
 import { PlanogramaEditorPage } from './pages/planogramas/PlanogramaEditorPage';
@@ -46,6 +52,7 @@ import { UsuarioDetailPage } from './pages/usuarios/UsuarioDetailPage';
 import { UsuariosListPage } from './pages/usuarios/UsuariosListPage';
 import { VisitaDetailPage } from './pages/visitas/VisitaDetailPage';
 import { VisitasListPage } from './pages/visitas/VisitasListPage';
+import { PaginaInicial } from './components/layout/PaginaInicial';
 
 export function App() {
   return (
@@ -54,7 +61,7 @@ export function App() {
 
       <Route element={<RequireAuth />}>
         <Route element={<AppLayout />}>
-          <Route path="/" element={<Navigate to="/visitas" replace />} />
+          <Route path="/" element={<PaginaInicial />} />
           <Route path="/operacao-do-dia" element={<OperacaoDoDiaPage />} />
           <Route path="/visitas" element={<VisitasListPage />} />
           <Route path="/visitas/:publicId" element={<VisitaDetailPage />} />
@@ -91,6 +98,14 @@ export function App() {
           <Route path="/contratos/novo" element={<ContratoDetailPage />} />
           <Route path="/contratos/:publicId" element={<ContratoDetailPage />} />
           <Route path="/ordens-servico" element={<OrdensServicoListPage />} />
+          <Route path="/visitas-nao-realizadas" element={<VisitasNaoRealizadasPage />} />
+          <Route path="/motivos-nao-execucao" element={<MotivosNaoExecucaoListPage />} />
+          <Route path="/relatorios/tempo-na-loja" element={<TempoNaLojaPage />} />
+          {/* Gerador de relatórios (docs/60) */}
+          <Route path="/relatorios-personalizados" element={<RelatoriosPersonalizadosListPage />} />
+          <Route path="/relatorios-personalizados/novo" element={<RelatorioEditorPage />} />
+          <Route path="/relatorios-personalizados/:id" element={<RelatorioPersonalizadoPage />} />
+          <Route path="/relatorios-personalizados/:id/editar" element={<RelatorioEditorPage />} />
           <Route path="/direcionamentos" element={<DirecionamentosListPage />} />
           <Route path="/direcionamentos/:publicId" element={<DirecionamentoDetailPage />} />
           <Route path="/agendas-visita" element={<AgendasVisitaListPage />} />

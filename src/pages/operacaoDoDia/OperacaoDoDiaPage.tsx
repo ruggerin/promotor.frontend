@@ -46,11 +46,13 @@ import {
   type SituacaoPromotor,
   type TipoItemFilaAcoes,
 } from '../../lib/api/operacaoDoDia';
+import { listarOrdensServico } from '../../lib/api/ordensServico';
 import { OrdemServicoFormDialog } from '../ordensServico/OrdemServicoFormDialog';
 import { tempoDesde, dataLocalISO } from '../../lib/formatarData';
 import { LocalizacaoPromotorDialog } from './LocalizacaoPromotorDialog';
 import { NovoPlanoAcaoDialog, type AlertaOrigem } from '../planosAcao/NovoPlanoAcaoDialog';
 import { ResolverAlertaDialog, type AlvoResolucao } from '../atividades/ResolverAlertaDialog';
+import { horus } from '../../theme';
 
 // Painel "Operação do dia" — docs/32-PAINEL-OPERACAO-DO-DIA.md. Fase 2 (esta tela) consome o
 // endpoint agregador da Fase 1 (GET /operacao-do-dia). "Mensagem à equipe" (Fase 4) segue
@@ -227,6 +229,14 @@ export function OperacaoDoDiaPage() {
     </Typography>,
   );
 
+  // Visitas vencidas aguardando decisão do gestor (docs/59) — mesma query do contador do menu.
+  const naoRealizadasQuery = useQuery({
+    queryKey: ['visitas-nao-realizadas', 'contador'],
+    queryFn: () => listarOrdensServico({ vencidas: true, por_pagina: 1 }),
+    retry: false,
+  });
+  const visitasNaoRealizadas = naoRealizadasQuery.data?.meta.total ?? 0;
+
   const query = useQuery({
     queryKey: ['operacao-do-dia', dataEscolhida],
     queryFn: () => buscarOperacaoDoDia(dataEscolhida ?? undefined),
@@ -396,6 +406,21 @@ export function OperacaoDoDiaPage() {
         </Box>
       </Box>
 
+      {visitasNaoRealizadas > 0 && (
+        <Alert
+          severity="warning"
+          sx={{ mb: 2 }}
+          action={
+            <Button color="inherit" size="small" onClick={() => navigate('/visitas-nao-realizadas')}>
+              Decidir
+            </Button>
+          }
+        >
+          {visitasNaoRealizadas} {visitasNaoRealizadas === 1 ? 'visita planejada venceu' : 'visitas planejadas venceram'} sem ser
+          executada e aguarda sua decisão (cancelar com justificativa).
+        </Alert>
+      )}
+
       {equipe.length === 0 && kpis.visitas_realizadas.total === 0 && (
         <Alert severity="info" sx={{ mb: 2 }}>
           Não temos dados para {formatarDataSelecionada(dados.data)}: nenhuma visita ou tarefa nesse dia. Tente outra data.
@@ -437,7 +462,7 @@ export function OperacaoDoDiaPage() {
           <Typography variant="caption" color="text.secondary">
             ATRASADOS
           </Typography>
-          <Typography variant="h5" sx={{ fontWeight: 700, color: kpis.atrasados > 0 ? '#b45309' : undefined }}>
+          <Typography variant="h5" sx={{ fontWeight: 700, color: kpis.atrasados > 0 ? horus.ambarEscuro : undefined }}>
             {kpis.atrasados}
           </Typography>
           <Typography variant="caption" color="text.secondary">check-in fora do previsto</Typography>

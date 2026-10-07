@@ -253,18 +253,11 @@ export function PontosVendaListPage() {
       coluna.accessor('cidade', { header: 'Cidade' }),
       coluna.accessor((pdv) => pdv.bairro ?? '—', { id: 'bairro', header: 'Bairro' }),
       coluna.accessor((pdv) => pdv.telefone ?? '—', { id: 'telefone', header: 'Telefone' }),
-      // Última alteração do cadastro; a data de cadastro vai embaixo, menor — as duas datas que o
-      // filtro de período usa.
+      // Só a última alteração do cadastro — a data de cadastro saiu da linha (poluía a tabela), mas
+      // continua disponível como opção do filtro de período.
       coluna.accessor('updated_at', {
         header: 'Atualizado em',
-        cell: (info) => (
-          <Box sx={{ whiteSpace: 'nowrap' }}>
-            <Typography variant="body2">{formatarDataHora(info.getValue())}</Typography>
-            <Typography variant="caption" color="text.secondary">
-              cadastro {new Date(info.row.original.created_at).toLocaleDateString('pt-BR')}
-            </Typography>
-          </Box>
-        ),
+        cell: (info) => <Typography variant="body2" sx={{ whiteSpace: 'nowrap' }}>{formatarDataHora(info.getValue())}</Typography>,
       }),
       coluna.display({
         id: 'promotores',

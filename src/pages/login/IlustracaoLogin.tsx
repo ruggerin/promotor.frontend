@@ -37,6 +37,9 @@ const COR = {
 
 const fonteSvg = '"IBM Plex Sans", Roboto, system-ui, sans-serif';
 
+/** Desktop com pouca altura (notebook 14", monitor pequeno): o login todo encolhe pra caber sem rolar. */
+export const TELA_BAIXA = '@media (min-width: 900px) and (max-height: 760px)';
+
 export function IlustracaoLogin() {
   return (
     <Box
@@ -45,7 +48,8 @@ export function IlustracaoLogin() {
       sx={{
         position: 'relative',
         bgcolor: 'primary.main',
-        display: 'flex',
+        // No celular/tablet o banner sai: só o formulário, ocupando a tela.
+        display: { xs: 'none', md: 'flex' },
         flexDirection: 'column',
         justifyContent: 'center',
         alignItems: 'center',
@@ -54,6 +58,7 @@ export function IlustracaoLogin() {
         py: 5,
         overflow: 'hidden',
         minWidth: 0,
+        [TELA_BAIXA]: { py: 3, gap: 2 },
         '& .pulso': { transformOrigin: '445px 92px', animation: `${pulso} 2.4s ease-out infinite` },
         '& .flutuar-a': { animation: `${flutuar} 6s ease-in-out infinite` },
         '& .flutuar-b': { animation: `${flutuar} 6s ease-in-out -3s infinite` },
@@ -78,7 +83,16 @@ export function IlustracaoLogin() {
         viewBox="0 0 560 500"
         role="img"
         aria-label="Promotor de camiseta âmbar faz o registro de uma gôndola com o celular. Um alerta mostra check-in confirmado a 42 metros da loja e um card mostra ruptura de 3,8 por cento no dia."
-        sx={{ position: 'relative', width: '100%', maxWidth: 560, height: 'auto', display: 'block' }}
+        sx={{
+          position: 'relative',
+          width: '100%',
+          maxWidth: 560,
+          height: 'auto',
+          display: 'block',
+          // A cena encolhe pela altura também, sobrando espaço pro texto abaixo dela.
+          maxHeight: { md: 'calc(100vh - 240px)' },
+          [TELA_BAIXA]: { maxHeight: 'calc(100vh - 170px)' },
+        }}
       >
         {/* piso */}
         <ellipse fill={COR.piso} cx="300" cy="474" rx="250" ry="16" />
@@ -259,11 +273,19 @@ export function IlustracaoLogin() {
       <Box sx={{ position: 'relative', maxWidth: 440, textAlign: 'center' }}>
         <Typography
           component="h2"
-          sx={{ color: '#fff', fontSize: { xs: 20, md: 24 }, lineHeight: 1.25, fontWeight: 600, mb: 1.25, textWrap: 'balance' }}
+          sx={{
+            color: '#fff',
+            fontSize: { xs: 20, md: 24 },
+            lineHeight: 1.25,
+            fontWeight: 600,
+            mb: 1.25,
+            textWrap: 'balance',
+            [TELA_BAIXA]: { fontSize: 20, mb: 0.75 },
+          }}
         >
           Sua operação de trade em ordem, loja por loja
         </Typography>
-        <Typography sx={{ color: 'rgba(255,255,255,.84)', fontSize: 15, lineHeight: 1.55 }}>
+        <Typography sx={{ color: 'rgba(255,255,255,.84)', fontSize: 15, lineHeight: 1.55, [TELA_BAIXA]: { fontSize: 14 } }}>
           Registros de gôndola, rupturas, alertas estratégicos e visitas organizados num só lugar para a equipe agir rápido no PDV.
         </Typography>
       </Box>

@@ -24,18 +24,20 @@ import {
   formatarMinutos,
   primeiroNome,
 } from './feedUtil';
+import { horus } from '../../theme';
 
 // Itens do feed do Painel de Atividades, na hierarquia por importância do protótipo
 // "Painel de atividades— revisão de UX.html" (v2) — ver docs/43-REVISAO-UX-PAINEL-ATIVIDADES.md §2:
 // chegada = linha de sistema; saída/registro = post; alerta = post grande com conversa embutida;
 // alerta resolvido = post compacto. Cards sem sombra, só borda (decisão 6).
 
+// Tokens do tema (claro/escuro, docs/65).
 const COR = {
-  texto: '#1a1830',
-  suave: '#5b5873',
-  borda: '#e7e5f0',
-  fundoSuave: '#f7f6fb',
-  indigo: '#4f46e5',
+  texto: horus.texto,
+  suave: horus.textoSecundario,
+  borda: horus.borda,
+  fundoSuave: horus.hover,
+  indigo: horus.indigo,
 };
 
 export interface AcoesFeed {
@@ -111,7 +113,7 @@ function Post({ evento, children, compacto }: { evento: AtividadeEvento; childre
         sx={{
           flexGrow: 1,
           minWidth: 0,
-          bgcolor: '#ffffff',
+          bgcolor: horus.painel,
           border: `1px solid ${COR.borda}`,
           borderRadius: '4px 12px 12px 12px',
           overflow: 'hidden',
@@ -157,7 +159,7 @@ function Album({
           <Box
             key={`${foto.registro.id}-${foto.imagem.id}`}
             onClick={() => onAbrir(i)}
-            sx={{ position: 'relative', height: { xs: Math.round(altura * 0.7), sm: altura }, borderRadius: raio, overflow: 'hidden', cursor: 'pointer', bgcolor: '#ecebf3' }}
+            sx={{ position: 'relative', height: { xs: Math.round(altura * 0.7), sm: altura }, borderRadius: raio, overflow: 'hidden', cursor: 'pointer', bgcolor: horus.cinzaSuave }}
           >
             <AutenticatedImage url={foto.imagem.url} alt={descricaoDaFoto(foto)} sx={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
             {ultimo && sobra > 0 && (
@@ -209,8 +211,8 @@ function LinhaSistema({
         px: 1,
         py: destaque ? 1 : 0.25,
         fontSize: 13,
-        color: destaque ? '#78350f' : '#4a4766',
-        bgcolor: destaque ? '#fef3c7' : 'transparent',
+        color: destaque ? horus.ambarEscuro : horus.texto2,
+        bgcolor: destaque ? horus.ambarClaro : 'transparent',
         borderRadius: 1.5,
         scrollMarginTop: 140,
       }}
@@ -221,7 +223,7 @@ function LinhaSistema({
         {children}
       </Box>
       {extra}
-      <Box component="span" sx={{ ml: 'auto', fontSize: 12, color: destaque ? '#78350f' : '#6b6884', flexShrink: 0 }}>
+      <Box component="span" sx={{ ml: 'auto', fontSize: 12, color: destaque ? horus.ambarEscuro : horus.textoSecundario, flexShrink: 0 }}>
         {formatarHora(evento.ocorrido_em)}
       </Box>
     </Box>
@@ -250,12 +252,12 @@ export function LinhaChegada({ evento }: { evento: AtividadeEvento }) {
           fora ? (
             <WarningAmberIcon sx={{ fontSize: 16 }} />
           ) : (
-            <PlaceOutlinedIcon sx={{ fontSize: 16, color: '#15803d' }} />
+            <PlaceOutlinedIcon sx={{ fontSize: 16, color: horus.ok }} />
           )
         }
         extra={
           fora && loc ? (
-            <MuiLink component="button" type="button" onClick={(e) => setAnchor(e.currentTarget)} sx={{ color: '#78350f', fontWeight: 600, fontSize: 13 }}>
+            <MuiLink component="button" type="button" onClick={(e) => setAnchor(e.currentTarget)} sx={{ color: horus.ambarEscuro, fontWeight: 600, fontSize: 13 }}>
               mapa
             </MuiLink>
           ) : null
@@ -311,7 +313,7 @@ export function LinhaComentario({ evento }: { evento: AtividadeEvento }) {
         </LinhaSistema>
       </Box>
       {aberto && (
-        <Box sx={{ ml: 5, mt: 0.5, p: 1.5, bgcolor: '#fff', border: `1px solid ${COR.borda}`, borderRadius: 1.5 }}>
+        <Box sx={{ ml: 5, mt: 0.5, p: 1.5, bgcolor: horus.painel, border: `1px solid ${COR.borda}`, borderRadius: 1.5 }}>
           <ComentariosRegistro
             visitaUuid={evento.visita.id}
             registroUuid={c.registro_id}
@@ -380,16 +382,16 @@ function ConversaEmbutida({
         <>
           {mensagens.map((m) =>
             m.meu ? (
-              <Box key={m.id} sx={{ alignSelf: 'flex-end', maxWidth: '80%', bgcolor: '#e3e5ff', borderRadius: '12px 4px 12px 12px', px: 1.5, py: 1 }}>
+              <Box key={m.id} sx={{ alignSelf: 'flex-end', maxWidth: '80%', bgcolor: horus.indigoClaro, borderRadius: '12px 4px 12px 12px', px: 1.5, py: 1 }}>
                 <Typography sx={{ fontSize: 14, lineHeight: 1.45, whiteSpace: 'pre-wrap' }}>{m.texto}</Typography>
-                <Typography sx={{ fontSize: 11, color: '#4a4766', textAlign: 'right' }}>Você · {formatarHora(m.criado_em)}</Typography>
+                <Typography sx={{ fontSize: 11, color: horus.texto2, textAlign: 'right' }}>Você · {formatarHora(m.criado_em)}</Typography>
               </Box>
             ) : (
               <Box key={m.id} sx={{ display: 'flex', gap: 1, alignItems: 'flex-end', maxWidth: '85%' }}>
                 <UsuarioAvatar nome={m.autor?.nome ?? '?'} fotoUrl={m.autor?.foto_url} size={26} cor={corDaPessoa(m.autor?.id)} />
-                <Box sx={{ bgcolor: '#fff', border: `1px solid ${COR.borda}`, borderRadius: '4px 12px 12px 12px', px: 1.5, py: 0.75 }}>
+                <Box sx={{ bgcolor: horus.painel, border: `1px solid ${COR.borda}`, borderRadius: '4px 12px 12px 12px', px: 1.5, py: 0.75 }}>
                   <Typography sx={{ fontSize: 14, lineHeight: 1.45, whiteSpace: 'pre-wrap' }}>{m.texto}</Typography>
-                  <Typography component="div" sx={{ fontSize: 11, color: '#6b6884', display: 'flex', gap: 0.75, alignItems: 'center' }}>
+                  <Typography component="div" sx={{ fontSize: 11, color: horus.textoSecundario, display: 'flex', gap: 0.75, alignItems: 'center' }}>
                     {primeiroNome(m.autor?.nome)} · {formatarHora(m.criado_em)}
                     {m.novo && (
                       <Pilula bg={COR.indigo} fg="#fff" sx={{ fontSize: 10, py: 0, px: 0.75 }}>
@@ -407,7 +409,7 @@ function ConversaEmbutida({
               e.preventDefault();
               if (texto.trim()) enviar.mutate();
             }}
-            sx={{ display: 'flex', alignItems: 'center', gap: 1, height: 40, pl: 1.75, pr: 0.75, borderRadius: 99, bgcolor: '#fff', border: `1px solid ${COR.borda}`, mt: 0.25 }}
+            sx={{ display: 'flex', alignItems: 'center', gap: 1, height: 40, pl: 1.75, pr: 0.75, borderRadius: 99, bgcolor: horus.painel, border: `1px solid ${COR.borda}`, mt: 0.25 }}
           >
             <InputBase
               value={texto}
@@ -421,7 +423,7 @@ function ConversaEmbutida({
               size="small"
               aria-label="Enviar"
               disabled={!texto.trim() || enviar.isPending}
-              sx={{ bgcolor: COR.indigo, color: '#fff', width: 30, height: 30, '&:hover': { bgcolor: '#4338ca' }, '&.Mui-disabled': { bgcolor: '#c7c9f5', color: '#fff' } }}
+              sx={{ bgcolor: COR.indigo, color: '#fff', width: 30, height: 30, '&:hover': { bgcolor: horus.indigoHover }, '&.Mui-disabled': { bgcolor: horus.bordaCampo, color: '#fff' } }}
             >
               {enviar.isPending ? <CircularProgress size={14} color="inherit" /> : <SendIcon sx={{ fontSize: 15 }} />}
             </IconButton>
@@ -651,13 +653,14 @@ export function PostFormulario({ evento, acoes }: { evento: AtividadeEvento; aco
                 })}
                 <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.25 }}>
                   {fotosDoRegistro.length > 0 && (
-                    <IconButton size="small" title="Ver foto" onClick={() => acoes.onAbrirFotos(fotosDoRegistro, 0)}>
+                    <IconButton size="small" title="Ver foto" aria-label="Ver foto" onClick={() => acoes.onAbrirFotos(fotosDoRegistro, 0)}>
                       <ImageOutlinedIcon sx={{ fontSize: 17 }} />
                     </IconButton>
                   )}
                   <IconButton
                     size="small"
                     title={total > 0 ? `${total} comentário(s)` : 'Comentar'}
+                    aria-label={total > 0 ? `${total} comentário(s)` : 'Comentar'}
                     onClick={() => setConversaAberta(aberta ? null : r.id)}
                     sx={{ color: novos > 0 ? COR.indigo : total > 0 ? COR.texto : 'text.disabled', gap: 0.25 }}
                   >
@@ -728,7 +731,7 @@ export function PostAlerta({ evento, acoes }: { evento: AtividadeEvento; acoes: 
               borderRadius: 1.25,
               overflow: 'hidden',
               flexShrink: 0,
-              bgcolor: '#ecebf3',
+              bgcolor: horus.cinzaSuave,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -816,7 +819,7 @@ export function PostAlerta({ evento, acoes }: { evento: AtividadeEvento; acoes: 
                 color="inherit"
                 size="small"
                 onClick={() => acoes.onResolver(evento)}
-                sx={{ textTransform: 'none', borderRadius: 1.25, height: 36, borderColor: '#d9d7e6' }}
+                sx={{ textTransform: 'none', borderRadius: 1.25, height: 36, borderColor: horus.bordaCampo }}
               >
                 Marcar resolvido
               </Button>

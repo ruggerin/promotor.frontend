@@ -1,43 +1,17 @@
-import AccountTreeIcon from '@mui/icons-material/AccountTreeOutlined';
-import AltRouteIcon from '@mui/icons-material/AltRouteOutlined';
-import AssessmentIcon from '@mui/icons-material/AssessmentOutlined';
-import AssignmentIcon from '@mui/icons-material/AssignmentOutlined';
-import BoltIcon from '@mui/icons-material/BoltOutlined';
-import BusinessIcon from '@mui/icons-material/BusinessOutlined';
-import CalendarMonthIcon from '@mui/icons-material/CalendarMonthOutlined';
-import CampaignIcon from '@mui/icons-material/CampaignOutlined';
-import CategoryIcon from '@mui/icons-material/CategoryOutlined';
-import ChecklistIcon from '@mui/icons-material/ChecklistOutlined';
-import DescriptionIcon from '@mui/icons-material/DescriptionOutlined';
-import EventNoteIcon from '@mui/icons-material/EventNoteOutlined';
-import EventRepeatIcon from '@mui/icons-material/EventRepeatOutlined';
-import FactCheckIcon from '@mui/icons-material/FactCheckOutlined';
-import FlagIcon from '@mui/icons-material/FlagOutlined';
-import GridViewIcon from '@mui/icons-material/GridViewOutlined';
-import HelpOutlineIcon from '@mui/icons-material/HelpOutlineOutlined';
-import InsightsIcon from '@mui/icons-material/InsightsOutlined';
+import CheckIcon from '@mui/icons-material/Check';
+import DarkModeIcon from '@mui/icons-material/DarkModeOutlined';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import LightModeIcon from '@mui/icons-material/LightModeOutlined';
+import SettingsBrightnessIcon from '@mui/icons-material/SettingsBrightnessOutlined';
 import KeyboardDoubleArrowLeftIcon from '@mui/icons-material/KeyboardDoubleArrowLeft';
-import LabelIcon from '@mui/icons-material/LabelOutlined';
-import ListAltIcon from '@mui/icons-material/ListAltOutlined';
 import LogoutIcon from '@mui/icons-material/LogoutOutlined';
 import MenuIcon from '@mui/icons-material/MenuOutlined';
-import MyLocationIcon from '@mui/icons-material/MyLocationOutlined';
-import PaidIcon from '@mui/icons-material/PaidOutlined';
-import PeopleIcon from '@mui/icons-material/PeopleOutlined';
-import PhotoLibraryIcon from '@mui/icons-material/PhotoLibraryOutlined';
-import RuleIcon from '@mui/icons-material/RuleOutlined';
 import SearchIcon from '@mui/icons-material/SearchOutlined';
-import SecurityIcon from '@mui/icons-material/SecurityOutlined';
-import SendIcon from '@mui/icons-material/SendOutlined';
-import ShoppingCartOutlinedIcon from '@mui/icons-material/ShoppingCartOutlined';
-import StoreIcon from '@mui/icons-material/StoreOutlined';
-import TaskAltIcon from '@mui/icons-material/TaskAltOutlined';
-import TuneIcon from '@mui/icons-material/TuneOutlined';
 import UnfoldMoreIcon from '@mui/icons-material/UnfoldMore';
-import UploadFileIcon from '@mui/icons-material/UploadFileOutlined';
-import WorkIcon from '@mui/icons-material/WorkOutlineOutlined';
 import {
   Box,
+  ButtonBase,
+  Divider,
   Drawer,
   IconButton,
   ListItemButton,
@@ -63,11 +37,16 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { buscarResumoAtividades } from '../../lib/api/atividades';
 import { buscarConformidadeRastreamento } from '../../lib/api/localizacoes';
 import { listarOrdensServico } from '../../lib/api/ordensServico';
+import { podeVerTela } from '../../lib/acesso/telas';
+import { listarRelatoriosFixados } from '../../lib/api/relatoriosPersonalizados';
 import { useAuth } from '../../lib/auth/AuthContext';
+import { useTema } from '../../lib/tema/TemaProvider';
+import type { PreferenciaTema } from '../../types/api';
 import { horus } from '../../theme';
 import { AutorizacaoGestorButton } from '../AutorizacaoGestorButton';
 import { LogoHorus } from '../LogoHorus';
 import { UsuarioAvatar } from '../UsuarioAvatar';
+import { caminhoAtivo, filtrarVisiveis, montarMenu, type GrupoMenu, type ItemMenu } from './menuAdmin';
 import { HeaderSlotContext } from './PageHeaderSlot';
 
 // Chassi do admin no padrão visual Horus (6/10/2026): menu lateral branco de 232px (64px
@@ -78,17 +57,8 @@ const LARGURA_MENU = 232;
 const LARGURA_MENU_MINI = 64;
 const STATUS_SOLICITACAO = ['AGUARDANDO_APROVACAO', 'REAGENDAMENTO_SOLICITADO', 'CANCELAMENTO_SOLICITADO'] as const;
 const CHAVE_MENU_ABERTO = 'pdv-admin:menu-lateral-aberto';
-
-type ItemMenu = {
-  rotulo: string;
-  caminho: string;
-  icone: ReactNode;
-  /** Contador em tag âmbar à direita (ex.: pendências). Zero ou ausente = não mostra. */
-  contador?: number;
-  visivel?: boolean;
-};
-
-type GrupoMenu = { rotulo: string; itens: ItemMenu[] };
+// Grupos recolhidos pelo usuário (docs/63 §1.4) — conforto do viewer, o menu funciona sem.
+const CHAVE_GRUPOS_RECOLHIDOS = 'pdv-admin:menu-grupos-recolhidos';
 
 /** Minúsculas e sem acento, pra busca de telas ("operacao" acha "Operação do dia"). */
 function normalizar(texto: string): string {
@@ -119,6 +89,27 @@ export function AppLayout() {
   const [busca, setBusca] = useState('');
   const buscaRef = useRef<HTMLInputElement>(null);
 
+  const [recolhidos, setRecolhidos] = useState<string[]>(() => {
+    try {
+      const salvo = JSON.parse(localStorage.getItem(CHAVE_GRUPOS_RECOLHIDOS) ?? '[]');
+      return Array.isArray(salvo) ? salvo.filter((c): c is string => typeof c === 'string') : [];
+    } catch {
+      return [];
+    }
+  });
+
+  function alternarGrupo(chave: string) {
+    setRecolhidos((atual) => {
+      const novo = atual.includes(chave) ? atual.filter((c) => c !== chave) : [...atual, chave];
+      try {
+        localStorage.setItem(CHAVE_GRUPOS_RECOLHIDOS, JSON.stringify(novo));
+      } catch {
+        // Storage indisponível — só não persiste a preferência.
+      }
+      return novo;
+    });
+  }
+
   function definirMenuAberto(aberto: boolean) {
     setMenuAberto(aberto);
     try {
@@ -148,23 +139,33 @@ export function AppLayout() {
   });
 
   const ehGestao = usuario?.user_type === 'ADMIN' || usuario?.user_type === 'GESTOR';
-  const permissoes = usuario?.perfil?.permissoes ?? [];
 
   // Solicitações pendentes de OS (docs/13 §6.2) — só ADMIN/GESTOR têm a permissão da rota.
   const solicitacoesQuery = useQuery({
     queryKey: ['ordens-servico', 'solicitacoes-pendentes-count'],
     queryFn: () => listarOrdensServico({ status: [...STATUS_SOLICITACAO] }),
-    enabled: ehGestao,
+    enabled: ehGestao && podeVerTela(usuario, 'ordens_servico'),
     refetchInterval: 60_000,
   });
   const solicitacoesPendentes = solicitacoesQuery.data?.meta.total ?? 0;
+
+  // Visitas planejadas vencidas aguardando decisão do gestor (docs/59) — enquanto houver, o número
+  // fica visível. Sem ordens_servico.gerenciar o GESTOR recebe 403 e o contador não aparece.
+  const naoRealizadasQuery = useQuery({
+    queryKey: ['visitas-nao-realizadas', 'contador'],
+    queryFn: () => listarOrdensServico({ vencidas: true, por_pagina: 1 }),
+    enabled: ehGestao && podeVerTela(usuario, 'planejamento'),
+    refetchInterval: 60_000,
+    retry: false,
+  });
+  const visitasNaoRealizadas = naoRealizadasQuery.data?.meta.total ?? 0;
 
   // Contador de Atividades (docs/43 §6 decisão 5) — respostas novas + alertas sem tratativa
   // (esses só quando a empresa usa resolução de alerta).
   const resumoAtividadesQuery = useQuery({
     queryKey: ['atividades-resumo', 'menu'],
     queryFn: () => buscarResumoAtividades(),
-    enabled: ehGestao,
+    enabled: podeVerTela(usuario, 'atividades'),
     refetchInterval: 60_000,
   });
   const resumoAtividades = resumoAtividadesQuery.data;
@@ -177,96 +178,47 @@ export function AppLayout() {
   const conformidadeQuery = useQuery({
     queryKey: ['localizacoes', 'conformidade', 'menu'],
     queryFn: buscarConformidadeRastreamento,
-    enabled: ehGestao,
+    enabled: podeVerTela(usuario, 'mapa_ao_vivo'),
     refetchInterval: 60_000,
     retry: false,
   });
   const irregularesRastreamento = conformidadeQuery.data?.habilitado ? conformidadeQuery.data.irregulares.length : 0;
 
-  // Gates de visibilidade: o backend também barra (403), aqui é só a UX de esconder o link.
-  // Detalhes de cada regra nos docs citados.
-  const grupos: GrupoMenu[] = [
-    {
-      rotulo: 'Operação',
-      itens: [
-        { rotulo: 'Operação do dia', caminho: '/operacao-do-dia', icone: <InsightsIcon />, visivel: ehGestao }, // docs/32
-        { rotulo: 'Visitas', caminho: '/visitas', icone: <AssignmentIcon /> },
-        { rotulo: 'Pontos de venda', caminho: '/pontos-venda', icone: <StoreIcon /> },
-        { rotulo: 'Atividades', caminho: '/atividades', icone: <BoltIcon />, contador: contadorAtividades, visivel: ehGestao }, // docs/19
-        { rotulo: 'Planos de ação', caminho: '/planos-acao', icone: <TaskAltIcon />, visivel: ehGestao }, // docs/37
-        {
-          // docs/38 — módulo contratado + ADMIN ou GESTOR com alguma permissão pedidos_venda.*
-          rotulo: 'Pedidos de venda',
-          caminho: '/pedidos-venda',
-          icone: <ShoppingCartOutlinedIcon />,
-          visivel:
-            Boolean(usuario?.empresa?.pedidos_venda_habilitado) &&
-            (usuario?.user_type === 'ADMIN' ||
-              (usuario?.user_type === 'GESTOR' && permissoes.some((p) => p.startsWith('pedidos_venda.')))),
-        },
-        { rotulo: 'Galeria de registros', caminho: '/galeria-fotos', icone: <PhotoLibraryIcon />, visivel: ehGestao }, // docs/23
-        { rotulo: 'Registros', caminho: '/registros', icone: <ChecklistIcon />, visivel: ehGestao }, // docs/44
-        { rotulo: 'Mapa ao vivo', caminho: '/rastreamento', icone: <MyLocationIcon />, contador: irregularesRastreamento, visivel: ehGestao }, // docs/11
-        { rotulo: 'Rota do dia', caminho: '/rota-do-dia', icone: <AltRouteIcon />, visivel: ehGestao }, // docs/48
-        { rotulo: 'Cumprimento de visitas', caminho: '/relatorios/visitas-planejadas', icone: <AssessmentIcon />, visivel: ehGestao }, // docs/28
-        { rotulo: 'Coleta por formulário', caminho: '/relatorios/respostas-formulario', icone: <FactCheckIcon />, visivel: ehGestao },
-      ],
-    },
-    {
-      rotulo: 'Cadastros',
-      itens: [
-        { rotulo: 'Catálogo', caminho: '/catalogo', icone: <CategoryIcon /> },
-        { rotulo: 'Redes de lojas', caminho: '/redes-lojas', icone: <AccountTreeIcon /> },
-        { rotulo: 'Ramos de atividade', caminho: '/ramos-atividade', icone: <WorkIcon /> },
-        { rotulo: 'Motivos de resolução', caminho: '/motivos-resolucao-alerta', icone: <RuleIcon /> },
-        { rotulo: 'Formulários', caminho: '/tipos-registro', icone: <ListAltIcon /> },
-        { rotulo: 'Planogramas', caminho: '/planogramas', icone: <GridViewIcon /> },
-        { rotulo: 'Campanhas', caminho: '/campanhas', icone: <CampaignIcon /> },
-        { rotulo: 'Contratos', caminho: '/contratos', icone: <DescriptionIcon /> },
-        { rotulo: 'Ordens de serviço', caminho: '/ordens-servico', icone: <EventNoteIcon />, contador: solicitacoesPendentes },
-        { rotulo: 'Direcionamentos', caminho: '/direcionamentos', icone: <SendIcon /> }, // docs/25
-        { rotulo: 'Agenda de visita', caminho: '/agendas-visita', icone: <CalendarMonthIcon /> },
-        { rotulo: 'Planejador de visitas', caminho: '/planejador-visitas', icone: <EventRepeatIcon /> },
-        { rotulo: 'Tipos de visita', caminho: '/tipos-visita', icone: <LabelIcon /> },
-        { rotulo: 'Objetivos de visita', caminho: '/objetivos-visita', icone: <FlagIcon /> },
-        { rotulo: 'Centros de custo', caminho: '/centros-custo', icone: <PaidIcon /> },
-        { rotulo: 'Usuários', caminho: '/usuarios', icone: <PeopleIcon /> },
-        // Gestão de perfis é sempre user_type:ADMIN exato no backend (nem SUPERADMIN passa).
-        { rotulo: 'Perfis', caminho: '/perfis', icone: <SecurityIcon />, visivel: usuario?.user_type === 'ADMIN' },
-        {
-          // docs/42 — lojas/vínculo: pontos_venda.gerenciar; produtos: catalogo.gerenciar
-          rotulo: 'Importação de dados',
-          caminho: '/importacao-dados',
-          icone: <UploadFileIcon />,
-          visivel:
-            usuario?.user_type === 'ADMIN' ||
-            (usuario?.user_type === 'GESTOR' &&
-              permissoes.some((p) => p === 'pontos_venda.gerenciar' || p === 'catalogo.gerenciar')),
-        },
-      ],
-    },
-    {
-      rotulo: 'Outros',
-      itens: [
-        { rotulo: 'Parâmetros', caminho: '/parametros', icone: <TuneIcon /> },
-        { rotulo: 'Manual', caminho: '/manual', icone: <HelpOutlineIcon /> },
-        // SUPERADMIN não pertence a empresa nenhuma — CRUD de empresas clientes é só dele.
-        { rotulo: 'Empresas', caminho: '/empresas', icone: <BusinessIcon />, visivel: usuario?.user_type === 'SUPERADMIN' },
-      ],
-    },
-  ];
+  // Relatórios fixados no menu (docs/63 §1.7). Mesma raiz de chave da lista do gerador, pra
+  // fixar/desafixar lá atualizar o menu na hora.
+  const fixadosQuery = useQuery({
+    queryKey: ['relatorios-personalizados', 'menu'],
+    queryFn: listarRelatoriosFixados,
+    enabled: podeVerTela(usuario, 'relatorios'),
+    retry: false,
+  });
 
+  const todosGrupos = montarMenu(
+    usuario,
+    {
+      atividades: contadorAtividades,
+      rastreamentoIrregular: irregularesRastreamento,
+      visitasNaoRealizadas,
+      solicitacoesOs: solicitacoesPendentes,
+    },
+    fixadosQuery.data ?? [],
+  );
+  const grupos = filtrarVisiveis(todosGrupos);
+
+  // URL digitada de uma tela que o perfil não vê (docs/64): "sem acesso" em vez de tela vazia ou
+  // erro de API. Só vale pra caminho que é item do menu (e subpáginas dele).
+  const caminhoDaRota = caminhoAtivo(todosGrupos, location.pathname);
+  const semAcesso =
+    caminhoDaRota !== null &&
+    todosGrupos.some((g) => g.itens.some((i) => i.caminho === caminhoDaRota && i.visivel === false && !i.fixado));
+
+  // A busca ignora o recolhimento: mostra o que casa em todos os grupos.
   const termo = normalizar(busca.trim());
-  const gruposVisiveis = grupos
-    .map((g) => ({
-      ...g,
-      itens: g.itens.filter((i) => i.visivel !== false && (!termo || normalizar(i.rotulo).includes(termo))),
-    }))
-    .filter((g) => g.itens.length > 0);
+  const gruposVisiveis = termo
+    ? grupos.map((g) => ({ ...g, itens: g.itens.filter((i) => normalizar(i.rotulo).includes(termo)) })).filter((g) => g.itens.length > 0)
+    : grupos;
 
-  function emRota(caminho: string): boolean {
-    return location.pathname === caminho || location.pathname.startsWith(`${caminho}/`);
-  }
+  const ativo = caminhoAtivo(grupos, location.pathname);
 
   function aoNavegar() {
     setBusca('');
@@ -280,7 +232,9 @@ export function AppLayout() {
       busca={busca}
       termo={termo}
       buscaRef={buscaRef}
-      emRota={emRota}
+      ativo={ativo}
+      recolhidos={recolhidos}
+      onAlternarGrupo={alternarGrupo}
       onBusca={setBusca}
       onEnterBusca={() => {
         const primeiro = gruposVisiveis[0]?.itens[0];
@@ -383,7 +337,7 @@ export function AppLayout() {
 
         <Box component="main" sx={{ flex: 1, minWidth: 0, px: { xs: 2, md: 3 }, pt: { xs: 2, md: 2.5 }, pb: 5 }}>
           <HeaderSlotContext.Provider value={headerSlot}>
-            <Outlet />
+            {semAcesso ? <SemAcesso /> : <Outlet />}
           </HeaderSlotContext.Provider>
         </Box>
       </Box>
@@ -397,7 +351,9 @@ function MenuLateral({
   busca,
   termo,
   buscaRef,
-  emRota,
+  ativo,
+  recolhidos,
+  onAlternarGrupo,
   onBusca,
   onEnterBusca,
   onNavegar,
@@ -410,7 +366,9 @@ function MenuLateral({
   busca: string;
   termo: string;
   buscaRef: RefObject<HTMLInputElement | null>;
-  emRota: (caminho: string) => boolean;
+  ativo: string | null;
+  recolhidos: string[];
+  onAlternarGrupo: (chave: string) => void;
   onBusca: (valor: string) => void;
   onEnterBusca: () => void;
   onNavegar: () => void;
@@ -513,36 +471,57 @@ function MenuLateral({
         {grupos.length === 0 && (
           <Typography sx={{ mt: 1, px: 1.25, color: 'text.secondary' }}>Nenhuma tela encontrada.</Typography>
         )}
-        {grupos.map((grupo) => (
-          <Box key={grupo.rotulo} sx={{ mt: 1.75, display: 'flex', flexDirection: 'column', gap: '2px' }}>
-            {!mini && (
-              <Typography
-                component="div"
-                sx={{
-                  fontSize: 11,
-                  fontWeight: 500,
-                  letterSpacing: '0.06em',
-                  textTransform: 'uppercase',
-                  color: horus.textoFraco,
-                  px: 1.25,
-                  pb: 0.75,
-                }}
-              >
-                {grupo.rotulo}
-              </Typography>
-            )}
-            {grupo.itens.map((item) => (
-              <ItemDoMenu
-                key={item.caminho}
-                item={item}
-                mini={mini}
-                termo={termo}
-                ativo={emRota(item.caminho)}
-                onClick={onNavegar}
-              />
-            ))}
-          </Box>
-        ))}
+        {grupos.map((grupo) => {
+          // Recolher só vale fora da busca e do modo mini; o grupo da página atual fica sempre aberto.
+          const temAtivo = grupo.itens.some((i) => i.caminho === ativo);
+          const recolhido = !mini && !termo && grupo.chave !== '' && !temAtivo && recolhidos.includes(grupo.chave);
+          const somaContadores = grupo.itens.reduce((t, i) => t + (i.contador ?? 0), 0);
+          return (
+            <Box key={grupo.chave || 'inicio'} sx={{ mt: grupo.chave ? 1.75 : 1, display: 'flex', flexDirection: 'column', gap: '2px' }}>
+              {!mini && grupo.chave && (
+                <ButtonBase
+                  onClick={() => onAlternarGrupo(grupo.chave)}
+                  aria-expanded={!recolhido}
+                  disabled={temAtivo || Boolean(termo)}
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 0.5,
+                    justifyContent: 'flex-start',
+                    textAlign: 'left',
+                    px: 1.25,
+                    pb: 0.75,
+                    borderRadius: '4px',
+                    fontSize: 11,
+                    fontWeight: 500,
+                    letterSpacing: '0.06em',
+                    textTransform: 'uppercase',
+                    color: horus.textoFraco,
+                    '&:hover': { color: horus.texto2 },
+                    '&.Mui-disabled': { color: horus.textoFraco },
+                    '&.Mui-focusVisible': { outline: `2px solid ${horus.indigo}`, outlineOffset: 1 },
+                  }}
+                >
+                  <Box component="span" sx={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {grupo.rotulo}
+                  </Box>
+                  {/* Recolhido, o contador do grupo segura as pendências à vista (docs/63 §1.4). */}
+                  {recolhido && somaContadores > 0 && <TagContador valor={somaContadores} />}
+                  {!temAtivo && !termo && (
+                    <ExpandMoreIcon
+                      sx={{ fontSize: 15, transition: 'transform 120ms ease', transform: recolhido ? 'rotate(-90deg)' : undefined }}
+                    />
+                  )}
+                </ButtonBase>
+              )}
+              {mini && grupo.chave && <Box sx={{ borderTop: `1px solid ${horus.borda}`, mx: 1, mb: 0.5 }} />}
+              {!recolhido &&
+                grupo.itens.map((item) => (
+                  <ItemDoMenu key={item.caminho} item={item} mini={mini} termo={termo} ativo={item.caminho === ativo} onClick={onNavegar} />
+                ))}
+            </Box>
+          );
+        })}
       </Box>
 
       {rodape}
@@ -604,7 +583,7 @@ function ItemDoMenu({
               height: 7,
               borderRadius: '50%',
               bgcolor: horus.ambar,
-              border: '1.5px solid #fff',
+              border: `1.5px solid ${horus.painel}`,
             }}
           />
         )}
@@ -614,21 +593,7 @@ function ItemDoMenu({
           <Box component="span" sx={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             <Destaque texto={item.rotulo} termo={termo} />
           </Box>
-          {contador > 0 && (
-            <Box
-              component="span"
-              sx={{
-                font: `600 11px ${horus.mono}`,
-                color: horus.ambarEscuro,
-                bgcolor: horus.ambarClaro,
-                px: 0.75,
-                borderRadius: '4px',
-                lineHeight: '18px',
-              }}
-            >
-              {contador > 99 ? '99+' : contador}
-            </Box>
-          )}
+          {contador > 0 && <TagContador valor={contador} />}
         </>
       )}
     </ListItemButton>
@@ -643,6 +608,36 @@ function ItemDoMenu({
   );
 }
 
+function SemAcesso() {
+  return (
+    <Box sx={{ maxWidth: 480, mx: 'auto', mt: 8, textAlign: 'center' }}>
+      <Typography sx={{ fontSize: 17, fontWeight: 600, mb: 1 }}>Sem acesso a esta tela</Typography>
+      <Typography sx={{ color: 'text.secondary' }}>
+        O seu perfil não inclui esta tela. Se precisar dela, peça a um administrador para liberar em Perfis.
+      </Typography>
+    </Box>
+  );
+}
+
+function TagContador({ valor }: { valor: number }) {
+  return (
+    <Box
+      component="span"
+      sx={{
+        font: `600 11px ${horus.mono}`,
+        letterSpacing: 0,
+        color: horus.ambarEscuro,
+        bgcolor: horus.ambarClaro,
+        px: 0.75,
+        borderRadius: '4px',
+        lineHeight: '18px',
+      }}
+    >
+      {valor > 99 ? '99+' : valor}
+    </Box>
+  );
+}
+
 /** Marca o trecho buscado dentro do rótulo — o termo já vem normalizado (sem acento). */
 function Destaque({ texto, termo }: { texto: string; termo: string }) {
   const i = termo ? normalizar(texto).indexOf(termo) : -1;
@@ -650,7 +645,7 @@ function Destaque({ texto, termo }: { texto: string; termo: string }) {
   return (
     <>
       {texto.slice(0, i)}
-      <Box component="mark" sx={{ bgcolor: '#fde68a', color: 'inherit', borderRadius: '2px' }}>
+      <Box component="mark" sx={{ bgcolor: horus.ambarClaro, color: 'inherit', borderRadius: '2px' }}>
         {texto.slice(i, i + termo.length)}
       </Box>
       {texto.slice(i + termo.length)}
@@ -673,6 +668,7 @@ function RodapeUsuario({
 }) {
   const [ancora, setAncora] = useState<HTMLElement | null>(null);
   const abrir = (e: ReactMouseEvent<HTMLElement>) => setAncora(e.currentTarget);
+  const { preferencia, definir } = useTema();
 
   return (
     <Box
@@ -714,6 +710,20 @@ function RodapeUsuario({
         anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
         transformOrigin={{ vertical: 'bottom', horizontal: 'left' }}
       >
+        {/* Tema do admin (docs/65) — preferência do usuário, vale em qualquer navegador. */}
+        <Typography sx={{ px: 1.25, pt: 0.5, pb: 0.25, fontSize: 11, fontWeight: 500, letterSpacing: '0.06em', textTransform: 'uppercase', color: horus.textoFraco }}>
+          Tema
+        </Typography>
+        {OPCOES_TEMA.map(({ valor, rotulo, icone }) => (
+          <MenuItem key={valor} selected={preferencia === valor} onClick={() => definir(valor)} sx={{ gap: 1, minWidth: 180 }}>
+            {icone}
+            <Box component="span" sx={{ flex: 1 }}>
+              {rotulo}
+            </Box>
+            {preferencia === valor && <CheckIcon sx={{ fontSize: 16, color: horus.indigo }} />}
+          </MenuItem>
+        ))}
+        <Divider sx={{ my: 0.5 }} />
         <MenuItem
           onClick={() => {
             setAncora(null);
@@ -728,6 +738,12 @@ function RodapeUsuario({
     </Box>
   );
 }
+
+const OPCOES_TEMA: { valor: PreferenciaTema; rotulo: string; icone: ReactNode }[] = [
+  { valor: 'claro', rotulo: 'Claro', icone: <LightModeIcon sx={{ fontSize: 17, color: 'text.secondary' }} /> },
+  { valor: 'escuro', rotulo: 'Escuro', icone: <DarkModeIcon sx={{ fontSize: 17, color: 'text.secondary' }} /> },
+  { valor: 'sistema', rotulo: 'Igual ao sistema', icone: <SettingsBrightnessIcon sx={{ fontSize: 17, color: 'text.secondary' }} /> },
+];
 
 /** Botão de ícone quadrado com borda (34px; 26px no `pequeno`), padrão do header e do menu. */
 function BotaoQuadrado({

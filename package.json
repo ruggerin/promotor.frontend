@@ -31,6 +31,7 @@
     "react-leaflet": "^5.0.0",
     "react-router-dom": "^7.18.3",
     "react-virtuoso": "^4.18.13",
+    "recharts": "^3.10.1",
     "zod": "^4.5.1"
   },
   "devDependencies": {

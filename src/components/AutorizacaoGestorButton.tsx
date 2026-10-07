@@ -50,7 +50,7 @@ export function AutorizacaoGestorButton() {
 
   return (
     <>
-      <IconButton onClick={() => mutation.mutate()} title="Gerar código de autorização">
+      <IconButton onClick={() => mutation.mutate()} title="Gerar código de autorização" aria-label="Gerar código de autorização">
         <VpnKeyIcon />
       </IconButton>
 
