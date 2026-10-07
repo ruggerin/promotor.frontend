@@ -25,7 +25,8 @@ function usuario(user_type: Usuario['user_type'], extra: Partial<Usuario> = {}):
 const adminComTudo = usuario('ADMIN', { empresa: { pedidos_venda_habilitado: true } as Usuario['empresa'] });
 
 function caminhos(u: Usuario | null) {
-  return filtrarVisiveis(montarMenu(u, CONTADORES_ZERADOS)).flatMap((g) => g.itens.map((i) => i.caminho));
+  // "Suporte" não é rota (abre o painel do portal/e-mail) — fica fora da conferência de rotas.
+  return filtrarVisiveis(montarMenu(u, CONTADORES_ZERADOS)).flatMap((g) => g.itens.filter((i) => !i.suporte).map((i) => i.caminho));
 }
 
 // Rotas sem parâmetro que de propósito não estão no menu.

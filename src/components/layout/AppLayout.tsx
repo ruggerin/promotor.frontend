@@ -48,6 +48,7 @@ import { LogoHorus } from '../LogoHorus';
 import { UsuarioAvatar } from '../UsuarioAvatar';
 import { caminhoAtivo, filtrarVisiveis, montarMenu, type GrupoMenu, type ItemMenu } from './menuAdmin';
 import { HeaderSlotContext } from './PageHeaderSlot';
+import { PainelSuporte } from './PainelSuporte';
 
 // Chassi do admin no padrão visual Horus (6/10/2026): menu lateral branco de 232px (64px
 // recolhido, só ícones), item ativo preenchido em índigo, busca de telas com Ctrl+K, usuário no
@@ -517,7 +518,15 @@ function MenuLateral({
               {mini && grupo.chave && <Box sx={{ borderTop: `1px solid ${horus.borda}`, mx: 1, mb: 0.5 }} />}
               {!recolhido &&
                 grupo.itens.map((item) => (
-                  <ItemDoMenu key={item.caminho} item={item} mini={mini} termo={termo} ativo={item.caminho === ativo} onClick={onNavegar} />
+                  <ItemDoMenu
+                    key={item.caminho}
+                    item={item}
+                    mini={mini}
+                    termo={termo}
+                    ativo={item.caminho === ativo}
+                    onClick={onNavegar}
+                    telaAtual={grupos.flatMap((gr) => gr.itens).find((i) => i.caminho === ativo)?.rotulo ?? null}
+                  />
                 ))}
             </Box>
           );
@@ -535,20 +544,26 @@ function ItemDoMenu({
   termo,
   ativo,
   onClick,
+  telaAtual,
 }: {
   item: ItemMenu;
   mini: boolean;
   termo: string;
   ativo: boolean;
   onClick: () => void;
+  /** Rótulo da tela aberta — vai no e-mail do suporte. */
+  telaAtual: string | null;
 }) {
   const contador = item.contador ?? 0;
+  const [ancoraSuporte, setAncoraSuporte] = useState<HTMLElement | null>(null);
+  // Suporte não navega: abre o painel (portal em aba nova + e-mail), a tela atual fica como está.
+  const destino = item.suporte
+    ? { component: 'button' as const, onClick: (e: ReactMouseEvent<HTMLElement>) => setAncoraSuporte(e.currentTarget) }
+    : { component: NavLink, to: item.caminho, onClick };
   const botao = (
     <ListItemButton
-      component={NavLink}
-      to={item.caminho}
+      {...destino}
       selected={ativo}
-      onClick={onClick}
       disableRipple
       aria-label={mini ? item.rotulo : undefined}
       sx={{
@@ -599,12 +614,20 @@ function ItemDoMenu({
     </ListItemButton>
   );
 
-  return mini ? (
+  const comDica = mini ? (
     <Tooltip title={contador > 0 ? `${item.rotulo} (${contador})` : item.rotulo} placement="right">
       {botao}
     </Tooltip>
   ) : (
     botao
+  );
+
+  if (!item.suporte) return comDica;
+  return (
+    <>
+      {comDica}
+      <PainelSuporte ancora={ancoraSuporte} tela={telaAtual} onFechar={() => setAncoraSuporte(null)} />
+    </>
   );
 }
 
@@ -740,9 +763,9 @@ function RodapeUsuario({
 }
 
 const OPCOES_TEMA: { valor: PreferenciaTema; rotulo: string; icone: ReactNode }[] = [
+  { valor: 'sistema', rotulo: 'Igual ao sistema', icone: <SettingsBrightnessIcon sx={{ fontSize: 17, color: 'text.secondary' }} /> },
   { valor: 'claro', rotulo: 'Claro', icone: <LightModeIcon sx={{ fontSize: 17, color: 'text.secondary' }} /> },
   { valor: 'escuro', rotulo: 'Escuro', icone: <DarkModeIcon sx={{ fontSize: 17, color: 'text.secondary' }} /> },
-  { valor: 'sistema', rotulo: 'Igual ao sistema', icone: <SettingsBrightnessIcon sx={{ fontSize: 17, color: 'text.secondary' }} /> },
 ];
 
 /** Botão de ícone quadrado com borda (34px; 26px no `pequeno`), padrão do header e do menu. */

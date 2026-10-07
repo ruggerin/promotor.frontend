@@ -47,6 +47,22 @@ describe('LoginPage', () => {
     expect(termos).toHaveAttribute('target', '_blank');
   });
 
+  it('mostra o e-mail do suporte com assunto pronto', () => {
+    vi.stubEnv('VITE_EMAIL_SUPORTE', 'suporte@prossigatec.com.br');
+    renderComProviders(<LoginPage />, { rota: '/login' });
+
+    const suporte = screen.getByRole('link', { name: 'suporte@prossigatec.com.br' });
+    expect(suporte.getAttribute('href')).toMatch(/^mailto:suporte@prossigatec\.com\.br\?subject=/);
+  });
+
+  it('sem e-mail de suporte no .env, a linha não aparece', () => {
+    vi.stubEnv('VITE_EMAIL_SUPORTE', '');
+    renderComProviders(<LoginPage />, { rota: '/login' });
+
+    expect(screen.queryByText(/problemas para entrar/i)).not.toBeInTheDocument();
+    vi.unstubAllEnvs();
+  });
+
   it('mostra erro de campo obrigatório ao submeter vazio, sem chamar a API', async () => {
     const usuario = userEvent.setup();
     renderComProviders(<LoginPage />, { rota: '/login' });

@@ -1,9 +1,12 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import LockIcon from '@mui/icons-material/LockOutlined';
 import MailIcon from '@mui/icons-material/MailOutlined';
+import DarkModeIcon from '@mui/icons-material/DarkModeOutlined';
+import LightModeIcon from '@mui/icons-material/LightModeOutlined';
+import SettingsBrightnessIcon from '@mui/icons-material/SettingsBrightnessOutlined';
 import VisibilityIcon from '@mui/icons-material/VisibilityOutlined';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOffOutlined';
-import { Box, ButtonBase, Link, Typography } from '@mui/material';
+import { Box, ButtonBase, Link, ToggleButton, ToggleButtonGroup, Tooltip, Typography } from '@mui/material';
 import axios from 'axios';
 import { useState, type InputHTMLAttributes, type ReactNode, type Ref } from 'react';
 import { Controller, useForm } from 'react-hook-form';
@@ -11,6 +14,9 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import { z } from 'zod';
 import { LogoHorus } from '../components/LogoHorus';
 import { useAuth } from '../lib/auth/AuthContext';
+import { configSuporte, mailtoLogin } from '../lib/suporte';
+import { useTema } from '../lib/tema/TemaProvider';
+import type { PreferenciaTema } from '../types/api';
 import { horus } from '../theme';
 import { IlustracaoLogin, TELA_BAIXA } from './login/IlustracaoLogin';
 
@@ -34,6 +40,8 @@ export function LoginPage() {
   const [verSenha, setVerSenha] = useState(false);
   // Não há redefinição de senha self-service na API — o link só mostra a quem pedir.
   const [mostrarAjudaSenha, setMostrarAjudaSenha] = useState(false);
+  // Canal de suporte (.env, ver src/lib/suporte.ts): o e-mail abre com assunto e um roteiro pronto.
+  const EMAIL_SUPORTE = configSuporte().email;
 
   // Hooks sempre chamados incondicionalmente (Regras dos Hooks) — o return antecipado abaixo
   // só acontece DEPOIS de todos eles, nunca antes.
@@ -83,8 +91,8 @@ export function LoginPage() {
         height: { md: '100vh' },
         display: 'grid',
         gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'minmax(0, 1fr) minmax(0, 1fr)' },
-        bgcolor: '#fff',
-        color: '#1f1d3a',
+        bgcolor: horus.painel,
+        color: horus.texto,
         fontSize: 15,
       }}
     >
@@ -102,7 +110,11 @@ export function LoginPage() {
           [TELA_BAIXA]: { gap: 2, py: 3 },
         }}
       >
-        <LogoHorus largura={132} />
+        {/* Tema no topo, junto do logo — longe dos campos de e-mail e senha. */}
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
+          <LogoHorus largura={132} />
+          <SeletorTema />
+        </Box>
 
         <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Box sx={{ width: '100%', maxWidth: 380, display: 'flex', flexDirection: 'column', gap: 3, [TELA_BAIXA]: { gap: 2 } }}>
@@ -126,7 +138,7 @@ export function LoginPage() {
               >
                 Bem-vindo de volta
               </Typography>
-              <Typography sx={{ mt: 1, color: '#6b6889', fontSize: 15, lineHeight: 1.5 }}>
+              <Typography sx={{ mt: 1, color: horus.textoSecundario, fontSize: 15, lineHeight: 1.5 }}>
                 Entre com seu e-mail corporativo para acompanhar a operação nos pontos de venda.
               </Typography>
             </div>
@@ -178,8 +190,8 @@ export function LoginPage() {
                           p: 0.75,
                           mr: -0.75,
                           borderRadius: '6px',
-                          color: '#6b6889',
-                          '&:hover': { color: 'primary.main', bgcolor: '#f5f5fb' },
+                          color: horus.textoSecundario,
+                          '&:hover': { color: 'primary.main', bgcolor: horus.hover },
                           '&.Mui-focusVisible': { outline: `2px solid ${horus.indigo}`, outlineOffset: 2 },
                           '& svg': { fontSize: 18 },
                         }}
@@ -225,7 +237,7 @@ export function LoginPage() {
               >
                 {isSubmitting ? 'Entrando…' : 'Entrar'}
               </ButtonBase>
-              <Typography sx={{ fontSize: 13, color: '#6b6889', textAlign: 'center', lineHeight: 1.5 }}>
+              <Typography sx={{ fontSize: 13, color: horus.textoSecundario, textAlign: 'center', lineHeight: 1.5 }}>
                 Ao entrar, você concorda com os{' '}
                 <Link href={`${URL_SITE}/termos-de-uso`} target="_blank" rel="noopener" underline="hover" sx={{ fontWeight: 500 }}>
                   Termos de Uso
@@ -240,9 +252,18 @@ export function LoginPage() {
           </Box>
         </Box>
 
-        <Typography component="footer" sx={{ fontSize: 12, color: '#6b6889' }}>
-          © {new Date().getFullYear()} Prossiga Tecnologia
-        </Typography>
+        <Box component="footer" sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
+          <Typography sx={{ fontSize: 12, color: horus.textoSecundario }}>© {new Date().getFullYear()} Prossiga Tecnologia</Typography>
+          {/* Suporte no rodapé, discreto, pra não disputar atenção com o formulário. */}
+          {EMAIL_SUPORTE && (
+            <Typography sx={{ fontSize: 12, color: horus.textoSecundario }}>
+              Problemas para entrar?{' '}
+              <Link href={mailtoLogin(EMAIL_SUPORTE)} underline="hover" sx={{ fontWeight: 500 }}>
+                {EMAIL_SUPORTE}
+              </Link>
+            </Typography>
+          )}
+        </Box>
       </Box>
 
       <IlustracaoLogin />
@@ -260,7 +281,7 @@ function Aviso({ tom, children }: { tom: 'erro' | 'info'; children: ReactNode })
         py: 1.25,
         borderRadius: '8px',
         bgcolor: tom === 'erro' ? horus.problemaClaro : horus.ambarClaro,
-        color: tom === 'erro' ? horus.problema : '#92400e',
+        color: tom === 'erro' ? horus.problema : horus.ambarEscuro,
       }}
     >
       {children}
@@ -292,15 +313,15 @@ function CampoLogin({ id, rotulo, icone, erro, acao, ref, ...input }: CampoLogin
           [TELA_BAIXA]: { height: 44 },
           px: 1.5,
           border: '1px solid',
-          borderColor: erro ? horus.problema : '#e2e1ef',
+          borderColor: erro ? horus.problema : horus.bordaCampo,
           borderRadius: '10px',
-          bgcolor: '#fff',
+          bgcolor: horus.painel,
           transition: 'border-color .15s, box-shadow .15s',
           '&:focus-within': {
             borderColor: erro ? horus.problema : 'primary.main',
             boxShadow: erro ? '0 0 0 3px rgba(185,28,28,.12)' : '0 0 0 3px rgba(79,70,229,.15)',
           },
-          '& > svg': { color: '#6b6889', fontSize: 18, flex: 'none' },
+          '& > svg': { color: horus.textoSecundario, fontSize: 18, flex: 'none' },
         }}
       >
         {icone}
@@ -320,8 +341,8 @@ function CampoLogin({ id, rotulo, icone, erro, acao, ref, ...input }: CampoLogin
             bgcolor: 'transparent',
             font: 'inherit',
             fontSize: 15,
-            color: '#1f1d3a',
-            '&::placeholder': { color: '#a3a1bd', opacity: 1 },
+            color: horus.texto,
+            '&::placeholder': { color: horus.textoFraco, opacity: 1 },
           }}
         />
         {acao}
@@ -332,5 +353,34 @@ function CampoLogin({ id, rotulo, icone, erro, acao, ref, ...input }: CampoLogin
         </Typography>
       )}
     </div>
+  );
+}
+
+const OPCOES_TEMA: { valor: PreferenciaTema; rotulo: string; icone: ReactNode }[] = [
+  { valor: 'sistema', rotulo: 'Igual ao sistema', icone: <SettingsBrightnessIcon /> },
+  { valor: 'claro', rotulo: 'Claro', icone: <LightModeIcon /> },
+  { valor: 'escuro', rotulo: 'Escuro', icone: <DarkModeIcon /> },
+];
+
+/** Tema na tela de entrada (docs/65): vale só neste navegador até a pessoa entrar. */
+function SeletorTema() {
+  const { preferencia, definir } = useTema();
+  return (
+    <ToggleButtonGroup
+      exclusive
+      size="small"
+      value={preferencia}
+      onChange={(_, v: PreferenciaTema | null) => v && definir(v)}
+      aria-label="Tema"
+      sx={{ '& .MuiToggleButton-root': { height: 28, width: 32, p: 0, '& svg': { fontSize: 16 } } }}
+    >
+      {OPCOES_TEMA.map(({ valor, rotulo, icone }) => (
+        <Tooltip key={valor} title={rotulo}>
+          <ToggleButton value={valor} aria-label={`Tema: ${rotulo}`}>
+            {icone}
+          </ToggleButton>
+        </Tooltip>
+      ))}
+    </ToggleButtonGroup>
   );
 }

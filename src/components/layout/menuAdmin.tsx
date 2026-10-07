@@ -30,6 +30,7 @@ import SecurityIcon from '@mui/icons-material/SecurityOutlined';
 import SendIcon from '@mui/icons-material/SendOutlined';
 import ShoppingCartOutlinedIcon from '@mui/icons-material/ShoppingCartOutlined';
 import StoreIcon from '@mui/icons-material/StoreOutlined';
+import SupportAgentIcon from '@mui/icons-material/SupportAgentOutlined';
 import TaskAltIcon from '@mui/icons-material/TaskAltOutlined';
 import TimerOutlinedIcon from '@mui/icons-material/TimerOutlined';
 import TuneIcon from '@mui/icons-material/TuneOutlined';
@@ -38,6 +39,7 @@ import WorkIcon from '@mui/icons-material/WorkOutlineOutlined';
 import type { ReactNode } from 'react';
 import { podeVerTela, type ChaveTela } from '../../lib/acesso/telas';
 import type { RelatorioFixado } from '../../lib/api/relatoriosPersonalizados';
+import { configSuporte, type ConfigSuporte } from '../../lib/suporte';
 import type { Usuario } from '../../types/api';
 
 // Estrutura do menu do admin — docs/63-ORGANIZACAO-DO-MENU-E-NOME-LOJA.md §1.3. Fica fora do
@@ -54,6 +56,8 @@ export type ItemMenu = {
   tela?: ChaveTela;
   /** Relatório fixado no menu (docs/63 §1.7) — fica fora do teto de itens do grupo. */
   fixado?: boolean;
+  /** "Suporte": não é rota — abre o painel com o portal de chamados (aba nova) e o e-mail. */
+  suporte?: boolean;
 };
 
 export type GrupoMenu = {
@@ -77,7 +81,12 @@ export const CONTADORES_ZERADOS: ContadoresMenu = { atividades: 0, rastreamentoI
  * barra (403) as rotas exclusivas da tela; aqui é a UX de esconder o link. A posição e o rótulo
  * seguem o doc 63.
  */
-export function montarMenu(usuario: Usuario | null, contadores: ContadoresMenu, fixados: RelatorioFixado[] = []): GrupoMenu[] {
+export function montarMenu(
+  usuario: Usuario | null,
+  contadores: ContadoresMenu,
+  fixados: RelatorioFixado[] = [],
+  suporte: ConfigSuporte = configSuporte(),
+): GrupoMenu[] {
   const ver = (tela: ChaveTela) => podeVerTela(usuario, tela);
   const item = (tela: ChaveTela, dados: Omit<ItemMenu, 'tela' | 'visivel'>, extra = true): ItemMenu => ({
     ...dados,
@@ -185,6 +194,14 @@ export function montarMenu(usuario: Usuario | null, contadores: ContadoresMenu, 
       rotulo: 'Ajuda e administração',
       itens: [
         item('manual', { rotulo: 'Manual', caminho: '/manual', icone: <HelpOutlineIcon /> }),
+        // Suporte é pra todo mundo logado — nenhum perfil restringe pedir ajuda (sem tela/permissão).
+        {
+          rotulo: 'Suporte',
+          caminho: '#suporte',
+          icone: <SupportAgentIcon />,
+          suporte: true,
+          visivel: Boolean(suporte.url || suporte.email),
+        },
         // SUPERADMIN não pertence a empresa nenhuma — CRUD de empresas clientes é só dele.
         item('empresas', { rotulo: 'Empresas', caminho: '/empresas', icone: <BusinessIcon /> }),
       ],

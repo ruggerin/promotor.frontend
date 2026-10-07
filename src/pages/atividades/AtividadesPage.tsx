@@ -19,6 +19,7 @@ import InfiniteScroll from 'react-infinite-scroll-component';
 import { useNavigate } from 'react-router-dom';
 import { GaleriaDialog } from '../../components/fotos/GaleriaDialog';
 import type { FotoComRegistro } from '../../components/fotos/tipos';
+import { VoltarAoTopo } from '../../components/VoltarAoTopo';
 import { usePageHeader } from '../../components/layout/PageHeaderSlot';
 import { buscarResumoAtividades, listarAtividades } from '../../lib/api/atividades';
 import { buscarPollingAtividadesMs } from '../../lib/api/parametros';
@@ -195,17 +196,22 @@ export function AtividadesPage() {
     // Fundo levemente pontilhado — reforça o "jeito de grupo" (só nesta tela, docs/43 §6 decisão 6).
     <Box
       sx={{
-        mx: { xs: -1.5, sm: -3 },
-        mb: { xs: -1.5, sm: -3 },
-        px: { xs: 1.5, sm: 3 },
+        // Anula o espaçamento do <main> do AppLayout (px 2/3, pt 2/2.5, pb 5) pro pontilhado encostar
+        // no header e nas bordas, sem faixa do fundo da página aparecendo em volta.
+        mx: { xs: -2, md: -3 },
+        mt: { xs: -2, md: -2.5 },
+        mb: -5,
+        px: { xs: 2, md: 3 },
+        pt: { xs: 2, md: 2.5 },
         pb: 6,
-        minHeight: 'calc(100vh - 64px)',
+        minHeight: 'calc(100vh - 61px)',
         bgcolor: horus.cinzaSuave,
         backgroundImage: `radial-gradient(${horus.bordaCampo} 1.1px, transparent 1.1px)`,
         backgroundSize: '22px 22px',
       }}
     >
       {cabecalho}
+      <VoltarAoTopo />
 
       {/* Bloco central — feed + lateral com largura de rede social, centralizado na tela. */}
       <Box sx={{ maxWidth: 1080, mx: 'auto' }}>

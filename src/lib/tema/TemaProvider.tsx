@@ -3,13 +3,13 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { atualizarPreferencias } from '../api/auth';
 import { useAuth } from '../auth/AuthContext';
-import { tokenStorage } from '../auth/tokenStorage';
 import { criarTema, type ModoTema } from '../../theme';
 import type { PreferenciaTema, Usuario } from '../../types/api';
 
 // Tema do admin escolhido por usuário (docs/65): fica no cadastro dele (vale em qualquer
 // navegador) e numa cópia local, só pra abrir já no tema certo antes do /auth/me responder.
-// Tela de login (sem usuário) é sempre clara.
+// Padrão é "sistema" (segue o claro/escuro do sistema operacional) — pra quem nunca escolheu e na
+// tela de login, que usa a última escolha feita neste navegador.
 
 const CHAVE_CACHE = 'pdv-admin:tema';
 
@@ -39,20 +39,18 @@ type TemaContexto = {
 const Contexto = createContext<TemaContexto | undefined>(undefined);
 
 export function TemaProvider({ children }: { children: ReactNode }) {
-  const { usuario, isLoading } = useAuth();
+  const { usuario } = useAuth();
   const queryClient = useQueryClient();
   const sistemaEscuro = useMediaQuery('(prefers-color-scheme: dark)', { noSsr: true });
   // Escolha feita nesta sessão (vale até a resposta da API voltar no próximo /auth/me).
-  const [escolha, setEscolha] = useState<{ usuarioId: string; tema: PreferenciaTema } | null>(null);
+  const [escolha, setEscolha] = useState<{ usuarioId: string | null; tema: PreferenciaTema } | null>(null);
 
   const preferencia: PreferenciaTema =
-    escolha && usuario && escolha.usuarioId === usuario.id
+    escolha && escolha.usuarioId === (usuario?.id ?? null)
       ? escolha.tema
       : usuario
-        ? (usuario.tema ?? 'claro')
-        : isLoading || tokenStorage.get()
-          ? (lerCache() ?? 'claro')
-          : 'claro';
+        ? (usuario.tema ?? 'sistema')
+        : (lerCache() ?? 'sistema');
   const modo: ModoTema = preferencia === 'sistema' ? (sistemaEscuro ? 'escuro' : 'claro') : preferencia;
 
   const salvar = useMutation({
@@ -63,10 +61,10 @@ export function TemaProvider({ children }: { children: ReactNode }) {
   });
 
   function definir(tema: PreferenciaTema) {
-    if (!usuario) return;
-    setEscolha({ usuarioId: usuario.id, tema });
+    setEscolha({ usuarioId: usuario?.id ?? null, tema });
     gravarCache(tema);
-    salvar.mutate({ tema });
+    // Sem login (tela de entrada) fica só neste navegador; logado, vai pro cadastro.
+    if (usuario) salvar.mutate({ tema });
   }
 
   // Mantém a cópia local igual ao cadastro (ex.: trocou o tema em outro navegador).

@@ -453,18 +453,18 @@ export function PostSaida({ evento, acoes }: { evento: AtividadeEvento; acoes: A
         <Album fotos={fotos} altura={130} maximo={4} onAbrir={(i) => acoes.onAbrirFotos(fotos, i)} />
         <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
           {resumo && (
-            <Pilula bg="#f3f2f8" fg={COR.texto} sx={{ fontWeight: 500, fontSize: 13 }}>
+            <Pilula bg={horus.cinzaSuave} fg={COR.texto} sx={{ fontWeight: 500, fontSize: 13 }}>
               {resumo.registros} {resumo.registros === 1 ? 'registro' : 'registros'}
             </Pilula>
           )}
           {resumo && resumo.rupturas > 0 && (
-            <Pilula bg="#fdeeee" fg="#b91c1c" sx={{ fontSize: 13 }}>
+            <Pilula bg={horus.problemaClaro} fg={horus.problema} sx={{ fontSize: 13 }}>
               {resumo.rupturas} {resumo.rupturas === 1 ? 'ruptura' : 'rupturas'}
             </Pilula>
           )}
           {/* Saiu da loja no meio da visita (docs/49) — âmbar, como a chegada fora do raio. */}
           {evento.afastamento && (
-            <Pilula bg="#fef3c7" fg="#78350f" sx={{ fontSize: 13 }}>
+            <Pilula bg={horus.ambarClaro} fg={horus.ambarEscuro} sx={{ fontSize: 13 }}>
               <WarningAmberIcon sx={{ fontSize: 14, mr: 0.5, verticalAlign: '-2px' }} />
               Saiu da loja · {formatarMinutos(evento.afastamento.minutos)} fora
             </Pilula>
@@ -509,7 +509,7 @@ function PostRegistroUnico({
             </Subtitulo>
           </Box>
           {registro.pontuacao !== null && (
-            <Pilula bg="#fff7e6" fg="#92400e">
+            <Pilula bg={horus.ambarClaro} fg={horus.ambarEscuro}>
               {registro.pontuacao}% compliance
             </Pilula>
           )}
@@ -604,12 +604,12 @@ export function PostFormulario({ evento, acoes }: { evento: AtividadeEvento; aco
         </Box>
         <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
           {rupturas > 0 && (
-            <Pilula bg="#fdeeee" fg="#b91c1c">
+            <Pilula bg={horus.problemaClaro} fg={horus.problema}>
               {rupturas} {rupturas === 1 ? 'ruptura' : 'rupturas'}
             </Pilula>
           )}
           {compliance !== null && (
-            <Pilula bg="#fff7e6" fg="#92400e">
+            <Pilula bg={horus.ambarClaro} fg={horus.ambarEscuro}>
               {compliance}% compliance
             </Pilula>
           )}
@@ -760,7 +760,7 @@ export function PostAlerta({ evento, acoes }: { evento: AtividadeEvento; acoes: 
               {total > 0 ? ` · ${total} ${total === 1 ? 'comentário' : 'comentários'}` : ''}
             </Subtitulo>
           </Box>
-          <Pilula bg="#eafaf0" fg="#166534" sx={{ fontWeight: 600 }}>
+          <Pilula bg={horus.okClaro} fg={horus.ok} sx={{ fontWeight: 600 }}>
             <CheckIcon sx={{ fontSize: 14 }} />
             {registro.resolvido_por ? `Resolvido por ${primeiroNome(registro.resolvido_por.nome)}` : 'Resolvido'}
           </Pilula>
@@ -770,12 +770,12 @@ export function PostAlerta({ evento, acoes }: { evento: AtividadeEvento; acoes: 
   }
 
   const selo = plano ? (
-    <Pilula bg="#eef0ff" fg="#3730a3">
+    <Pilula bg={horus.indigoClaro} fg={horus.indigoEscuro}>
       <TaskAltIcon sx={{ fontSize: 14 }} />
       Plano em andamento
     </Pilula>
   ) : acoes.requerResolucao ? (
-    <Pilula bg="#fdeeee" fg="#b91c1c">
+    <Pilula bg={horus.problemaClaro} fg={horus.problema}>
       <Box component="span" sx={{ width: 7, height: 7, borderRadius: '50%', bgcolor: '#dc2626' }} />
       Pendente
     </Pilula>

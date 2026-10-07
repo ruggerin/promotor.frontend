@@ -16,6 +16,8 @@ services:
       dockerfile: Dockerfile
       args:
         VITE_API_URL: ${VITE_API_URL}
+        VITE_URL_SUPORTE: ${VITE_URL_SUPORTE:-}
+        VITE_EMAIL_SUPORTE: ${VITE_EMAIL_SUPORTE:-}
     image: pdv-app-admin
     container_name: tradeteste_admin
     restart: unless-stopped

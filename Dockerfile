@@ -22,6 +22,11 @@ COPY . .
 
 ARG VITE_API_URL
 ENV VITE_API_URL=${VITE_API_URL}
+# Suporte (portal de chamados e e-mail) — mesma regra: mudou, rebuilda.
+ARG VITE_URL_SUPORTE
+ENV VITE_URL_SUPORTE=${VITE_URL_SUPORTE}
+ARG VITE_EMAIL_SUPORTE
+ENV VITE_EMAIL_SUPORTE=${VITE_EMAIL_SUPORTE}
 RUN npm run build
 
 # ---- Stage 2: imagem final (só Nginx servindo o estático) -------------------------------------

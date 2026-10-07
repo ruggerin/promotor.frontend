@@ -3,6 +3,7 @@ import { render } from '@testing-library/react';
 import type { ReactElement } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { AuthProvider } from '../lib/auth/AuthContext';
+import { TemaProvider } from '../lib/tema/TemaProvider';
 
 // Sem retry/cache entre testes — cada teste monta um QueryClient novo, senão resultado de
 // query de um teste vazaria (cacheado) pro próximo.
@@ -22,7 +23,10 @@ export function renderComProviders(
   return render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={[rota]}>
-        <AuthProvider>{ui}</AuthProvider>
+        <AuthProvider>
+          {/* Igual ao main.tsx: o tema (docs/65) fica dentro do Auth, porque lê a preferência do usuário. */}
+          <TemaProvider>{ui}</TemaProvider>
+        </AuthProvider>
       </MemoryRouter>
     </QueryClientProvider>,
   );
