@@ -20,7 +20,9 @@ import { ManualPage } from './pages/manual/ManualPage';
 import { ObjetivosVisitaListPage } from './pages/objetivosVisita/ObjetivosVisitaListPage';
 import { OperacaoDoDiaPage } from './pages/operacaoDoDia/OperacaoDoDiaPage';
 import { OrdensServicoListPage } from './pages/ordensServico/OrdensServicoListPage';
+import { ConfiguracoesPage } from './pages/parametros/ConfiguracoesPage';
 import { ParametrosListPage } from './pages/parametros/ParametrosListPage';
+import { LicencasPage } from './pages/licencas/LicencasPage';
 import { PerfisListPage } from './pages/perfis/PerfisListPage';
 import { PlanejadorVisitasPage } from './pages/planejadorVisitas/PlanejadorVisitasPage';
 import { PlanoAcaoDetailPage } from './pages/planosAcao/PlanoAcaoDetailPage';
@@ -119,11 +121,15 @@ export function App() {
           <Route path="/centros-custo" element={<CentrosCustoListPage />} />
           <Route path="/usuarios" element={<UsuariosListPage />} />
           <Route path="/usuarios/:publicId" element={<UsuarioDetailPage />} />
-          <Route path="/parametros" element={<ParametrosListPage />} />
+          <Route path="/parametros" element={<ConfiguracoesPage />} />
+          {/* Tabela crua chave/valor (docs/62 — "Avançado"): inclui chaves fora do catálogo. */}
+          <Route path="/parametros/avancado" element={<ParametrosListPage />} />
           {/* Sem guarda de rota própria — a API já bloqueia tudo (403) pra quem não é
               ADMIN/SUPERADMIN, e o link só aparece no menu pro user_type certo (ver
               AppLayout). */}
           <Route path="/perfis" element={<PerfisListPage />} />
+          {/* docs/67 — só ADMIN; mesma regra de Perfis (a API responde 403 pros outros). */}
+          <Route path="/licencas" element={<LicencasPage />} />
           <Route path="/empresas" element={<EmpresasListPage />} />
           <Route path="/empresas/:publicId" element={<EmpresaDetailPage />} />
           <Route path="/manual" element={<ManualPage />} />

@@ -255,6 +255,8 @@ export function OperacaoDoDiaPage() {
   // "Resolver" pergunta antes: abrir um Plano de Ação (acompanhamento multi-etapa) ou só marcar
   // como resolvido (o boolean de sempre, pedindo motivo — docs/56) — docs/37-PLANOS-DE-ACAO.md §4.8.
   const [alertaEscolha, setAlertaEscolha] = useState<ItemFilaAcoes | null>(null);
+  // Data em que o aviso "sem dados" foi fechado — trocar de data mostra o aviso de novo.
+  const [avisoSemDadosFechado, setAvisoSemDadosFechado] = useState<string | null>(null);
   const [alertaPlano, setAlertaPlano] = useState<AlertaOrigem | null>(null);
   const [alvoResolver, setAlvoResolver] = useState<AlvoResolucao | null>(null);
   // Promotor cujo "Sinal" foi clicado — abre a última posição num mapa.
@@ -344,16 +346,22 @@ export function OperacaoDoDiaPage() {
   const jornadaInicioHora = horaFracionaria(dados.jornada.inicio);
   const jornadaFimHora = horaFracionaria(dados.jornada.fim);
   const totalHoras = Math.max(1, jornadaFimHora - jornadaInicioHora);
-  const agoraHora = new Date().getHours() + new Date().getMinutes() / 60;
-  // Sem sentido "ritmo do dia" num dia passado (a conta usa a hora real de agora) — nesse caso o
-  // dia já encerrou por definição.
-  const ritmoDia = historico ? 100 : Math.min(100, Math.max(0, Math.round(((agoraHora - jornadaInicioHora) / totalHoras) * 100)));
   const pctVisitas = kpis.visitas_realizadas.total
     ? Math.round((kpis.visitas_realizadas.feitas / kpis.visitas_realizadas.total) * 100)
     : 0;
 
   return (
-    <Box>
+    // Desktop (lg+): a página cabe na altura da tela — cabeçalho (61px) + respiro do <main> (20px em
+    // cima, 40px embaixo) — e os painéis rolam por dentro. Abaixo de lg os painéis empilham e a
+    // página rola normalmente. minHeight evita esmagar os painéis numa janela muito baixa.
+    <Box
+      sx={{
+        display: { lg: 'flex' },
+        flexDirection: 'column',
+        height: { lg: 'calc(100dvh - 121px)' },
+        minHeight: { lg: 560 },
+      }}
+    >
       {cabecalho}
 
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5, flexWrap: 'wrap', gap: 1.5 }}>
@@ -421,8 +429,8 @@ export function OperacaoDoDiaPage() {
         </Alert>
       )}
 
-      {equipe.length === 0 && kpis.visitas_realizadas.total === 0 && (
-        <Alert severity="info" sx={{ mb: 2 }}>
+      {equipe.length === 0 && kpis.visitas_realizadas.total === 0 && avisoSemDadosFechado !== dados.data && (
+        <Alert severity="info" sx={{ mb: 1.5 }} onClose={() => setAvisoSemDadosFechado(dados.data)}>
           Não temos dados para {formatarDataSelecionada(dados.data)}: nenhuma visita ou tarefa nesse dia. Tente outra data.
         </Alert>
       )}
@@ -435,7 +443,10 @@ export function OperacaoDoDiaPage() {
           display: 'grid',
           gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', sm: 'repeat(3, minmax(0, 1fr))', lg: 'repeat(6, minmax(0, 1fr))' },
           gap: { xs: 1, sm: 1.5 },
-          mb: 2,
+          mb: 1.5,
+          // Compactos pra sobrar altura pros painéis (docs/32).
+          '& > .MuiPaper-root': { px: 1.5, py: 1 },
+          '& .MuiTypography-h5': { fontSize: 20, lineHeight: 1.3 },
         }}
       >
         <Paper sx={{ p: 1.5 }}>
@@ -448,8 +459,7 @@ export function OperacaoDoDiaPage() {
               {pctVisitas}%
             </Typography>
           </Typography>
-          <LinearProgress variant="determinate" value={pctVisitas} sx={{ mt: 0.5, mb: 0.5, height: 5, borderRadius: 5 }} />
-          <Typography variant="caption" color="text.secondary">ritmo do dia {ritmoDia}%</Typography>
+          <LinearProgress variant="determinate" value={pctVisitas} sx={{ mt: 0.5, height: 4, borderRadius: 4 }} />
         </Paper>
         <Paper sx={{ p: 1.5 }}>
           <Typography variant="caption" color="text.secondary">
@@ -498,9 +508,19 @@ export function OperacaoDoDiaPage() {
         </Paper>
       </Box>
 
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', lg: 'minmax(0, 2fr) minmax(0, 1fr)' }, gap: 2, mb: 2, alignItems: 'start' }}>
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: 'minmax(0, 1fr)', lg: 'minmax(0, 2fr) minmax(0, 1fr)' },
+          gap: 2,
+          mb: 2,
+          alignItems: { xs: 'start', lg: 'stretch' },
+          flex: { lg: '3 1 0' },
+          minHeight: { lg: 0 },
+        }}
+      >
         {/* Equipe em campo */}
-        <Paper sx={{ p: { xs: 1.5, sm: 2 } }}>
+        <Paper sx={{ p: { xs: 1.5, sm: 2 }, display: { lg: 'flex' }, flexDirection: 'column', minHeight: { lg: 0 } }}>
           <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1.5 }}>
             Equipe em campo <Chip label={equipe.length} size="small" sx={{ ml: 1 }} />
           </Typography>
@@ -510,7 +530,7 @@ export function OperacaoDoDiaPage() {
             </Typography>
           ) : celular ? (
             // Celular: tabela de 6 colunas não cabe — um cartão por promotor, mesma informação.
-            <Box sx={{ display: 'flex', flexDirection: 'column', maxHeight: 420, overflowY: 'auto' }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', maxHeight: { xs: 420, lg: 'none' }, flex: { lg: 1 }, minHeight: { lg: 0 }, overflowY: 'auto' }}>
               {equipe.map((linha) => (
                 <Box
                   key={linha.usuario.id}
@@ -555,7 +575,7 @@ export function OperacaoDoDiaPage() {
               ))}
             </Box>
           ) : (
-            <TableContainer sx={{ maxHeight: 300, overflowY: 'auto' }}>
+            <TableContainer sx={{ maxHeight: { xs: 300, lg: 'none' }, flex: { lg: 1 }, minHeight: { lg: 0 }, overflowY: 'auto' }}>
               <Table size="small" stickyHeader>
                 <TableHead>
                   <TableRow>
@@ -609,7 +629,7 @@ export function OperacaoDoDiaPage() {
         </Paper>
 
         {/* Fila de ações */}
-        <Paper sx={{ p: { xs: 1.5, sm: 2 } }}>
+        <Paper sx={{ p: { xs: 1.5, sm: 2 }, display: { lg: 'flex' }, flexDirection: 'column', minHeight: { lg: 0 } }}>
           <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1.5 }}>
             Fila de ações <Chip label={filaAcoes.length} size="small" sx={{ ml: 1 }} />
           </Typography>
@@ -618,7 +638,7 @@ export function OperacaoDoDiaPage() {
               {historico ? 'Fila de ações é sempre o estado atual — volte pra hoje pra ver.' : 'Nada pendente agora.'}
             </Typography>
           ) : (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, maxHeight: 300, overflowY: 'auto', pr: 0.5 }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, maxHeight: { xs: 300, lg: 'none' }, flex: { lg: 1 }, minHeight: { lg: 0 }, overflowY: 'auto', pr: 0.5 }}>
               {filaAcoes.map((item, i) => (
                 <Box
                   key={i}
@@ -673,9 +693,17 @@ export function OperacaoDoDiaPage() {
         </Paper>
       </Box>
 
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', lg: 'minmax(0, 2fr) minmax(0, 1fr)' }, gap: 2 }}>
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: 'minmax(0, 1fr)', lg: 'minmax(0, 2fr) minmax(0, 1fr)' },
+          gap: 2,
+          flex: { lg: '2 1 0' },
+          minHeight: { lg: 0 },
+        }}
+      >
         {/* Jornada (Gantt) */}
-        <Paper sx={{ p: { xs: 1.5, sm: 2 }, overflowX: 'auto' }}>
+        <Paper sx={{ p: { xs: 1.5, sm: 2 }, overflow: 'auto', minHeight: { lg: 0 } }}>
           <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1.5 }}>
             Jornada
           </Typography>
@@ -743,7 +771,7 @@ export function OperacaoDoDiaPage() {
         </Paper>
 
         {/* Rupturas por SKU */}
-        <Paper sx={{ p: { xs: 1.5, sm: 2 } }}>
+        <Paper sx={{ p: { xs: 1.5, sm: 2 }, display: { lg: 'flex' }, flexDirection: 'column', minHeight: { lg: 0 } }}>
           <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
             <InventoryIcon fontSize="small" /> Rupturas por SKU
           </Typography>
@@ -752,8 +780,8 @@ export function OperacaoDoDiaPage() {
               {historico ? 'Rupturas por SKU é sempre o estado atual — volte pra hoje pra ver.' : 'Nenhuma ruptura aberta.'}
             </Typography>
           ) : (
-            <TableContainer>
-              <Table size="small">
+            <TableContainer sx={{ flex: { lg: 1 }, minHeight: { lg: 0 }, overflowY: 'auto' }}>
+              <Table size="small" stickyHeader>
                 <TableHead>
                   <TableRow>
                     <TableCell>Cód.</TableCell>

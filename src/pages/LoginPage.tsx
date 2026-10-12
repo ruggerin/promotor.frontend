@@ -73,6 +73,9 @@ export function LoginPage() {
           ? Object.values(err.response.data.errors)[0]?.[0]
           : null;
         setErro(primeiraMensagem ?? 'Credenciais inválidas.');
+      } else if (axios.isAxiosError(err) && err.response?.status === 429) {
+        // Limite de tentativas de login (docs/67 §2, B8).
+        setErro('Muitas tentativas seguidas. Aguarde um minuto e tente de novo.');
       } else {
         setErro('Não foi possível conectar à API. Tente novamente.');
       }

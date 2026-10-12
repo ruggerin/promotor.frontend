@@ -22,6 +22,7 @@ import ListAltIcon from '@mui/icons-material/ListAltOutlined';
 import MyLocationIcon from '@mui/icons-material/MyLocationOutlined';
 import PaidIcon from '@mui/icons-material/PaidOutlined';
 import PeopleIcon from '@mui/icons-material/PeopleOutlined';
+import PhoneAndroidIcon from '@mui/icons-material/PhoneAndroidOutlined';
 import PhotoLibraryIcon from '@mui/icons-material/PhotoLibraryOutlined';
 import PushPinIcon from '@mui/icons-material/PushPinOutlined';
 import QueryStatsIcon from '@mui/icons-material/QueryStatsOutlined';
@@ -172,6 +173,8 @@ export function montarMenu(
         item('usuarios', { rotulo: 'Usuários', caminho: '/usuarios', icone: <PeopleIcon /> }),
         // Gestão de perfis é sempre user_type:ADMIN exato no backend (nem SUPERADMIN passa).
         item('perfis', { rotulo: 'Perfis', caminho: '/perfis', icone: <SecurityIcon /> }),
+        // docs/67 — licenças do app mobile e aparelhos; só ADMIN, como Perfis.
+        item('licencas', { rotulo: 'Licenças e plano', caminho: '/licencas', icone: <PhoneAndroidIcon /> }),
         item('centros_custo', { rotulo: 'Centros de custo', caminho: '/centros-custo', icone: <PaidIcon /> }),
       ],
     },
@@ -179,8 +182,8 @@ export function montarMenu(
       chave: 'configuracoes',
       rotulo: 'Configurações',
       itens: [
-        // Vira "Configurações" com o doc 62.
-        item('configuracoes', { rotulo: 'Parâmetros', caminho: '/parametros', icone: <TuneIcon /> }),
+        // docs/62 — tela de Configurações (a tabela crua vira "Avançado" dentro dela).
+        item('configuracoes', { rotulo: 'Configurações da empresa', caminho: '/parametros', icone: <TuneIcon /> }),
         item('configuracoes', { rotulo: 'Tipos de visita', caminho: '/tipos-visita', icone: <LabelIcon /> }),
         item('configuracoes', { rotulo: 'Objetivos de visita', caminho: '/objetivos-visita', icone: <FlagIcon /> }),
         item('configuracoes', { rotulo: 'Motivos de não execução', caminho: '/motivos-nao-execucao', icone: <RuleIcon /> }),

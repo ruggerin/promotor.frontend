@@ -5,7 +5,6 @@ import ExitToAppIcon from '@mui/icons-material/ExitToApp';
 import LoginIcon from '@mui/icons-material/Login';
 import MeetingRoomIcon from '@mui/icons-material/MeetingRoom';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
-import PhonelinkEraseIcon from '@mui/icons-material/PhonelinkErase';
 import PhotoCameraIcon from '@mui/icons-material/PhotoCamera';
 import ReportProblemIcon from '@mui/icons-material/ReportProblem';
 import SearchIcon from '@mui/icons-material/Search';
@@ -45,12 +44,12 @@ import {
   desativarUsuario,
   enviarFotoUsuario,
   removerFotoUsuario,
-  revogarDispositivoUsuario,
 } from '../../lib/api/usuarios';
 import { textoUltimoAcesso } from '../../lib/acesso';
 import { useAuth } from '../../lib/auth/AuthContext';
 import { formatarDataSemFuso } from '../../lib/formatarData';
 import type { EventoHistorico, PontoVenda, TipoEventoHistorico, UserType, Usuario } from '../../types/api';
+import { AcessoAppPanel } from './AcessoAppPanel';
 import { SelecionarPontoVendaDialog } from './SelecionarPontoVendaDialog';
 import { UsuarioFormDialog } from './UsuarioFormDialog';
 
@@ -240,15 +239,6 @@ export function UsuarioDetailPage() {
     },
   });
 
-  const revogarDispositivoMutation = useMutation({
-    mutationFn: (alvo: Usuario) => revogarDispositivoUsuario(alvo.id),
-    onSuccess: () => {
-      setErro(null);
-      void queryClient.invalidateQueries({ queryKey: ['usuarios', publicId] });
-    },
-    onError: () => setErro('Não foi possível revogar o dispositivo.'),
-  });
-
   const enviarFotoMutation = useMutation({
     mutationFn: (arquivo: File) => enviarFotoUsuario(publicId as string, arquivo),
     onSuccess: () => {
@@ -307,16 +297,6 @@ export function UsuarioDetailPage() {
     }
 
     alternarAtivoMutation.mutate(alvo);
-  }
-
-  function revogarDispositivo(alvo: Usuario) {
-    if (
-      window.confirm(
-        `Revogar o dispositivo de ${alvo.nome}? A sessão atual dele é derrubada na hora — no próximo login, um novo aparelho é vinculado normalmente.`,
-      )
-    ) {
-      revogarDispositivoMutation.mutate(alvo);
-    }
   }
 
   if (usuarioQuery.isLoading) {
@@ -591,44 +571,8 @@ export function UsuarioDetailPage() {
         </Paper>
       )}
 
-      {ehPromotor && (
-        <Paper sx={{ p: 3 }}>
-          <Typography variant="h6" gutterBottom>
-            Dispositivo
-          </Typography>
-
-          {!usuario.dispositivo ? (
-            <Typography variant="body2" color="text.secondary">
-              Nunca logou pelo app mobile.
-            </Typography>
-          ) : (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, flexWrap: 'wrap' }}>
-              <Box>
-                <Typography variant="caption" color="text.secondary">
-                  Aparelho
-                </Typography>
-                <Typography>{usuario.dispositivo.nome ?? usuario.dispositivo.identificador}</Typography>
-              </Box>
-              <Box>
-                <Typography variant="caption" color="text.secondary">
-                  Último acesso
-                </Typography>
-                <Typography>{new Date(usuario.dispositivo.ultimo_acesso_em).toLocaleString('pt-BR')}</Typography>
-              </Box>
-              <Box sx={{ flexGrow: 1 }} />
-              <Button
-                variant="outlined"
-                color="error"
-                startIcon={<PhonelinkEraseIcon />}
-                disabled={revogarDispositivoMutation.isPending}
-                onClick={() => revogarDispositivo(usuario)}
-              >
-                Revogar dispositivo
-              </Button>
-            </Box>
-          )}
-        </Paper>
-      )}
+      {/* Licença do app e aparelho (docs/67 §3) — qualquer usuário da empresa pode ter licença. */}
+      {usuario.user_type !== 'SUPERADMIN' && <AcessoAppPanel usuario={usuario} />}
 
       {ehPromotor && (
         <Paper sx={{ p: 3, mt: 3 }}>

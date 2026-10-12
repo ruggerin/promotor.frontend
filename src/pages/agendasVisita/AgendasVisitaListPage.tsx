@@ -6,6 +6,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import EditIcon from '@mui/icons-material/Edit';
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   Chip,
@@ -19,12 +20,16 @@ import {
   TableHead,
   TablePagination,
   TableRow,
+  MenuItem,
+  TextField,
   Tooltip,
   Typography,
 } from '@mui/material';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { atualizarAgendaVisita, desativarAgendaVisita, listarAgendasVisita } from '../../lib/api/agendasVisita';
+import { listarPontosVenda } from '../../lib/api/pontosVenda';
+import { listarUsuarios } from '../../lib/api/usuarios';
 import type { AgendaVisita, PrioridadeVisita } from '../../types/api';
 import { AgendaVisitaFormDialog } from './AgendaVisitaFormDialog';
 
@@ -51,9 +56,38 @@ export function AgendasVisitaListPage() {
   const [emEdicao, setEmEdicao] = useState<AgendaVisita | null>(null);
   const [erro, setErro] = useState<string | null>(null);
 
+  // Filtros — a API já filtra por loja, promotor, dia da semana e situação.
+  const [loja, setLoja] = useState<{ id: string; fantasia: string } | null>(null);
+  const [promotor, setPromotor] = useState<{ id: string; nome: string } | null>(null);
+  const [diaSemana, setDiaSemana] = useState<number | ''>('');
+  const [situacao, setSituacao] = useState<'todas' | 'ativas' | 'inativas'>('todas');
+  const temFiltro = Boolean(loja || promotor || diaSemana !== '' || situacao !== 'todas');
+
+  // Mudou filtro, volta pra primeira página (a atual pode nem existir no resultado novo).
+  function filtrar(aplicar: () => void) {
+    aplicar();
+    setPage(0);
+  }
+
+  const lojasQuery = useQuery({
+    queryKey: ['pontos-venda', 'filtro-agenda'],
+    queryFn: () => listarPontosVenda({ ativo: true, por_pagina: 200 }),
+  });
+  const promotoresQuery = useQuery({
+    queryKey: ['usuarios', 'promotores-filtro-agenda'],
+    queryFn: () => listarUsuarios({ user_type: 'PROMOTOR', por_pagina: 200 }),
+  });
+
+  const filtros = {
+    ponto_venda_uuid: loja?.id,
+    usuario_uuid: promotor?.id,
+    dia_semana: diaSemana === '' ? undefined : diaSemana,
+    ativo: situacao === 'todas' ? undefined : situacao === 'ativas',
+  };
+
   const query = useQuery({
-    queryKey: ['agendas-visita', { page }],
-    queryFn: () => listarAgendasVisita({ page: page + 1 }),
+    queryKey: ['agendas-visita', { page, ...filtros }],
+    queryFn: () => listarAgendasVisita({ page: page + 1, ...filtros }),
     placeholderData: keepPreviousData,
   });
 
@@ -111,6 +145,73 @@ export function AgendasVisitaListPage() {
         a data de hoje.
       </Typography>
 
+      <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center', mb: 2 }}>
+        <Autocomplete
+          size="small"
+          sx={{ width: 240 }}
+          options={lojasQuery.data?.pontos_venda ?? []}
+          getOptionLabel={(l) => l.fantasia}
+          isOptionEqualToValue={(a, b) => a.id === b.id}
+          loading={lojasQuery.isLoading}
+          value={loja}
+          onChange={(_, l) => filtrar(() => setLoja(l ? { id: l.id, fantasia: l.fantasia } : null))}
+          renderInput={(params) => <TextField {...params} label="Loja" />}
+        />
+        <Autocomplete
+          size="small"
+          sx={{ width: 220 }}
+          options={promotoresQuery.data?.usuarios ?? []}
+          getOptionLabel={(u) => u.nome}
+          isOptionEqualToValue={(a, b) => a.id === b.id}
+          loading={promotoresQuery.isLoading}
+          value={promotor}
+          onChange={(_, u) => filtrar(() => setPromotor(u ? { id: u.id, nome: u.nome } : null))}
+          renderInput={(params) => <TextField {...params} label="Promotor" />}
+        />
+        <TextField
+          select
+          size="small"
+          label="Dia da semana"
+          value={diaSemana}
+          onChange={(e) => filtrar(() => setDiaSemana(e.target.value === '' ? '' : Number(e.target.value)))}
+          sx={{ width: 170 }}
+        >
+          <MenuItem value="">Todos</MenuItem>
+          {DIAS_SEMANA.map((dia, i) => (
+            <MenuItem key={dia} value={i}>
+              {dia}
+            </MenuItem>
+          ))}
+        </TextField>
+        <TextField
+          select
+          size="small"
+          label="Situação"
+          value={situacao}
+          onChange={(e) => filtrar(() => setSituacao(e.target.value as typeof situacao))}
+          sx={{ width: 150 }}
+        >
+          <MenuItem value="todas">Todas</MenuItem>
+          <MenuItem value="ativas">Ativas</MenuItem>
+          <MenuItem value="inativas">Inativas</MenuItem>
+        </TextField>
+        {temFiltro && (
+          <Button
+            size="small"
+            onClick={() =>
+              filtrar(() => {
+                setLoja(null);
+                setPromotor(null);
+                setDiaSemana('');
+                setSituacao('todas');
+              })
+            }
+          >
+            Limpar filtros
+          </Button>
+        )}
+      </Box>
+
       {erro && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setErro(null)}>
           {erro}
@@ -152,7 +253,7 @@ export function AgendasVisitaListPage() {
             {agendasVisita.length === 0 && !query.isLoading && !query.isError && (
               <TableRow>
                 <TableCell colSpan={8} align="center">
-                  Nenhuma agenda de visita cadastrada.
+                  {temFiltro ? 'Nenhuma agenda com esses filtros.' : 'Nenhuma agenda de visita cadastrada.'}
                 </TableCell>
               </TableRow>
             )}

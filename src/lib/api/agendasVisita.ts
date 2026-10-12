@@ -6,6 +6,8 @@ export interface AgendasVisitaListParams {
   ativo?: boolean;
   ponto_venda_uuid?: string;
   usuario_uuid?: string;
+  /** 0 = domingo … 6 = sábado — só agendas semanais. */
+  dia_semana?: number;
   // Opt-in pra listar mais que os 15 padrão de uma vez (capado em 200 no backend) — usado pelo
   // Planejador de Visitas, que precisa da agenda inteira de um promotor. Ver
   // AgendaVisitaController::index.
@@ -24,6 +26,7 @@ export async function listarAgendasVisita(params: AgendasVisitaListParams = {}):
       ativo: params.ativo === undefined ? undefined : params.ativo ? 1 : 0,
       ponto_venda_uuid: params.ponto_venda_uuid,
       usuario_uuid: params.usuario_uuid,
+      dia_semana: params.dia_semana,
       por_pagina: params.por_pagina,
     },
   });

@@ -30,7 +30,7 @@ function caminhos(u: Usuario | null) {
 }
 
 // Rotas sem parâmetro que de propósito não estão no menu.
-const FORA_DO_MENU = new Set(['/login', '/', '*', '/tipos-registro/novo', '/contratos/novo', '/relatorios-personalizados/novo']);
+const FORA_DO_MENU = new Set(['/login', '/', '*', '/tipos-registro/novo', '/contratos/novo', '/relatorios-personalizados/novo', '/parametros/avancado']);
 
 describe('menu do admin (docs/63)', () => {
   it('toda rota navegável aparece em exatamente um grupo', () => {

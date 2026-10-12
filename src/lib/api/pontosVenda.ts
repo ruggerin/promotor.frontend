@@ -29,6 +29,8 @@ export interface PontosVendaListParams {
   // Planejador de Visitas, que precisa da carteira inteira de um promotor. Ver
   // PontoVendaController::index.
   por_pagina?: number;
+  /** Só lojas com contrato ativo (escopo CONTRATO da Ação) — "Enviar agora pro app", docs/66. */
+  com_contrato_ativo?: boolean;
 }
 
 export interface PontosVendaListResponse {
@@ -55,6 +57,7 @@ export async function listarPontosVenda(params: PontosVendaListParams = {}): Pro
       data_fim: params.data_fim || undefined,
       ordenar: params.ordenar === 'recentes' ? 'recentes' : undefined,
       por_pagina: params.por_pagina,
+      com_contrato_ativo: params.com_contrato_ativo ? 1 : undefined,
     },
   });
   return data;

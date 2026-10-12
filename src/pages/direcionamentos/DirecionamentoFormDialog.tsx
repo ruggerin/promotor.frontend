@@ -18,15 +18,17 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Controller, useFieldArray, useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { atualizarDirecionamento, criarDirecionamento } from '../../lib/api/direcionamentos';
+import { atualizarDirecionamento, criarDirecionamento, type DirecionamentoDetailResponse } from '../../lib/api/direcionamentos';
 import { listarPontosVenda } from '../../lib/api/pontosVenda';
 import { listarRedesLojas } from '../../lib/api/redesLojas';
 import { listarTiposRegistro } from '../../lib/api/tiposRegistro';
 import { listarUsuarios } from '../../lib/api/usuarios';
 import type { Direcionamento } from '../../types/api';
+import { paraInputDateTime as dataParaInput, type ValoresDirecionamento } from './envioImediato';
 
 // Mesmo par de helpers de OrdemServicoFormDialog — <input type="datetime-local"> não tem
 // timezone, então a conversão precisa ser manual nos dois sentidos.
@@ -82,6 +84,11 @@ interface DirecionamentoFormDialogProps {
   open: boolean;
   direcionamento: Direcionamento | null;
   onClose: () => void;
+  /** Pré-preenchimento de um Direcionamento novo (ex.: "Enviar agora pro app", docs/66). */
+  valoresIniciais?: Partial<ValoresDirecionamento>;
+  titulo?: string;
+  /** Depois de criar, mostra quantas OS foram geradas em vez de fechar direto. */
+  mostrarResultado?: boolean;
 }
 
 // Formulário grande, mesmo espírito de TipoRegistroFormDialog/CampanhaFormDialog: descrição +
@@ -92,10 +99,12 @@ interface DirecionamentoFormDialogProps {
 // fluxo "+ Criar novo formulário" (ir pra TipoRegistroFormPage num contexto de Direcionamento,
 // sem os toggles de Ação/Compliance) descrito no doc não foi implementado ainda; pra usar um
 // formulário novo aqui, cadastre-o primeiro no menu Formulários.
-export function DirecionamentoFormDialog({ open, direcionamento, onClose }: DirecionamentoFormDialogProps) {
+export function DirecionamentoFormDialog({ open, direcionamento, onClose, valoresIniciais, titulo, mostrarResultado = false }: DirecionamentoFormDialogProps) {
   const modoEdicao = direcionamento !== null;
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [erroGeral, setErroGeral] = useState<string | null>(null);
+  const [resultado, setResultado] = useState<DirecionamentoDetailResponse | null>(null);
 
   const {
     control,
@@ -107,10 +116,14 @@ export function DirecionamentoFormDialog({ open, direcionamento, onClose }: Dire
 
   const { fields, append, remove } = useFieldArray({ control, name: 'formularios' });
   const formulariosAtuais = useWatch({ control, name: 'formularios' }) ?? [];
+  // Início à frente do relógio = nada é gerado agora (docs/66 §4.1) — avisa antes de salvar.
+  const inicioEscolhido = useWatch({ control, name: 'vigencia_inicio' });
+  const inicioNoFuturo = Boolean(inicioEscolhido) && inicioEscolhido > dataParaInput(new Date());
 
   useEffect(() => {
     if (open) {
       setErroGeral(null);
+      setResultado(null);
       reset(
         direcionamento
           ? {
@@ -127,14 +140,14 @@ export function DirecionamentoFormDialog({ open, direcionamento, onClose }: Dire
                 calcula_percentual_compliance: f.calcula_percentual_compliance,
               })),
             }
-          : DEFAULT_VALUES,
+          : { ...DEFAULT_VALUES, ...valoresIniciais },
       );
     }
-  }, [open, direcionamento, reset]);
+  }, [open, direcionamento, reset, valoresIniciais]);
 
   const pontosVendaQuery = useQuery({
     queryKey: ['pontos-venda', 'form-direcionamento'],
-    queryFn: () => listarPontosVenda({ ativo: true }),
+    queryFn: () => listarPontosVenda({ ativo: true, por_pagina: 200 }),
     enabled: open,
   });
   const redesLojaQuery = useQuery({
@@ -144,7 +157,7 @@ export function DirecionamentoFormDialog({ open, direcionamento, onClose }: Dire
   });
   const promotoresQuery = useQuery({
     queryKey: ['usuarios', 'form-direcionamento', { user_type: 'PROMOTOR', ativo: true }],
-    queryFn: () => listarUsuarios({ user_type: 'PROMOTOR', ativo: true }),
+    queryFn: () => listarUsuarios({ user_type: 'PROMOTOR', ativo: true, por_pagina: 200 }),
     enabled: open,
   });
   const tiposRegistroQuery = useQuery({
@@ -175,8 +188,12 @@ export function DirecionamentoFormDialog({ open, direcionamento, onClose }: Dire
       }
       return criarDirecionamento(payload);
     },
-    onSuccess: () => {
+    onSuccess: (resposta) => {
       void queryClient.invalidateQueries({ queryKey: ['direcionamentos'] });
+      if (mostrarResultado && !modoEdicao) {
+        setResultado(resposta);
+        return;
+      }
       onClose();
     },
     onError: (err) => {
@@ -190,7 +207,32 @@ export function DirecionamentoFormDialog({ open, direcionamento, onClose }: Dire
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>{modoEdicao ? 'Editar direcionamento' : 'Novo direcionamento'}</DialogTitle>
+      <DialogTitle>{titulo ?? (modoEdicao ? 'Editar direcionamento' : 'Novo direcionamento')}</DialogTitle>
+      {resultado ? (
+        <>
+          <DialogContent>
+            {resultado.progresso.ordens_geradas > 0 ? (
+              <Alert severity="success">
+                {resultado.progresso.ordens_geradas === 1
+                  ? '1 ordem de serviço criada.'
+                  : `${resultado.progresso.ordens_geradas} ordens de serviço criadas.`}{' '}
+                Já estão no app: o promotor vê ao abrir a agenda.
+              </Alert>
+            ) : (
+              <Alert severity="warning">
+                Nenhuma ordem de serviço foi criada. Confira se a vigência já começou e se há lojas ativas que batem com os
+                filtros (e com os promotores escolhidos).
+              </Alert>
+            )}
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2 }}>
+            <Button onClick={() => navigate(`/direcionamentos/${resultado.direcionamento.id}`)}>Ver direcionamento</Button>
+            <Button variant="contained" onClick={onClose}>
+              Concluir
+            </Button>
+          </DialogActions>
+        </>
+      ) : (
       <Box component="form" onSubmit={(e) => void handleSubmit((data) => mutation.mutate(data))(e)} noValidate>
         <DialogContent>
           {erroGeral && (
@@ -251,6 +293,12 @@ export function DirecionamentoFormDialog({ open, direcionamento, onClose }: Dire
             />
           </Box>
 
+          {inicioNoFuturo && (
+            <Alert severity="info" sx={{ mt: 1 }}>
+              O início está no futuro: as ordens de serviço só serão criadas quando a vigência começar.
+            </Alert>
+          )}
+
           <Typography variant="subtitle2" sx={{ mt: 2 }}>
             Filtros (opcionais — sem nenhum marcado, vale pra empresa inteira)
           </Typography>
@@ -304,7 +352,14 @@ export function DirecionamentoFormDialog({ open, direcionamento, onClose }: Dire
                 loading={promotoresQuery.isLoading}
                 value={field.value}
                 onChange={(_, value) => field.onChange(value)}
-                renderInput={(params) => <TextField {...params} label="Promotores" size="small" />}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Promotores"
+                    size="small"
+                    helperText="Sem promotor: a OS vai pro promotor da loja; se a loja tiver mais de um, fica aberta pra qualquer um pegar."
+                  />
+                )}
               />
             )}
           />
@@ -395,6 +450,7 @@ export function DirecionamentoFormDialog({ open, direcionamento, onClose }: Dire
           </Button>
         </DialogActions>
       </Box>
+      )}
     </Dialog>
   );
 }

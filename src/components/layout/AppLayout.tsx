@@ -390,9 +390,9 @@ function MenuLateral({
           borderBottom: `1px solid ${horus.borda}`,
         }}
       >
-        <Box sx={{ width: mini ? 20 : 92, overflow: 'hidden', flexShrink: 0, lineHeight: 0 }}>
-          {/* Recolhido, o contêiner de 20px corta o logo e sobra só o "H". */}
-          <LogoHorus largura={92} />
+        <Box sx={{ flexShrink: 0, lineHeight: 0 }}>
+          {/* Recolhido, só o símbolo (o H) da marca. */}
+          {mini ? <LogoHorus soSimbolo largura={22} /> : <LogoHorus largura={100} />}
         </Box>
         <Box sx={{ flex: 1 }} />
         <BotaoQuadrado rotulo={mini ? 'Expandir menu' : 'Recolher menu'} onClick={onRecolher} pequeno>

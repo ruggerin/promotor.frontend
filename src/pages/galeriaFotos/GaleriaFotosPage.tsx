@@ -398,7 +398,9 @@ export function GaleriaFotosPage() {
       </Typography>
 
       {/* Barra de filtros em chips — ver docs/23-GALERIA-DE-FOTOS.md §5.1. */}
-      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center', mb: 2, overflowX: 'auto', pb: 0.5 }}>
+      {/* Sem overflow: a barra quebra linha (flexWrap), nunca precisa rolar — e overflowX: 'auto'
+          forçava overflowY: 'auto', fazendo a bolinha do slider de tamanho criar uma barra de rolagem. */}
+      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center', mb: 2, pb: 0.5 }}>
         {filtrosAtivos.map((tipo) => (
           <Chip
             key={tipo}

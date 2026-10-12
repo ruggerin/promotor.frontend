@@ -38,6 +38,54 @@ export async function desativarParametro(uuid: string): Promise<void> {
   await apiClient.delete(`/parametros/${uuid}`);
 }
 
+// Tela de Configurações (docs/62): catálogo com metadados + valor efetivo da empresa.
+export type TipoConfiguracao = 'bool' | 'numero' | 'numero_ou_zero' | 'numero_ou_sem_limite' | 'lista' | 'hora';
+
+export interface ItemConfiguracao {
+  chave: string;
+  area: string;
+  rotulo: string;
+  ajuda: string;
+  descricao_tecnica: string;
+  tipo: TipoConfiguracao;
+  unidade: string | null;
+  min: number | null;
+  max: number | null;
+  opcoes: { valor: string; rotulo: string }[] | null;
+  depende_de: { chave: string; motivo: string } | null;
+  grupo: string | null;
+  // 'sem_limite': desativar a linha é o próprio valor (CHECKIN_RAIO_METROS).
+  ativo_significa: 'sem_limite' | null;
+  padrao: string;
+  valor: string;
+  ativo: boolean;
+  cadastrado: boolean;
+  alterado_do_padrao: boolean;
+}
+
+export interface AreaConfiguracao {
+  chave: string;
+  rotulo: string;
+  ajuda: string;
+  itens: ItemConfiguracao[];
+}
+
+export interface AlteracaoConfiguracao {
+  chave: string;
+  valor?: string;
+  ativo?: boolean;
+}
+
+export async function buscarCatalogoConfiguracoes(): Promise<{ areas: AreaConfiguracao[] }> {
+  const { data } = await apiClient.get<{ areas: AreaConfiguracao[] }>('/parametros/catalogo');
+  return data;
+}
+
+export async function salvarConfiguracoesLote(alteracoes: AlteracaoConfiguracao[]): Promise<{ areas: AreaConfiguracao[] }> {
+  const { data } = await apiClient.put<{ areas: AreaConfiguracao[] }>('/parametros/lote', { alteracoes });
+  return data;
+}
+
 const VALORES_VERDADEIROS = ['1', 'true', 'sim', 'yes'];
 const POLLING_ATIVIDADES_PADRAO_MS = 30_000;
 

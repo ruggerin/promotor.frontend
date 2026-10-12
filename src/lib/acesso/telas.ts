@@ -23,6 +23,7 @@ export type ChaveTela =
   | 'formularios'
   | 'usuarios'
   | 'perfis'
+  | 'licencas'
   | 'centros_custo'
   | 'configuracoes'
   | 'importacao'
@@ -133,6 +134,7 @@ export const TELAS: DefTela[] = [
   { chave: 'formularios', rotulo: 'Formulários', grupo: 'Cadastros', libera: ['tela.formularios'], superadmin: true },
   { chave: 'usuarios', rotulo: 'Usuários', grupo: 'Equipe e acesso', libera: ['usuarios.gerenciar'], superadmin: true, ajuda: 'Ver e editar' },
   { chave: 'perfis', rotulo: 'Perfis', grupo: 'Equipe e acesso', ajuda: 'Sempre só do ADMIN' },
+  { chave: 'licencas', rotulo: 'Licenças e plano', grupo: 'Equipe e acesso', ajuda: 'Sempre só do ADMIN' }, // docs/67
   { chave: 'centros_custo', rotulo: 'Centros de custo', grupo: 'Equipe e acesso', libera: ['centros_custo.gerenciar'], superadmin: true, ajuda: 'Dado financeiro' },
   {
     chave: 'configuracoes',
@@ -166,7 +168,7 @@ export function podeVerTela(usuario: Usuario | null | undefined, chave: ChaveTel
   if (chave === 'empresas') return usuario.user_type === 'SUPERADMIN';
   if (usuario.user_type === 'SUPERADMIN') return Boolean(tela.superadmin);
   if (usuario.user_type === 'ADMIN') return true;
-  if (usuario.user_type !== 'GESTOR' || chave === 'perfis') return false;
+  if (usuario.user_type !== 'GESTOR' || chave === 'perfis' || chave === 'licencas') return false;
   const permissoes = usuario.perfil?.permissoes ?? [];
   return (tela.libera ?? []).some((p) => permissoes.includes(p));
 }

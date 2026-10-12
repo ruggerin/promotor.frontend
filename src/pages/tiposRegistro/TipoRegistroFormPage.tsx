@@ -1,7 +1,8 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
-import { Alert, Box, Button, Chip, CircularProgress, FormControlLabel, Link, Paper, Switch, ThemeProvider, Typography, createTheme, type Theme } from '@mui/material';
+import SendIcon from '@mui/icons-material/SendOutlined';
+import { Alert, Box, Button, Chip, CircularProgress, FormControlLabel, Link, Paper, Switch, ThemeProvider, Tooltip, Typography, createTheme, type Theme } from '@mui/material';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
@@ -10,6 +11,9 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { MdiIcon } from '../../components/MdiIcon';
 import { usePageHeader } from '../../components/layout/PageHeaderSlot';
 import { atualizarTipoRegistro, buscarTipoRegistro, criarTipoRegistro } from '../../lib/api/tiposRegistro';
+import { listarPontosVenda } from '../../lib/api/pontosVenda';
+import { DirecionamentoFormDialog } from '../direcionamentos/DirecionamentoFormDialog';
+import { valoresEnvioImediato, type ValoresDirecionamento } from '../direcionamentos/envioImediato';
 import { Lateral } from './formulario/Lateral';
 import {
   formDoTipo,
@@ -73,6 +77,11 @@ export function TipoRegistroFormPage() {
   });
   const tipo = tipoQuery.data?.tipo_registro ?? null;
 
+  // "Enviar agora pro app" (docs/66): abre o Direcionamento já preenchido com este formulário.
+  const [envio, setEnvio] = useState<ValoresDirecionamento | null>(null);
+  const [erroEnvio, setErroEnvio] = useState<string | null>(null);
+  const [preparandoEnvio, setPreparandoEnvio] = useState(false);
+
   const {
     control,
     handleSubmit,
@@ -130,6 +139,41 @@ export function TipoRegistroFormPage() {
     setFoco(novoFoco);
     if (n === 5) setAvancadoAberto(true);
     setTimeout(() => refs.current[n]?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+  }
+
+  // Por que o envio imediato não está disponível agora (null = disponível).
+  const bloqueioEnvio = !tipo
+    ? null
+    : isDirty
+      ? 'Salve as alterações antes de enviar'
+      : !tipo.ativo
+        ? 'Ative o formulário antes de enviar'
+        : tipo.acao_obrigatoria && tipo.escopo_acao === 'CAMPANHA'
+          ? 'Formulário de campanha é enviado pela própria campanha'
+          : null;
+
+  async function abrirEnvio() {
+    if (!tipo) return;
+    setErroEnvio(null);
+    if (!(tipo.acao_obrigatoria && tipo.escopo_acao === 'CONTRATO')) {
+      setEnvio(valoresEnvioImediato(tipo));
+      return;
+    }
+    // Escopo CONTRATO: pré-seleciona as lojas com contrato ativo. Sem nenhuma, não abre — filtro de
+    // lojas vazio no Direcionamento quer dizer "todas", o oposto do que o formulário pede.
+    setPreparandoEnvio(true);
+    try {
+      const { pontos_venda: lojas } = await listarPontosVenda({ ativo: true, com_contrato_ativo: true, por_pagina: 200 });
+      if (lojas.length === 0) {
+        setErroEnvio('Nenhuma loja tem contrato ativo — não há para quem enviar este formulário.');
+        return;
+      }
+      setEnvio(valoresEnvioImediato(tipo, lojas));
+    } catch {
+      setErroEnvio('Não foi possível carregar as lojas com contrato ativo.');
+    } finally {
+      setPreparandoEnvio(false);
+    }
   }
 
   const cabecalhoApp = usePageHeader(
@@ -249,6 +293,20 @@ export function TipoRegistroFormPage() {
               Descartar
             </Button>
           )}
+          {!modoCriacao && tipo && (
+            <Tooltip title={bloqueioEnvio ?? 'Cria as ordens de serviço agora, sem esperar o dia seguinte'}>
+              <span>
+                <Button
+                  variant="outlined"
+                  startIcon={<SendIcon />}
+                  disabled={Boolean(bloqueioEnvio) || preparandoEnvio}
+                  onClick={() => void abrirEnvio()}
+                >
+                  {preparandoEnvio ? 'Preparando…' : 'Enviar agora pro app'}
+                </Button>
+              </span>
+            </Tooltip>
+          )}
           <Button variant="contained" onClick={salvar} disabled={mutation.isPending || (!modoCriacao && !isDirty)}>
             {mutation.isPending ? 'Salvando…' : modoCriacao ? 'Criar formulário' : 'Salvar'}
           </Button>
@@ -332,6 +390,19 @@ export function TipoRegistroFormPage() {
           <Lateral control={control} />
         </Box>
       </Box>
+      {erroEnvio && (
+        <Alert severity="warning" onClose={() => setErroEnvio(null)} sx={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 1400 }}>
+          {erroEnvio}
+        </Alert>
+      )}
+      <DirecionamentoFormDialog
+        open={envio !== null}
+        direcionamento={null}
+        valoresIniciais={envio ?? undefined}
+        titulo="Enviar agora pro app"
+        mostrarResultado
+        onClose={() => setEnvio(null)}
+      />
     </Box>
     </ThemeProvider>
   );

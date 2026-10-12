@@ -52,6 +52,8 @@ export interface CriarUsuarioPayload {
   // Só SUPERADMIN manda isso (escolhe em qual empresa criar) — obrigatório pra ele, proibido
   // pros outros, ver docs/02-API-BACKEND.md.
   empresa_uuid?: string;
+  // Licença do app mobile (docs/67 §3) — ausente: PROMOTOR com, demais sem.
+  licenca_mobile?: boolean;
 }
 
 export async function criarUsuario(payload: CriarUsuarioPayload): Promise<{ usuario: Usuario }> {
@@ -67,6 +69,7 @@ export interface AtualizarUsuarioPayload {
   perfil_uuid?: string | null;
   centro_custo_uuid?: string | null;
   ativo?: boolean;
+  licenca_mobile?: boolean;
 }
 
 export async function atualizarUsuario(

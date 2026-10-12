@@ -185,9 +185,84 @@ export interface Parametro {
 }
 
 export interface Dispositivo {
+  // Começo do hash do identificador (o valor puro nunca sai da API) — rótulo quando não há modelo.
   identificador: string;
   nome: string | null;
+  plataforma?: 'android' | 'ios' | null;
+  vinculado_em?: string | null;
   ultimo_acesso_em: string;
+}
+
+// docs/67 — licenças do app mobile e aparelhos (GET /empresa/licencas, /usuarios/{uuid}/acesso-app).
+export interface UsoLicencas {
+  licencas_usadas: number;
+  licencas_limite: number | null;
+  licencas_disponiveis: number | null;
+  usuarios_total: number;
+  usuarios_limite: number | null;
+  pontos_venda_total: number;
+  pontos_venda_limite: number | null;
+}
+
+export type IntegridadeAparelho = 'ATESTADO' | 'NAO_ATESTADO' | 'FALHOU' | 'SUSPEITO' | null;
+
+export interface SolicitacaoAparelho {
+  uuid: string;
+  usuario_uuid?: string;
+  usuario_nome?: string;
+  user_type?: UserType;
+  aparelho_atual?: string | null;
+  aparelho: string | null;
+  plataforma: 'android' | 'ios' | null;
+  pedido_em: string;
+}
+
+export interface Licenciado {
+  usuario_uuid: string;
+  usuario_nome: string;
+  user_type: UserType;
+  tem_aparelho: boolean;
+  aparelho: string | null;
+  plataforma: 'android' | 'ios' | null;
+  versao_so: string | null;
+  versao_app: string | null;
+  integridade_status: IntegridadeAparelho;
+  vinculado_em: string | null;
+  ultimo_uso_em: string | null;
+  online: boolean;
+  trocas_aparelho_30d: number;
+  alerta_trocas: boolean;
+}
+
+export interface LicencasResponse {
+  plano: string;
+  uso: UsoLicencas;
+  troca_aparelho: { dias_entre_trocas: number };
+  usando_agora: number;
+  com_aparelho: number;
+  licenciados: Licenciado[];
+  sem_licenca: { usuario_uuid: string; usuario_nome: string; user_type: UserType }[];
+  solicitacoes: SolicitacaoAparelho[];
+}
+
+export interface AcessoAppResponse {
+  licenca_mobile: boolean;
+  uso: UsoLicencas | null;
+  dispositivo: {
+    nome: string | null;
+    plataforma: 'android' | 'ios' | null;
+    versao_so: string | null;
+    versao_app: string | null;
+    integridade_status: IntegridadeAparelho;
+    origem: 'PRIMEIRO' | 'TROCA_PROPRIA' | 'LIBERADO_ADMIN';
+    vinculado_em: string | null;
+    ultimo_uso_em: string | null;
+    online: boolean;
+  } | null;
+  trocas_aparelho_30d: number;
+  proxima_troca_propria_em: string | null;
+  troca_liberada: boolean;
+  solicitacao: SolicitacaoAparelho | null;
 }
 
 // Linha da timeline de GET /usuarios/{uuid}/historico — campos ficam null quando não fazem
@@ -232,8 +307,9 @@ export interface Usuario {
   // Só tem valor pra user_type PROMOTOR — nome do perfil de custo, nunca os valores (que
   // exigem a permissão centros_custo.gerenciar). Ver docs/08-CENTRO-DE-CUSTO.md.
   centro_custo?: { id: string; descricao: string } | null;
-  // Só tem valor pra user_type PROMOTOR — trava de 1 dispositivo por vez, ver
-  // docs/02-API-BACKEND.md. null quando nunca logou pelo mobile.
+  // Licença do app mobile atribuída pelo ADMIN, qualquer tipo (docs/67 §3).
+  licenca_mobile?: boolean;
+  // Aparelho vinculado agora ao app (1 por usuário, docs/67 §4). null quando não há.
   dispositivo?: Dispositivo | null;
   created_at: string;
   updated_at: string;

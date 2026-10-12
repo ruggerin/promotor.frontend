@@ -12,6 +12,7 @@ import {
   MenuItem,
   Switch,
   TextField,
+  Typography,
 } from '@mui/material';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import axios from 'axios';
@@ -20,10 +21,11 @@ import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { listarCentrosCusto } from '../../lib/api/centrosCusto';
 import { listarEmpresasSuperadmin } from '../../lib/api/empresas';
+import { buscarAcessoApp } from '../../lib/api/licencas';
 import { listarPerfis } from '../../lib/api/perfis';
 import { atualizarUsuario, criarUsuario } from '../../lib/api/usuarios';
 import { useAuth } from '../../lib/auth/AuthContext';
-import type { Usuario, UserType } from '../../types/api';
+import type { UsoLicencas, Usuario, UserType } from '../../types/api';
 
 const USER_TYPES: { value: UserType; label: string }[] = [
   { value: 'ADMIN', label: 'Admin' },
@@ -46,6 +48,8 @@ function buildSchema(modoEdicao: boolean, isSuperadmin: boolean) {
       centro_custo_uuid: z.string().nullable(),
       empresa_uuid: z.string().nullable(),
       ativo: z.boolean(),
+      // Licença do app mobile, qualquer tipo (docs/67 §3).
+      licenca_mobile: z.boolean(),
     })
     .refine((data) => data.user_type === 'GESTOR' || data.user_type === 'PROMOTOR' || !data.perfil_uuid, {
       message: 'Perfil só pode ser atribuído a usuários Gestor ou Promotor.',
@@ -62,6 +66,12 @@ function buildSchema(modoEdicao: boolean, isSuperadmin: boolean) {
 }
 
 type UsuarioFormData = z.infer<ReturnType<typeof buildSchema>>;
+
+function licencaLegenda(ligada: boolean, uso: UsoLicencas | undefined): string {
+  const total = uso?.licencas_limite != null ? `${uso.licencas_usadas} de ${uso.licencas_limite} em uso na empresa` : null;
+  if (ligada) return total ? `Usa 1 licença · ${total}` : 'Pode entrar no app (usa 1 licença)';
+  return total ? `Desligada · ${total}` : 'Desligada: não entra no app';
+}
 
 interface UsuarioFormDialogProps {
   open: boolean;
@@ -87,7 +97,8 @@ export function UsuarioFormDialog({ open, usuario, onClose }: UsuarioFormDialogP
     watch,
     reset,
     setError,
-    formState: { isSubmitting },
+    setValue,
+    formState: { isSubmitting, dirtyFields },
   } = useForm<UsuarioFormData>({
     resolver: zodResolver(schema),
     defaultValues: {
@@ -99,6 +110,7 @@ export function UsuarioFormDialog({ open, usuario, onClose }: UsuarioFormDialogP
       centro_custo_uuid: null,
       empresa_uuid: null,
       ativo: true,
+      licenca_mobile: true,
     },
   });
 
@@ -118,6 +130,7 @@ export function UsuarioFormDialog({ open, usuario, onClose }: UsuarioFormDialogP
               centro_custo_uuid: usuario.centro_custo?.id ?? null,
               empresa_uuid: null,
               ativo: usuario.ativo,
+              licenca_mobile: Boolean(usuario.licenca_mobile),
             }
           : {
               nome: '',
@@ -128,12 +141,32 @@ export function UsuarioFormDialog({ open, usuario, onClose }: UsuarioFormDialogP
               centro_custo_uuid: null,
               empresa_uuid: null,
               ativo: true,
+              licenca_mobile: true,
             },
       );
     }
   }, [open, usuario, reset]);
 
   const userTypeAtual = watch('user_type');
+
+  // Criando: PROMOTOR só trabalha no app, nasce com licença; os outros, sem — até a pessoa mexer
+  // na chave (docs/67 §3).
+  useEffect(() => {
+    if (open && !modoEdicao && !dirtyFields.licenca_mobile) {
+      setValue('licenca_mobile', userTypeAtual === 'PROMOTOR');
+    }
+  }, [open, modoEdicao, userTypeAtual, dirtyFields.licenca_mobile, setValue]);
+
+  // Uso de licenças da empresa pro texto da chave (só editando — vem junto do acesso ao app).
+  const acessoQuery = useQuery({
+    queryKey: ['usuarios', usuario?.id, 'acesso-app'],
+    queryFn: () => buscarAcessoApp(usuario!.id),
+    enabled: open && modoEdicao && !isSuperadmin,
+  });
+  const uso = acessoQuery.data?.uso;
+  const tinhaLicenca = Boolean(usuario?.licenca_mobile);
+  const limiteCheio =
+    !tinhaLicenca && uso?.licencas_limite != null && uso.licencas_usadas >= uso.licencas_limite;
 
   // Lista pequena e sem paginação (mesmo padrão do endpoint) — só busca quando o diálogo está
   // aberto, não precisa em toda a tela de usuários. SUPERADMIN não tem acesso a esse endpoint
@@ -170,6 +203,7 @@ export function UsuarioFormDialog({ open, usuario, onClose }: UsuarioFormDialogP
           email: data.email,
           user_type: data.user_type,
           ativo: data.ativo,
+          licenca_mobile: data.licenca_mobile,
         };
         // SUPERADMIN nunca edita perfil (o campo fica escondido pra ele, ver acima) — omitir a
         // chave em vez de mandar o valor antigo evita 422 (o backend valida perfil_uuid contra
@@ -193,10 +227,12 @@ export function UsuarioFormDialog({ open, usuario, onClose }: UsuarioFormDialogP
         perfil_uuid: data.user_type === 'GESTOR' || data.user_type === 'PROMOTOR' ? data.perfil_uuid : null,
         centro_custo_uuid: data.user_type === 'PROMOTOR' ? data.centro_custo_uuid : null,
         empresa_uuid: isSuperadmin ? (data.empresa_uuid ?? undefined) : undefined,
+        licenca_mobile: data.licenca_mobile,
       });
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['usuarios'] });
+      void queryClient.invalidateQueries({ queryKey: ['licencas'] });
       onClose();
     },
     onError: (err) => {
@@ -206,7 +242,7 @@ export function UsuarioFormDialog({ open, usuario, onClose }: UsuarioFormDialogP
           for (const [campo, mensagens] of Object.entries(errors)) {
             if (
               campo in
-              { nome: 1, email: 1, senha: 1, user_type: 1, perfil_uuid: 1, centro_custo_uuid: 1, empresa_uuid: 1, ativo: 1 }
+              { nome: 1, email: 1, senha: 1, user_type: 1, perfil_uuid: 1, centro_custo_uuid: 1, empresa_uuid: 1, ativo: 1, licenca_mobile: 1 }
             ) {
               setError(campo as keyof UsuarioFormData, { message: mensagens[0] });
             }
@@ -415,6 +451,48 @@ export function UsuarioFormDialog({ open, usuario, onClose }: UsuarioFormDialogP
               )}
             />
           )}
+          <Controller
+            name="licenca_mobile"
+            control={control}
+            render={({ field }) => (
+              <Box
+                sx={{
+                  gridColumn: '1 / -1',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 2,
+                  p: 1.5,
+                  border: 1,
+                  borderColor: 'divider',
+                  borderRadius: 1.5,
+                }}
+              >
+                <Box>
+                  <Typography sx={{ fontWeight: 500 }}>Licença do app mobile</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {licencaLegenda(field.value, uso ?? undefined)}
+                  </Typography>
+                  {limiteCheio && !field.value && (
+                    <Typography variant="body2" sx={{ color: 'warning.main' }}>
+                      Limite de {uso?.licencas_limite} licenças atingido. Fale com o suporte para contratar mais.
+                    </Typography>
+                  )}
+                  {modoEdicao && tinhaLicenca && !field.value && (
+                    <Typography variant="body2" sx={{ color: 'warning.main' }}>
+                      Ao salvar, o aparelho é desvinculado e o app deste usuário é desconectado.
+                    </Typography>
+                  )}
+                </Box>
+                <Switch
+                  checked={field.value}
+                  onChange={(e) => field.onChange(e.target.checked)}
+                  disabled={limiteCheio && !field.value}
+                  slotProps={{ input: { 'aria-label': 'Licença do app mobile' } }}
+                />
+              </Box>
+            )}
+          />
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={onClose}>Cancelar</Button>
