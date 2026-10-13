@@ -315,6 +315,25 @@ export interface Usuario {
   updated_at: string;
   // Só nas telas de usuários (lista/detalhe) — docs/52.
   acesso?: AcessoUsuario;
+  // Termos/Política com versão vigente ainda não aceita (docs/58 §5.3) — só no login e no /auth/me.
+  // Não vazio = o admin mostra a tela de aceite antes de qualquer outra.
+  documentos_pendentes?: DocumentoPendente[];
+}
+
+export type TipoDocumentoLegal = 'TERMOS_USO' | 'POLITICA_PRIVACIDADE';
+
+export interface DocumentoPendente {
+  tipo: TipoDocumentoLegal;
+  versao: string;
+}
+
+// GET /usuarios/{uuid}/aceites (docs/58 §5.5).
+export interface AceiteDocumentoLegal {
+  tipo: TipoDocumentoLegal;
+  versao: string;
+  aceito_em: string;
+  app: 'MOBILE' | 'ADMIN' | null;
+  ip: string | null;
 }
 
 export interface PontoVenda {

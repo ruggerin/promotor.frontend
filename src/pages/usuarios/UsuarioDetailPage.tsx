@@ -49,6 +49,7 @@ import { textoUltimoAcesso } from '../../lib/acesso';
 import { useAuth } from '../../lib/auth/AuthContext';
 import { formatarDataSemFuso } from '../../lib/formatarData';
 import type { EventoHistorico, PontoVenda, TipoEventoHistorico, UserType, Usuario } from '../../types/api';
+import { AceitesPanel } from './AceitesPanel';
 import { AcessoAppPanel } from './AcessoAppPanel';
 import { SelecionarPontoVendaDialog } from './SelecionarPontoVendaDialog';
 import { UsuarioFormDialog } from './UsuarioFormDialog';
@@ -573,6 +574,9 @@ export function UsuarioDetailPage() {
 
       {/* Licença do app e aparelho (docs/67 §3) — qualquer usuário da empresa pode ter licença. */}
       {usuario.user_type !== 'SUPERADMIN' && <AcessoAppPanel usuario={usuario} />}
+
+      {/* docs/58 — quais versões dos Termos/Política ele aceitou (SUPERADMIN não aceita: equipe interna). */}
+      {usuario.user_type !== 'SUPERADMIN' && <AceitesPanel usuario={usuario} />}
 
       {ehPromotor && (
         <Paper sx={{ p: 3, mt: 3 }}>

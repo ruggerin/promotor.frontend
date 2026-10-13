@@ -11,6 +11,9 @@ interface AuthContextValue {
   isAuthenticated: boolean;
   login: (email: string, senha: string) => Promise<void>;
   logout: () => Promise<void>;
+  // Troca o usuário em memória pela resposta de uma ação própria (ex.: aceite dos Termos, docs/58)
+  // — sem isso a tela de aceite voltaria, porque o `me` em cache ainda tem a pendência.
+  atualizarUsuario: (usuario: Usuario) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -81,6 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAuthenticated: Boolean(token) && Boolean(usuario),
         login,
         logout,
+        atualizarUsuario: setUsuarioDoLogin,
       }}
     >
       {children}

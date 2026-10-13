@@ -55,6 +55,7 @@ import { UsuariosListPage } from './pages/usuarios/UsuariosListPage';
 import { VisitaDetailPage } from './pages/visitas/VisitaDetailPage';
 import { VisitasListPage } from './pages/visitas/VisitasListPage';
 import { PaginaInicial } from './components/layout/PaginaInicial';
+import { AceiteTermosPage } from './pages/AceiteTermosPage';
 
 export function App() {
   return (
@@ -62,6 +63,8 @@ export function App() {
       <Route path="/login" element={<LoginPage />} />
 
       <Route element={<RequireAuth />}>
+        {/* docs/58 — fora do layout: tela cheia, antes de qualquer outra enquanto houver pendência. */}
+        <Route path="/aceite-termos" element={<AceiteTermosPage />} />
         <Route element={<AppLayout />}>
           <Route path="/" element={<PaginaInicial />} />
           <Route path="/operacao-do-dia" element={<OperacaoDoDiaPage />} />

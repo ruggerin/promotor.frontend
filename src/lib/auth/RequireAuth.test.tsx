@@ -15,6 +15,7 @@ function AppDeTeste() {
       <Route path="/login" element={<div>Tela de login</div>} />
       <Route element={<RequireAuth />}>
         <Route path="/protegida" element={<div>Conteúdo protegido</div>} />
+        <Route path="/aceite-termos" element={<div>Tela de aceite</div>} />
       </Route>
     </Routes>
   );
@@ -51,6 +52,29 @@ describe('RequireAuth', () => {
     renderComProviders(<AppDeTeste />, { rota: '/protegida' });
 
     expect(await screen.findByText('Conteúdo protegido')).toBeInTheDocument();
+  });
+
+  it('com Termos/Política pendentes, manda pra tela de aceite antes de qualquer outra (docs/58)', async () => {
+    tokenStorage.set('token-existente');
+    vi.mocked(authApi.me).mockResolvedValue({
+      usuario: {
+        id: 'uuid-1',
+        nome: 'Admin',
+        email: 'admin@teste.com',
+        user_type: 'ADMIN',
+        ativo: true,
+        avatar_url: null,
+        foto_url: null,
+        created_at: '',
+        updated_at: '',
+        documentos_pendentes: [{ tipo: 'TERMOS_USO', versao: '2026-10-06' }],
+      },
+    });
+
+    renderComProviders(<AppDeTeste />, { rota: '/protegida' });
+
+    expect(await screen.findByText('Tela de aceite')).toBeInTheDocument();
+    expect(screen.queryByText('Conteúdo protegido')).not.toBeInTheDocument();
   });
 
   it('volta pro login se a sessão salva já não for mais válida (401 no /auth/me)', async () => {
