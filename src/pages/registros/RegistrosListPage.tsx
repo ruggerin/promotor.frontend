@@ -1,4 +1,4 @@
-import { Autocomplete, Box, Button, Chip, MenuItem, Paper, TextField, Typography } from '@mui/material';
+import { Alert, Autocomplete, Box, Button, Chip, CircularProgress, Dialog, DialogContent, MenuItem, Paper, TextField, Typography } from '@mui/material';
 import { usePageHeader } from '../../components/layout/PageHeaderSlot';
 import { TituloComAtualizar } from '../../components/RefreshButton';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
@@ -6,10 +6,11 @@ import { createColumnHelper } from '@tanstack/react-table';
 import { useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { DataTable } from '../../components/DataTable';
-import { buscarAlertaRequerResolucao } from '../../lib/api/parametros';
 import { listarPontosVenda } from '../../lib/api/pontosVenda';
 import { listarRedesLojas } from '../../lib/api/redesLojas';
 import { listarRegistros } from '../../lib/api/registros';
+import { buscarVisita } from '../../lib/api/visitas';
+import { RegistroDetalheDialog } from '../../components/registros/RegistroDetalheDialog';
 import { listarTiposRegistro } from '../../lib/api/tiposRegistro';
 import type { RegistroLista } from '../../types/api';
 import type { AlertaOrigem } from '../planosAcao/NovoPlanoAcaoDialog';
@@ -57,12 +58,8 @@ export function RegistrosListPage() {
   const [status, setStatus] = useState<StatusFiltro>('');
   const [alvoResolver, setAlvoResolver] = useState<AlvoResolucao | null>(null);
   const [alertaPlano, setAlertaPlano] = useState<AlertaOrigem | null>(null);
-
-  // Mesmo parâmetro que decide se o botão "Marcar resolvido" aparece no Painel de Atividades
-  // (docs/19) — sem ele, alerta é só informativo, não faz sentido oferecer ação de resolução
-  // aqui também. Ver docs/56-RESOLVER-ALERTA-NA-TELA-REGISTROS.md.
-  const requerResolucaoQuery = useQuery({ queryKey: ['parametros', 'alerta-requer-resolucao'], queryFn: buscarAlertaRequerResolucao });
-  const requerResolucao = requerResolucaoQuery.data ?? false;
+  // Registro aberto no diálogo (clicar na linha abre o REGISTRO, não a visita inteira).
+  const [registroAberto, setRegistroAberto] = useState<RegistroLista | null>(null);
 
   const tiposRegistroQuery = useQuery({ queryKey: ['tipos-registro', 'filtro'], queryFn: () => listarTiposRegistro() });
   const pontosVendaQuery = useQuery({ queryKey: ['pontos-venda', 'filtro'], queryFn: () => listarPontosVenda() });
@@ -154,8 +151,7 @@ export function RegistrosListPage() {
           );
         },
       }),
-      ...(requerResolucao
-        ? [
+      ...[
             coluna.display({
               id: 'acao',
               header: 'Ação',
@@ -193,10 +189,9 @@ export function RegistrosListPage() {
                 );
               },
             }),
-          ]
-        : []),
+          ],
     ],
-    [requerResolucao],
+    [],
   );
 
   const cabecalho = usePageHeader(<TituloComAtualizar titulo="Registros" />);
@@ -308,15 +303,103 @@ export function RegistrosListPage() {
         isLoading={registrosQuery.isLoading}
         isError={registrosQuery.isError}
         emptyMessage="Nenhum registro encontrado com esses filtros."
-        onRowClick={(r) => navigate(`/visitas/${r.visita_id}`)}
+        onRowClick={(r) => setRegistroAberto(r)}
         page={page}
         onPageChange={setPage}
         rowsPerPage={perPage}
         totalRows={registrosQuery.data?.meta.total ?? 0}
       />
 
+      {registroAberto && (
+        <RegistroDaLista
+          item={registroAberto}
+          onFechar={() => setRegistroAberto(null)}
+          onVerVisita={() => navigate(`/visitas/${registroAberto.visita_id}`)}
+          onResolver={() => {
+            setAlvoResolver({ visitaUuid: registroAberto.visita_id, registroUuid: registroAberto.id, tipo: registroAberto.tipo_registro.descricao, produto: registroAberto.produto_auditoria?.descricao, pontoVenda: registroAberto.ponto_venda?.fantasia });
+            setRegistroAberto(null);
+          }}
+          onPlano={() => {
+            setAlertaPlano({ registroUuid: registroAberto.id, tipo: registroAberto.tipo_registro.descricao, produto: registroAberto.produto_auditoria?.descricao, pontoVenda: registroAberto.ponto_venda?.fantasia, observacao: registroAberto.observacao });
+            setRegistroAberto(null);
+          }}
+        />
+      )}
       <ResolverAlertaDialog open={!!alvoResolver} alvo={alvoResolver} onClose={() => setAlvoResolver(null)} />
       <NovoPlanoAcaoDialog open={!!alertaPlano} alerta={alertaPlano} onClose={() => setAlertaPlano(null)} />
     </Box>
+  );
+}
+
+// Carrega o detalhe completo do registro (fotos, campos, conversa) pela visita de origem e mostra
+// só ele; "Ver visita completa" fica como atalho, não como destino do clique.
+function RegistroDaLista({
+  item,
+  onFechar,
+  onVerVisita,
+  onResolver,
+  onPlano,
+}: {
+  item: RegistroLista;
+  onFechar: () => void;
+  onVerVisita: () => void;
+  onResolver: () => void;
+  onPlano: () => void;
+}) {
+  const visitaQuery = useQuery({ queryKey: ['visita', item.visita_id], queryFn: () => buscarVisita(item.visita_id) });
+  const registro = (visitaQuery.data?.visita.registros ?? []).find((r) => r.id === item.id) ?? null;
+  const aberto = item.status === 'aberto';
+
+  const acoes = (
+    <>
+      <Button onClick={onVerVisita} sx={{ textTransform: 'none', mr: 'auto' }}>
+        Ver visita completa
+      </Button>
+      {aberto && (
+        <>
+          <Button variant="outlined" onClick={onPlano} sx={{ textTransform: 'none' }}>
+            Abrir plano
+          </Button>
+          <Button variant="contained" color="success" onClick={onResolver} sx={{ textTransform: 'none' }}>
+            Resolver
+          </Button>
+        </>
+      )}
+    </>
+  );
+
+  if (registro) {
+    return (
+      <RegistroDetalheDialog
+        registro={registro}
+        visitaUuid={item.visita_id}
+        onClose={onFechar}
+        acoes={acoes}
+        statusAlerta={item.status ? { aberto, motivo: item.motivo?.descricao ?? item.motivo_texto } : null}
+      />
+    );
+  }
+
+  // Carregando, ou o registro não veio na visita (foi cancelado/removido): nunca fica preso.
+  return (
+    <Dialog open onClose={onFechar} maxWidth="xs" fullWidth>
+      <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'center', py: 4 }}>
+        {visitaQuery.isLoading ? (
+          <CircularProgress size={28} />
+        ) : (
+          <>
+            <Alert severity="warning" sx={{ width: '100%' }}>
+              Não foi possível abrir o detalhe deste registro.
+            </Alert>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <Button onClick={onFechar}>Fechar</Button>
+              <Button variant="contained" onClick={onVerVisita}>
+                Ver visita
+              </Button>
+            </Box>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }

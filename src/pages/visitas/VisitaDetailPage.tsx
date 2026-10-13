@@ -2,7 +2,6 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import AssignmentTurnedInOutlinedIcon from '@mui/icons-material/AssignmentTurnedInOutlined';
 import CampaignOutlinedIcon from '@mui/icons-material/CampaignOutlined';
 import ChatBubbleOutlinedIcon from '@mui/icons-material/ChatBubbleOutlined';
-import CloseIcon from '@mui/icons-material/Close';
 import EventNoteOutlinedIcon from '@mui/icons-material/EventNoteOutlined';
 import ImageOutlinedIcon from '@mui/icons-material/ImageOutlined';
 import InsightsOutlinedIcon from '@mui/icons-material/InsightsOutlined';
@@ -26,7 +25,6 @@ import {
   IconButton,
   Link as MuiLink,
   Paper,
-  Skeleton,
   Stack,
   TextField,
   ToggleButton,
@@ -39,7 +37,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
-import { ComentariosRegistro } from '../../components/ComentariosRegistro';
+import { CamposRespondidos, RegistroDetalheDialog, tituloRegistro } from '../../components/registros/RegistroDetalheDialog';
 import { AutenticatedImage } from '../../components/fotos/AutenticatedImage';
 import { CORES_MAPA_VISITA } from '../../components/mapa/coresMapaVisita';
 import { MapaVisita } from '../../components/mapa/MapaVisita';
@@ -53,7 +51,7 @@ import {
   corrigirHorariosVisita,
   forcarCheckoutVisita,
 } from '../../lib/api/visitas';
-import type { AcaoIntervencaoVisita, CampoRespondido, StatusVisita, Visita, VisitaRegistro } from '../../types/api';
+import type { AcaoIntervencaoVisita, StatusVisita, Visita, VisitaRegistro } from '../../types/api';
 
 const STATUS_COLORS: Record<StatusVisita, 'warning' | 'success' | 'default'> = {
   ABERTA: 'warning',
@@ -131,102 +129,6 @@ function mensagemDeErro(err: unknown): string {
     return err.response.data.message ?? 'Não foi possível concluir a ação.';
   }
   return 'Não foi possível conectar à API. Tente novamente.';
-}
-
-/**
- * A rota de imagem exige Authorization: Bearer — uma <img src> comum não manda esse header,
- * então baixamos via Axios (que já injeta o token pelo interceptor) e criamos uma blob URL.
- */
-function ImagemBlob({ url, alt, tamanho = 160 }: { url: string; alt: string; tamanho?: number }) {
-  const [blobUrl, setBlobUrl] = useState<string | null>(null);
-
-  useEffect(() => {
-    let objectUrl: string | null = null;
-    let cancelado = false;
-
-    apiClient
-      .get<Blob>(url, { responseType: 'blob' })
-      .then((response) => {
-        if (cancelado) {
-          return;
-        }
-        objectUrl = URL.createObjectURL(response.data);
-        setBlobUrl(objectUrl);
-      })
-      .catch(() => {
-        // Falha silenciosa — o card do registro segue mostrando os outros dados normalmente.
-      });
-
-    return () => {
-      cancelado = true;
-      if (objectUrl) {
-        URL.revokeObjectURL(objectUrl);
-      }
-    };
-  }, [url]);
-
-  if (!blobUrl) {
-    return <Skeleton variant="rectangular" width={tamanho} height={tamanho} sx={{ borderRadius: 1.5, flexShrink: 0 }} />;
-  }
-
-  return (
-    <Box
-      component="img"
-      src={blobUrl}
-      alt={alt}
-      sx={{ width: tamanho, height: tamanho, objectFit: 'cover', borderRadius: 1.5, flexShrink: 0 }}
-    />
-  );
-}
-
-// Rótulo → valor formatado, já resolvido pelo backend (App\Support\FormatadorValoresCampos) —
-// SORTIMENTO vem à parte (presentes/ausentes com nome do produto, não uuid cru).
-function CamposRespondidos({ campos }: { campos: CampoRespondido[] }) {
-  if (campos.length === 0) return null;
-
-  return (
-    <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1.5, overflow: 'hidden' }}>
-      {campos.map((campo, i) => (
-        <Box
-          key={campo.chave}
-          sx={{
-            p: 1.25,
-            borderTop: i > 0 ? '1px solid' : 'none',
-            borderColor: 'divider',
-          }}
-        >
-          {campo.tipo_campo === 'SORTIMENTO' ? (
-            <Box>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.75 }}>
-                {campo.rotulo}
-              </Typography>
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                {campo.sortimento?.presentes.map((p) => (
-                  <Chip key={p.id} label={p.descricao} size="small" color="success" variant="outlined" />
-                ))}
-                {campo.sortimento?.ausentes.map((p) => (
-                  <Chip key={p.id} label={p.descricao} size="small" color="error" variant="outlined" />
-                ))}
-                {(campo.sortimento?.presentes.length ?? 0) === 0 && (campo.sortimento?.ausentes.length ?? 0) === 0 && (
-                  <Typography variant="body2" color="text.secondary">Nenhum produto respondido.</Typography>
-                )}
-              </Box>
-            </Box>
-          ) : (
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2 }}>
-              <Typography variant="body2" color="text.secondary">{campo.rotulo}</Typography>
-              <Typography variant="body2" sx={{ fontWeight: 600, textAlign: 'right' }}>{campo.valor}</Typography>
-            </Box>
-          )}
-        </Box>
-      ))}
-    </Box>
-  );
-}
-
-function tituloRegistro(registro: VisitaRegistro): string {
-  const vinculo = registro.secao?.descricao ?? registro.departamento?.descricao ?? registro.marca?.descricao;
-  return registro.produto_auditoria?.descricao ?? vinculo ?? registro.tipo_registro.descricao;
 }
 
 function RegistroCard({ registro, onAbrir }: { registro: VisitaRegistro; onAbrir: () => void }) {
@@ -351,90 +253,6 @@ function ImagemThumb({ url, alt }: { url: string; alt: string }) {
 
   if (!blobUrl) return null;
   return <Box component="img" src={blobUrl} alt={alt} sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />;
-}
-
-function RegistroDetalheDialog({
-  registro,
-  visitaUuid,
-  onClose,
-}: {
-  registro: VisitaRegistro | null;
-  visitaUuid: string;
-  onClose: () => void;
-}) {
-  if (!registro) return null;
-  const vinculo = registro.secao?.descricao ?? registro.departamento?.descricao ?? registro.marca?.descricao;
-
-  return (
-    <Dialog open onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Box>
-          <Typography variant="h6" sx={{ fontWeight: 700 }}>{tituloRegistro(registro)}</Typography>
-          <Typography variant="body2" color="text.secondary">{registro.tipo_registro.descricao}</Typography>
-        </Box>
-        <IconButton aria-label="Fechar" onClick={onClose} size="small">
-          <CloseIcon />
-        </IconButton>
-      </DialogTitle>
-      <DialogContent dividers>
-        <Stack spacing={2}>
-          {registro.imagens.length > 0 ? (
-            <Box sx={{ display: 'flex', gap: 1, overflowX: 'auto', pb: 0.5 }}>
-              {registro.imagens.map((img) => (
-                <ImagemBlob key={img.id} url={img.url} alt={tituloRegistro(registro)} tamanho={220} />
-              ))}
-            </Box>
-          ) : (
-            <Box
-              sx={{
-                height: 140,
-                borderRadius: 1.5,
-                bgcolor: 'action.hover',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 0.5,
-              }}
-            >
-              <ImageOutlinedIcon sx={{ color: 'text.disabled' }} />
-              <Typography variant="caption" color="text.secondary">Sem foto</Typography>
-            </Box>
-          )}
-
-          <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-            {registro.ruptura && <Chip label="Ruptura" color="error" size="small" />}
-            {registro.pontuacao !== null && <Chip label={`${registro.pontuacao}% compliance`} color="warning" size="small" variant="outlined" />}
-          </Box>
-
-          {vinculo && (
-            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-              <Typography variant="body2" color="text.secondary">Vínculo</Typography>
-              <Typography variant="body2" sx={{ fontWeight: 600 }}>{vinculo}</Typography>
-            </Box>
-          )}
-
-          <CamposRespondidos campos={registro.campos_respondidos} />
-
-          {registro.observacao && (
-            <Box>
-              <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', fontWeight: 700, letterSpacing: 0.4 }}>
-                Observação
-              </Typography>
-              <Typography variant="body2" sx={{ mt: 0.5 }}>{registro.observacao}</Typography>
-            </Box>
-          )}
-
-          <ComentariosRegistro
-            visitaUuid={visitaUuid}
-            registroUuid={registro.id}
-            totalInicial={registro.comentarios_count}
-            novosIniciais={registro.comentarios_novos}
-          />
-        </Stack>
-      </DialogContent>
-    </Dialog>
-  );
 }
 
 // Título de seção dentro de um card — ícone + rótulo, mesmo peso visual em todos os blocos.
