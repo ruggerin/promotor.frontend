@@ -267,6 +267,8 @@ export function VisitasListPage() {
         data={visitasQuery.data?.visitas ?? []}
         getRowId={(visita) => visita.id}
         isLoading={visitasQuery.isLoading}
+        isFetching={visitasQuery.isFetching}
+        isPlaceholderData={visitasQuery.isPlaceholderData}
         isError={visitasQuery.isError}
         emptyMessage="Nenhuma visita encontrada."
         onRowClick={(visita) => navigate(`/visitas/${visita.id}`)}

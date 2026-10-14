@@ -1,4 +1,4 @@
-import { CircularProgress, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TablePagination, TableRow, TableSortLabel, Typography } from '@mui/material';
+import { CircularProgress, LinearProgress, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TablePagination, TableRow, TableSortLabel, Typography } from '@mui/material';
 import {
   flexRender,
   getCoreRowModel,
@@ -33,6 +33,11 @@ export interface DataTableProps<T> {
   // como key, nunca o índice do array.
   getRowId: (row: T) => string;
   isLoading?: boolean;
+  // Busca em andamento com dados já na tela (troca de página/filtro com keepPreviousData, ou
+  // atualização) — sem isso a tabela fica parada mostrando a página antiga e parece travada.
+  isFetching?: boolean;
+  // Linhas na tela são da busca anterior (placeholderData) — ficam apagadas até chegar a nova.
+  isPlaceholderData?: boolean;
   isError?: boolean;
   errorMessage?: string;
   emptyMessage?: string;
@@ -57,6 +62,8 @@ export function DataTable<T>({
   data,
   getRowId,
   isLoading,
+  isFetching,
+  isPlaceholderData,
   isError,
   errorMessage,
   emptyMessage,
@@ -82,7 +89,10 @@ export function DataTable<T>({
   const colSpan = columns.length;
 
   return (
-    <TableContainer component={Paper}>
+    <TableContainer component={Paper} sx={{ position: 'relative' }} aria-busy={isLoading || isFetching}>
+      {isFetching && !isLoading && (
+        <LinearProgress sx={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, zIndex: 3 }} />
+      )}
       <Table>
         <TableHead>
           {table.getHeaderGroups().map((headerGroup) => (
@@ -110,7 +120,13 @@ export function DataTable<T>({
             </TableRow>
           ))}
         </TableHead>
-        <TableBody>
+        <TableBody
+          sx={
+            isPlaceholderData
+              ? { opacity: 0.45, pointerEvents: 'none', transition: 'opacity 150ms' }
+              : { transition: 'opacity 150ms' }
+          }
+        >
           {isLoading && (
             <TableRow>
               <TableCell colSpan={colSpan} align="center">

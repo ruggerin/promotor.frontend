@@ -310,6 +310,8 @@ export function RegistrosListPage() {
         data={registrosQuery.data?.registros ?? []}
         getRowId={(r) => r.id}
         isLoading={registrosQuery.isLoading}
+        isFetching={registrosQuery.isFetching}
+        isPlaceholderData={registrosQuery.isPlaceholderData}
         isError={registrosQuery.isError}
         emptyMessage="Nenhum registro encontrado com esses filtros."
         onRowClick={(r) => setRegistroAberto(r)}

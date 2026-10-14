@@ -478,6 +478,8 @@ export function PontosVendaListPage() {
         data={pdvs}
         getRowId={(pdv) => pdv.id}
         isLoading={pdvQuery.isLoading}
+        isFetching={pdvQuery.isFetching}
+        isPlaceholderData={pdvQuery.isPlaceholderData}
         isError={pdvQuery.isError}
         emptyMessage="Nenhum ponto de venda encontrado."
         onRowClick={(pdv) => navigate(`/pontos-venda/${pdv.id}`)}

@@ -42,6 +42,8 @@ import { listarRelatoriosFixados } from '../../lib/api/relatoriosPersonalizados'
 import { useAuth } from '../../lib/auth/AuthContext';
 import { useTema } from '../../lib/tema/TemaProvider';
 import type { PreferenciaTema } from '../../types/api';
+import SimpleBar from 'simplebar-react';
+import 'simplebar-react/dist/simplebar.min.css';
 import { horus } from '../../theme';
 import { AutorizacaoGestorButton } from '../AutorizacaoGestorButton';
 import { LogoHorus } from '../LogoHorus';
@@ -468,7 +470,20 @@ function MenuLateral({
         </Box>
       )}
 
-      <Box component="nav" sx={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', mt: 0.5, mx: -0.5, px: 0.5 }}>
+      {/* SimpleBar: barra de rolagem fina por cima do conteúdo, aparece só ao rolar/passar o mouse. */}
+      <Box
+        component="nav"
+        sx={{
+          flex: 1,
+          minHeight: 0,
+          mt: 0.5,
+          mx: -0.5,
+          '& .simplebar-scrollbar::before': { backgroundColor: horus.textoFraco },
+          '& .simplebar-track.simplebar-vertical': { width: 8 },
+        }}
+      >
+        <SimpleBar style={{ height: '100%' }}>
+          <Box sx={{ px: 0.5 }}>
         {grupos.length === 0 && (
           <Typography sx={{ mt: 1, px: 1.25, color: 'text.secondary' }}>Nenhuma tela encontrada.</Typography>
         )}
@@ -531,6 +546,8 @@ function MenuLateral({
             </Box>
           );
         })}
+          </Box>
+        </SimpleBar>
       </Box>
 
       {rodape}
