@@ -1,5 +1,5 @@
 import { Alert, Box, Table, TableBody, TableCell, TableContainer, TableFooter, TableHead, TablePagination, TableRow, Typography } from '@mui/material';
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import type { ColunaResultado, FormatoMetrica, ItemDistribuicao, ResultadoRelatorio, Visual } from '../../lib/api/relatoriosPersonalizados';
 import { formatarValor, melhorQuandoMaior } from '../../pages/relatoriosPersonalizados/formatacao';
@@ -11,6 +11,34 @@ const MAX_PONTOS_GRAFICO = 50;
 const CORES = ['#4f46e5', '#f59e0b', '#15803d', '#b91c1c', '#0891b2', '#7c3aed', '#db2777', '#65a30d', '#3730a3', '#b45309'];
 
 type Linha = ResultadoRelatorio['linhas'][number];
+
+// Tabela grande não empurra a página: rola DENTRO do próprio quadro, com cabeçalho, primeira coluna e
+// total fixos, e uma barra fina que combina com o tema. CSS puro (sem biblioteca de scroll): funciona
+// com `position: sticky`, não mede layout e não quebra no tema escuro.
+const ALTURA_MAXIMA_TABELA = 'min(68vh, 720px)';
+const BARRA_FINA = {
+  overflow: 'auto',
+  scrollbarWidth: 'thin',
+  scrollbarColor: `${horus.bordaCampo} transparent`,
+  '&::-webkit-scrollbar': { width: 10, height: 10 },
+  '&::-webkit-scrollbar-track': { background: 'transparent' },
+  '&::-webkit-scrollbar-thumb': {
+    background: horus.bordaCampo,
+    borderRadius: 8,
+    border: '2px solid transparent',
+    backgroundClip: 'content-box',
+  },
+  '&::-webkit-scrollbar-thumb:hover': { background: horus.textoSecundario, backgroundClip: 'content-box' },
+  '&::-webkit-scrollbar-corner': { background: 'transparent' },
+} as const;
+// Coluna que acompanha a rolagem horizontal (primeira dimensão): fundo opaco pra não ver o que passa por baixo.
+const COLUNA_FIXA = {
+  position: 'sticky',
+  left: 0,
+  zIndex: 1,
+  bgcolor: horus.painel,
+  boxShadow: `1px 0 0 ${horus.borda}`,
+} as const;
 
 /**
  * Desenho do resultado do gerador de relatórios (docs/60): KPIs + quebras, e a tabela, a matriz
@@ -118,16 +146,24 @@ function Tabela({ resultado, escalares }: { resultado: ResultadoRelatorio; escal
   if (matriz) for (const l of resultado.linhas) indice.set(`${chaveDe(l, dimLinha)}||${chaveDe(l, dimColuna)}`, l);
   const variasMetricas = escalares.length > 1;
 
+  // A 2ª linha do cabeçalho da matriz (métricas) precisa grudar logo abaixo da 1ª: mede a altura real.
+  const primeiraLinhaCab = useRef<HTMLTableRowElement>(null);
+  const [alturaCab, setAlturaCab] = useState(0);
+  useLayoutEffect(() => {
+    setAlturaCab(primeiraLinhaCab.current?.offsetHeight ?? 0);
+  }, [matriz, variasMetricas, escalares.length, colunasMatriz.length]);
+  const fixaNoTopo = { position: 'sticky', top: 0, zIndex: 3, bgcolor: horus.painel } as const;
+
   return (
     <Box sx={{ border: `1px solid ${horus.borda}`, borderRadius: '6px', overflow: 'hidden' }}>
-      <TableContainer>
-        <Table>
+      <TableContainer sx={{ maxHeight: ALTURA_MAXIMA_TABELA, ...BARRA_FINA }}>
+        <Table stickyHeader>
           <TableHead>
             {matriz ? (
               <>
-                <TableRow>
-                  {dimLinha.map((d) => (
-                    <TableCell key={d.chave} rowSpan={variasMetricas ? 2 : 1}>
+                <TableRow ref={primeiraLinhaCab}>
+                  {dimLinha.map((d, i) => (
+                    <TableCell key={d.chave} rowSpan={variasMetricas ? 2 : 1} sx={i === 0 ? { ...fixaNoTopo, ...COLUNA_FIXA, top: 0, zIndex: 4 } : fixaNoTopo}>
                       {d.rotulo}
                     </TableCell>
                   ))}
@@ -144,7 +180,7 @@ function Tabela({ resultado, escalares }: { resultado: ResultadoRelatorio; escal
                   <TableRow>
                     {[...colunasMatriz, null].flatMap((_c, ci) =>
                       escalares.map((m) => (
-                        <TableCell key={`${ci}-${m.chave}`} align="right">
+                        <TableCell key={`${ci}-${m.chave}`} align="right" sx={{ ...fixaNoTopo, top: alturaCab }}>
                           {m.rotulo}
                         </TableCell>
                       )),
@@ -154,8 +190,10 @@ function Tabela({ resultado, escalares }: { resultado: ResultadoRelatorio; escal
               </>
             ) : (
               <TableRow>
-                {dimLinha.map((d) => (
-                  <TableCell key={d.chave}>{d.rotulo}</TableCell>
+                {dimLinha.map((d, i) => (
+                  <TableCell key={d.chave} sx={i === 0 ? { ...fixaNoTopo, ...COLUNA_FIXA, top: 0, zIndex: 4 } : fixaNoTopo}>
+                    {d.rotulo}
+                  </TableCell>
                 ))}
                 {escalares.map((m) => (
                   <TableCell key={m.chave} align="right">
@@ -175,8 +213,10 @@ function Tabela({ resultado, escalares }: { resultado: ResultadoRelatorio; escal
             )}
             {corpo.slice(pagina * POR_PAGINA, (pagina + 1) * POR_PAGINA).map((l) => (
               <TableRow key={chaveDe(l, dimLinha)} hover>
-                {dimLinha.map((d) => (
-                  <TableCell key={d.chave}>{l.dimensoes[d.chave]?.rotulo}</TableCell>
+                {dimLinha.map((d, i) => (
+                  <TableCell key={d.chave} sx={i === 0 ? COLUNA_FIXA : undefined}>
+                    {l.dimensoes[d.chave]?.rotulo}
+                  </TableCell>
                 ))}
                 {matriz &&
                   colunasMatriz.flatMap((c) =>
@@ -196,7 +236,12 @@ function Tabela({ resultado, escalares }: { resultado: ResultadoRelatorio; escal
           </TableBody>
           {corpo.length > 0 && (
             <TableFooter>
-              <TableRow sx={{ '& td': { fontWeight: 600, color: 'text.primary', fontSize: 13, borderTop: `1px solid ${horus.borda}`, bgcolor: horus.subcard } }}>
+              <TableRow
+                sx={{
+                  '& td': { fontWeight: 600, color: 'text.primary', fontSize: 13, borderTop: `1px solid ${horus.borda}`, bgcolor: horus.subcard, position: 'sticky', bottom: 0, zIndex: 2 },
+                  '& td:first-of-type': { left: 0, zIndex: 3 },
+                }}
+              >
                 <TableCell colSpan={Math.max(1, dimLinha.length)}>Total</TableCell>
                 {matriz &&
                   colunasMatriz.flatMap((c) =>

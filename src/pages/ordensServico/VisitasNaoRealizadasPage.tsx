@@ -1,6 +1,7 @@
 import { Alert, Autocomplete, Box, Button, Checkbox, Chip, CircularProgress, MenuItem, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TablePagination, TableRow, TextField, Typography } from '@mui/material';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
+import { BotaoExportar } from '../../components/BotaoExportar';
 import { usePageHeader } from '../../components/layout/PageHeaderSlot';
 import { CancelarVisitasDialog } from '../../components/ordensServico/CancelarVisitasDialog';
 import { TituloComAtualizar } from '../../components/RefreshButton';
@@ -138,6 +139,14 @@ export function VisitasNaoRealizadasPage() {
       </Paper>
 
       {query.isError && <Alert severity="error" sx={{ mb: 2 }}>Não foi possível carregar a fila — você pode não ter permissão para gerenciar ordens de serviço.</Alert>}
+
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
+        <BotaoExportar
+          rotina="ordens-servico"
+          filtros={{ vencidas: true, origem: origem || undefined, usuario_uuid: promotor?.id, ponto_venda_uuid: loja?.id }}
+          descricaoFiltros={['Visitas não realizadas', origem && `Origem: ${origem}`, promotor && `Promotor: ${promotor.nome}`, loja && `Loja: ${loja.fantasia}`].filter(Boolean).join(' · ')}
+        />
+      </Box>
 
       <TableContainer component={Paper}>
         <Table size="small">

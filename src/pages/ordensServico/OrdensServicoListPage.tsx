@@ -1,4 +1,5 @@
 import AddIcon from '@mui/icons-material/Add';
+import { BotaoExportar } from '../../components/BotaoExportar';
 import { usePageHeader } from '../../components/layout/PageHeaderSlot';
 import { TituloComAtualizar } from '../../components/RefreshButton';
 import BlockIcon from '@mui/icons-material/Block';
@@ -340,6 +341,14 @@ export function OrdensServicoListPage() {
           </Button>
         )}
       </Paper>
+
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
+        <BotaoExportar
+          rotina="ordens-servico"
+          filtros={{ status: filtroStatus === 'todos' ? undefined : filtroStatus === 'solicitacoes' ? STATUS_SOLICITACAO : filtroStatus, ponto_venda_uuid: pontoVendaFiltro?.id, usuario_uuid: usuarioFiltro?.id, prazo_de: prazoDe || undefined, prazo_ate: prazoAte || undefined }}
+          descricaoFiltros={[filtroStatus !== 'todos' && `Status: ${filtroStatus}`, pontoVendaFiltro && `Loja: ${pontoVendaFiltro.fantasia}`, usuarioFiltro && `Promotor: ${usuarioFiltro.nome}`, prazoDe && `Prazo de ${prazoDe}`, prazoAte && `Prazo até ${prazoAte}`].filter(Boolean).join(' · ')}
+        />
+      </Box>
 
       <TableContainer component={Paper}>
         <Table>

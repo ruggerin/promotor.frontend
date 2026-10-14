@@ -1,4 +1,5 @@
 import { Alert, Autocomplete, Box, Button, Chip, CircularProgress, Dialog, DialogContent, MenuItem, Paper, TextField, Typography } from '@mui/material';
+import { BotaoExportar } from '../../components/BotaoExportar';
 import { usePageHeader } from '../../components/layout/PageHeaderSlot';
 import { TituloComAtualizar } from '../../components/RefreshButton';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
@@ -295,6 +296,14 @@ export function RegistrosListPage() {
           <MenuItem value="resolvido">Resolvido</MenuItem>
         </TextField>
       </Paper>
+
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
+        <BotaoExportar
+          rotina="registros"
+          filtros={{ tipo_registro_uuid: tipoRegistroFiltro?.id, ponto_venda_uuid: pontoVendaUuid, rede_loja_uuid: redeLojaUuid, data_inicio: dataInicio, data_fim: dataFim, alerta_status: status, produto_auditoria_uuid: produtoFiltro?.uuid, ruptura: rupturaFiltro || undefined }}
+          descricaoFiltros={[tipoRegistroFiltro && `Tipo: ${tipoRegistroFiltro.label}`, status && `Status: ${STATUS_LABELS[status]}`, produtoFiltro && `Produto: ${produtoFiltro.descricao}`, rupturaFiltro && 'Só rupturas', dataInicio && `De ${dataInicio}`, dataFim && `Até ${dataFim}`].filter(Boolean).join(' · ')}
+        />
+      </Box>
 
       <DataTable
         columns={colunas}

@@ -1,5 +1,4 @@
-import DownloadIcon from '@mui/icons-material/Download';
-import { Alert, Autocomplete, Box, Button, CircularProgress, MenuItem, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
+import { Alert, Autocomplete, Box, CircularProgress, MenuItem, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 import { useState } from 'react';
@@ -12,7 +11,7 @@ import { SeletorPontoVenda } from '../../components/relatorios/SeletorPontoVenda
 import { listarRedesLojas } from '../../lib/api/redesLojas';
 import { buscarTempoNaLoja, type AgruparTempoNaLoja, type TipoComparativo } from '../../lib/api/relatorios';
 import { listarUsuarios } from '../../lib/api/usuarios';
-import { baixarCsv } from '../../lib/csv';
+import { BotaoExportar } from '../../components/BotaoExportar';
 
 const AGRUPAR_LABELS: Record<AgruparTempoNaLoja, string> = { loja: 'Por loja', promotor: 'Por promotor', rede: 'Por rede', dia: 'Por dia' };
 
@@ -128,20 +127,12 @@ export function TempoNaLojaPage() {
         </ToggleButtonGroup>
         <AlternarMedida valor={medida} onChange={setMedida} />
         <AlternarVisao valor={visao} onChange={setVisao} />
-        <Button
-          size="small"
-          startIcon={<DownloadIcon />}
+        <BotaoExportar
+          rotina="tempo-na-loja"
           disabled={linhas.length === 0}
-          onClick={() =>
-            baixarCsv(
-              `tempo-no-pdv-${agrupar}-${inicio}-a-${fim}.csv`,
-              [AGRUPAR_LABELS[agrupar], 'Visitas', 'Tempo total (min)', 'Média (min)', 'Mediana (min)', 'Itens trabalhados', 'Minutos por item'],
-              linhas.map((l) => [l.nome, l.visitas, l.tempo_total_minutos, l.media_minutos, l.mediana_minutos, l.itens_trabalhados, l.minutos_por_item]),
-            )
-          }
-        >
-          Exportar CSV
-        </Button>
+          filtros={{ data_inicio: inicio, data_fim: fim, agrupar, usuario_uuid: promotorUuid, ponto_venda_uuid: pontoVendaUuid, rede_loja_uuid: redeUuid, comparar: comparar || undefined }}
+          descricaoFiltros={`${AGRUPAR_LABELS[agrupar]} · ${inicio} a ${fim}`}
+        />
         {query.data?.comparativo && (
           <Typography variant="caption" color="text.secondary">
             Comparando com {formatarDia(query.data.comparativo.periodo.data_inicio)} a {formatarDia(query.data.comparativo.periodo.data_fim)}.

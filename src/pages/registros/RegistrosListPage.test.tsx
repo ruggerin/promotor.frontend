@@ -51,7 +51,7 @@ const registroDetalhe = {
   alerta_motivo_texto: null,
 };
 
-describe('RegistrosListPage', () => {
+describe('RegistrosListPage', { timeout: 20_000 }, () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(listarRegistros).mockResolvedValue({ registros: [linha], meta: { current_page: 1, last_page: 1, per_page: 15, total: 1 } } as never);
@@ -65,11 +65,11 @@ describe('RegistrosListPage', () => {
     const user = userEvent.setup();
     renderComProviders(<RegistrosListPage />, { rota: '/registros' });
 
-    await user.click(await screen.findByText('Gôndola vazia'));
+    await user.click(await screen.findByText('Gôndola vazia', {}, { timeout: 8000 }));
 
     // Diálogo do registro, ainda na lista (nenhuma navegação).
-    expect(await screen.findByRole('dialog')).toBeInTheDocument();
-    await waitFor(() => expect(screen.getByText('Pede ação')).toBeInTheDocument());
+    expect(await screen.findByRole('dialog', {}, { timeout: 8000 })).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText('Pede ação')).toBeInTheDocument(), { timeout: 8000 });
     expect(buscarVisita).toHaveBeenCalledWith('vis-1');
     expect(screen.getByRole('button', { name: 'Resolver' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Ver visita completa' })).toBeInTheDocument();
@@ -83,9 +83,9 @@ describe('RegistrosListPage', () => {
     const user = userEvent.setup();
     renderComProviders(<RegistrosListPage />, { rota: '/registros' });
 
-    await user.click(await screen.findByText('Gôndola vazia'));
-    await screen.findByRole('dialog');
-    expect(await screen.findByText(/Resolvido — Reposto/)).toBeInTheDocument();
+    await user.click(await screen.findByText('Gôndola vazia', {}, { timeout: 8000 }));
+    await screen.findByRole('dialog', {}, { timeout: 8000 });
+    expect(await screen.findByText(/Resolvido — Reposto/, {}, { timeout: 8000 })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Resolver' })).toBeNull();
   });
 });

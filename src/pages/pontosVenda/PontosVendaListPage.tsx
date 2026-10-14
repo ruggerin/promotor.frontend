@@ -1,4 +1,5 @@
 import AddIcon from '@mui/icons-material/Add';
+import { BotaoExportar } from '../../components/BotaoExportar';
 import { usePageHeader } from '../../components/layout/PageHeaderSlot';
 import { TituloComAtualizar } from '../../components/RefreshButton';
 import BlockIcon from '@mui/icons-material/Block';
@@ -463,6 +464,14 @@ export function PontosVendaListPage() {
         )}
         </Box>
       </Paper>
+
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
+        <BotaoExportar
+          rotina="lojas"
+          filtros={filtros}
+          descricaoFiltros={[filtroAtivo !== 'todos' && `Situação: ${filtroAtivo}`, busca && `Busca: ${busca}`, cidade && `Cidade: ${cidade}`, dataInicio && `De ${dataInicio}`, dataFim && `Até ${dataFim}`].filter(Boolean).join(' · ')}
+        />
+      </Box>
 
       <DataTable
         columns={colunas}

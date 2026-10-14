@@ -1,4 +1,5 @@
 import { Autocomplete, Box, Chip, MenuItem, Paper, TextField, Typography } from '@mui/material';
+import { BotaoExportar } from '../../components/BotaoExportar';
 import { usePageHeader } from '../../components/layout/PageHeaderSlot';
 import { TituloComAtualizar } from '../../components/RefreshButton';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
@@ -252,6 +253,14 @@ export function VisitasListPage() {
         />
         )}
       </Paper>
+
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
+        <BotaoExportar
+          rotina="visitas"
+          filtros={{ data_inicio: dataInicio, data_fim: dataFim, usuario_uuid: usuarioUuid, ponto_venda_uuid: pontoVendaUuid, status: status || undefined, produto_auditoria_uuid: produtoFiltro?.uuid, ruptura: rupturaFiltro || undefined, afastamento: soAfastamento || undefined }}
+          descricaoFiltros={[status && `Status: ${status}`, produtoFiltro && `Produto: ${produtoFiltro.descricao}`, rupturaFiltro && 'Só rupturas', soAfastamento && 'Só com afastamento', dataInicio && `De ${dataInicio}`, dataFim && `Até ${dataFim}`].filter(Boolean).join(' · ')}
+        />
+      </Box>
 
       <DataTable
         columns={colunas}
