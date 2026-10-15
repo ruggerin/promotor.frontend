@@ -15,6 +15,8 @@ import {
   Chip,
   CircularProgress,
   IconButton,
+  LinearProgress,
+  MenuItem,
   Paper,
   Table,
   TableBody,
@@ -26,7 +28,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MdiIcon } from '../../components/MdiIcon';
@@ -52,6 +54,11 @@ export function TiposRegistroListPage() {
   const [empresaUuid, setEmpresaUuid] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const [erro, setErro] = useState<string | null>(null);
+  const [busca, setBusca] = useState('');
+  // '' = todos; 'sim'/'nao' viram o booleano do filtro na API.
+  const [espontaneo, setEspontaneo] = useState<'' | 'sim' | 'nao'>('');
+  const [status, setStatus] = useState<'' | 'ativos' | 'inativos'>('');
+  const filtrando = busca !== '' || espontaneo !== '' || status !== '';
 
   const empresasQuery = useQuery({
     queryKey: ['empresas', 'superadmin'],
@@ -60,11 +67,18 @@ export function TiposRegistroListPage() {
   });
 
   const query = useQuery({
-    queryKey: ['tipos-registro', { empresaUuid }],
-    queryFn: () => listarTiposRegistro({ empresa_uuid: empresaUuid ?? undefined }),
+    queryKey: ['tipos-registro', { empresaUuid, busca, espontaneo, status }],
+    queryFn: () =>
+      listarTiposRegistro({
+        empresa_uuid: empresaUuid ?? undefined,
+        busca: busca.trim() || undefined,
+        disponivel_registro_livre: espontaneo === '' ? undefined : espontaneo === 'sim',
+        ativo: status === '' ? undefined : status === 'ativos',
+      }),
+    placeholderData: keepPreviousData,
   });
 
-  const totalColunas = isSuperadmin ? 8 : 7;
+  const totalColunas = isSuperadmin ? 9 : 8;
 
   const rotuloEscopo: Record<NonNullable<TipoRegistro['escopo_acao']>, string> = {
     SEMPRE: 'Sempre',
@@ -145,6 +159,46 @@ export function TiposRegistroListPage() {
         />
       )}
 
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1.5, mb: 2 }}>
+        <TextField
+          size="small"
+          label="Buscar"
+          placeholder="Nome do formulário"
+          value={busca}
+          onChange={(e) => setBusca(e.target.value)}
+          sx={{ width: 240 }}
+        />
+        <TextField
+          select
+          size="small"
+          label="Registro espontâneo"
+          value={espontaneo}
+          onChange={(e) => setEspontaneo(e.target.value as typeof espontaneo)}
+          sx={{ width: 200 }}
+        >
+          <MenuItem value="">Todos</MenuItem>
+          <MenuItem value="sim">Sim, o promotor abre sozinho</MenuItem>
+          <MenuItem value="nao">Não, só quando pedido</MenuItem>
+        </TextField>
+        <TextField select size="small" label="Status" value={status} onChange={(e) => setStatus(e.target.value as typeof status)} sx={{ width: 150 }}>
+          <MenuItem value="">Todos</MenuItem>
+          <MenuItem value="ativos">Ativos</MenuItem>
+          <MenuItem value="inativos">Inativos</MenuItem>
+        </TextField>
+        {filtrando && (
+          <Button
+            size="small"
+            onClick={() => {
+              setBusca('');
+              setEspontaneo('');
+              setStatus('');
+            }}
+          >
+            Limpar filtros
+          </Button>
+        )}
+      </Box>
+
       {!isSuperadmin && (
         <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
           <Button variant="contained" startIcon={<AddIcon />} onClick={() => navigate('/tipos-registro/novo')}>
@@ -159,7 +213,10 @@ export function TiposRegistroListPage() {
         </Alert>
       )}
 
-      <TableContainer component={Paper}>
+      <TableContainer component={Paper} sx={{ position: 'relative' }} aria-busy={query.isFetching}>
+        {query.isFetching && !query.isLoading && (
+          <LinearProgress sx={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, zIndex: 3 }} />
+        )}
         <Table>
           <TableHead>
             <TableRow>
@@ -167,13 +224,18 @@ export function TiposRegistroListPage() {
               <TableCell>Descrição</TableCell>
               <TableCell>Ícone</TableCell>
               <TableCell>Exige foto</TableCell>
+              <TableCell>
+                <Tooltip title="O promotor pode abrir esse formulário por conta própria na visita, sem estar pedido numa OS ou direcionamento.">
+                  <span>Registro espontâneo</span>
+                </Tooltip>
+              </TableCell>
               <TableCell>Campos extras</TableCell>
               <TableCell>Ação</TableCell>
               <TableCell>Status</TableCell>
               <TableCell align="right">Ações</TableCell>
             </TableRow>
           </TableHead>
-          <TableBody>
+          <TableBody sx={{ opacity: query.isPlaceholderData ? 0.45 : 1, pointerEvents: query.isPlaceholderData ? 'none' : undefined, transition: 'opacity 150ms' }}>
             {query.isLoading && (
               <TableRow>
                 <TableCell colSpan={totalColunas} align="center">
@@ -184,7 +246,7 @@ export function TiposRegistroListPage() {
             {query.data?.tipos_registro.length === 0 && (
               <TableRow>
                 <TableCell colSpan={totalColunas} align="center">
-                  Nenhum tipo de registro cadastrado.
+                  {filtrando ? 'Nenhum formulário com esses filtros.' : 'Nenhum tipo de registro cadastrado.'}
                 </TableCell>
               </TableRow>
             )}
@@ -196,6 +258,13 @@ export function TiposRegistroListPage() {
                   <MdiIcon icone={t.icone} size={22} /> {!t.icone && '—'}
                 </TableCell>
                 <TableCell>{t.exige_foto ? 'Sim' : 'Não'}</TableCell>
+                <TableCell>
+                  <Chip
+                    label={t.disponivel_registro_livre ? 'Sim' : 'Não'}
+                    color={t.disponivel_registro_livre ? 'info' : 'default'}
+                    size="small"
+                  />
+                </TableCell>
                 <TableCell>
                   {t.campos.length === 0 ? (
                     <Typography variant="body2" color="text.secondary">
@@ -234,7 +303,7 @@ export function TiposRegistroListPage() {
                         <span>
                           <IconButton
                             size="small"
-                            disabled={indice === 0 || moverMutation.isPending}
+                            disabled={filtrando || indice === 0 || moverMutation.isPending}
                             onClick={() => moverMutation.mutate({ t, direcao: 'cima' })}
                           >
                             <ArrowUpwardIcon fontSize="small" />
@@ -245,7 +314,7 @@ export function TiposRegistroListPage() {
                         <span>
                           <IconButton
                             size="small"
-                            disabled={indice === (query.data?.tipos_registro.length ?? 0) - 1 || moverMutation.isPending}
+                            disabled={filtrando || indice === (query.data?.tipos_registro.length ?? 0) - 1 || moverMutation.isPending}
                             onClick={() => moverMutation.mutate({ t, direcao: 'baixo' })}
                           >
                             <ArrowDownwardIcon fontSize="small" />

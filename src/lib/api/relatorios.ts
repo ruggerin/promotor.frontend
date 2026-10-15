@@ -82,7 +82,20 @@ export interface ResumoTempoNaLoja {
   minutos_por_item: number | null;
 }
 
-export interface LinhaTempoNaLoja extends ResumoTempoNaLoja {
+// Esforço × Retorno (docs/61): só vem quando o faturamento está habilitado na empresa e o usuário
+// tem faturamento.visualizar. null = sem informação (nunca zero).
+export interface ResumoFaturamento {
+  faturamento_bruto?: number | null;
+  devolucoes?: number | null;
+  faturamento_liquido?: number | null;
+  lucro?: number | null;
+  margem_pct?: number | null;
+  faturamento_por_hora?: number | null;
+  lucro_por_hora?: number | null;
+  pedidos_faturados?: number;
+}
+
+export interface LinhaTempoNaLoja extends ResumoTempoNaLoja, ResumoFaturamento {
   chave: string;
   nome: string;
   media_minutos_comparativo?: number | null;
@@ -93,7 +106,9 @@ export interface RelatorioTempoNaLoja {
   agrupar: AgruparTempoNaLoja;
   linhas: LinhaTempoNaLoja[];
   // `desconsideradas`: visitas fora da faixa válida (< 2 min ou > 12 h), de fora da média.
-  total: ResumoTempoNaLoja & { desconsideradas: number };
+  total: ResumoTempoNaLoja & ResumoFaturamento & { desconsideradas: number };
+  // Presente só quando o faturamento está liberado pra quem consulta.
+  faturamento?: { habilitado: boolean; atribuido_por: AgruparTempoNaLoja; nota?: string };
   comparativo?: {
     tipo: TipoComparativo;
     periodo: { data_inicio: string; data_fim: string };

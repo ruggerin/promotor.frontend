@@ -103,6 +103,52 @@ export function PermissoesPorTela({
         </Box>
       ))}
 
+      {/* docs/74 — ao contrário das outras, estas marcas OBRIGAM: quem tem segue a agenda. */}
+      <Box>
+        <Typography sx={{ fontSize: 11, fontWeight: 500, letterSpacing: '0.06em', textTransform: 'uppercase', color: horus.textoFraco, mb: 0.25 }}>
+          Regras de visita no app
+        </Typography>
+        <Typography sx={{ fontSize: 12, color: 'text.secondary', mb: 0.25 }}>
+          Restringem quem tem este perfil (promotor ou gestor em campo). Não valem para administradores.
+        </Typography>
+        <FormControlLabel
+          sx={{ display: 'flex', my: -0.5 }}
+          control={
+            <Checkbox
+              size="small"
+              checked={tem('visitas.exigir_agenda')}
+              onChange={(e) => alternar('visitas.exigir_agenda', e.target.checked, ['visitas.exigir_sequencia'])}
+            />
+          }
+          label={
+            <Rotulo
+              texto="Só inicia visita pela agenda"
+              ajuda="A aba Lojas fica só para consulta. Visita fora da agenda só com autorização de um gestor no aparelho."
+            />
+          }
+        />
+        <Box sx={{ pl: 4 }}>
+          <FormControlLabel
+            sx={{ display: 'flex', my: -0.75 }}
+            disabled={!tem('visitas.exigir_agenda')}
+            control={
+              <Checkbox
+                size="small"
+                checked={tem('visitas.exigir_sequencia')}
+                onChange={(e) => alternar('visitas.exigir_sequencia', e.target.checked)}
+              />
+            }
+            label={
+              <Rotulo
+                texto="Segue a sequência do dia"
+                ajuda="Só a visita da vez pode ser iniciada, na ordem do horário previsto. Para pular uma loja, o promotor informa o motivo."
+                pequeno
+              />
+            }
+          />
+        </Box>
+      </Box>
+
       <Box>
         <Typography sx={{ fontSize: 11, fontWeight: 500, letterSpacing: '0.06em', textTransform: 'uppercase', color: horus.textoFraco, mb: 0.25 }}>
           Outras permissões

@@ -244,6 +244,8 @@ export function PontoVendaDetailPage() {
     queryFn: () => listarPedidosDaLoja(publicId!),
     enabled: Boolean(publicId),
   });
+  // Valores só chegam quando a API liberou (parâmetro da empresa + permissão) — docs/61.
+  const comValoresPedido = (pedidosQuery.data?.pedidos ?? []).some((p) => 'valor_total' in p);
 
   const visitasQuery = useQuery({
     queryKey: ['visitas', { ponto_venda_uuid: publicId, page: paginaVisitas }],
@@ -668,7 +670,8 @@ export function PontoVendaDetailPage() {
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             Pedidos desta loja vindos do ERP, gravados pelo integrador. O promotor vê esta mesma lista
-            ao entrar na loja. Sem valores, só produtos e quantidades.
+            ao entrar na loja. O promotor vê só produtos e quantidades; valores aparecem aqui apenas se o
+            faturamento estiver habilitado e o seu perfil permitir.
           </Typography>
           <Table size="small">
             <TableHead>
@@ -678,6 +681,7 @@ export function PontoVendaDetailPage() {
                 <TableCell>Data</TableCell>
                 <TableCell>Itens</TableCell>
                 <TableCell>Situação</TableCell>
+                {comValoresPedido && <TableCell align="right">Valor</TableCell>}
               </TableRow>
             </TableHead>
             <TableBody>
@@ -711,6 +715,19 @@ export function PontoVendaDetailPage() {
                       }
                     />
                   </TableCell>
+                  {comValoresPedido && (
+                    <TableCell align="right">
+                      {pedido.valor_total == null
+                        ? '—'
+                        : pedido.valor_total.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                      {pedido.status_faturamento === 'DEVOLVIDO' && <Chip size="small" sx={{ ml: 1 }} label="Devolvido" />}
+                      {pedido.valor_divergente && (
+                        <Tooltip title="O total do ERP não bate com a soma dos itens">
+                          <Chip size="small" color="warning" sx={{ ml: 1 }} label="Divergente" />
+                        </Tooltip>
+                      )}
+                    </TableCell>
+                  )}
                 </TableRow>
               ))}
             </TableBody>

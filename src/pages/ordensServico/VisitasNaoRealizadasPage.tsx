@@ -1,4 +1,4 @@
-import { Alert, Autocomplete, Box, Button, Checkbox, Chip, CircularProgress, MenuItem, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TablePagination, TableRow, TextField, Typography } from '@mui/material';
+import { Alert, Autocomplete, Box, Button, Checkbox, Chip, CircularProgress, LinearProgress, MenuItem, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TablePagination, TableRow, TextField, Typography } from '@mui/material';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { BotaoExportar } from '../../components/BotaoExportar';
@@ -148,7 +148,11 @@ export function VisitasNaoRealizadasPage() {
         />
       </Box>
 
-      <TableContainer component={Paper}>
+      {/* Mesmo padrão do DataTable: barra no topo durante a busca e linhas da página anterior apagadas. */}
+      <TableContainer component={Paper} sx={{ position: 'relative' }} aria-busy={query.isFetching}>
+        {query.isFetching && !query.isLoading && (
+          <LinearProgress sx={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, zIndex: 3 }} />
+        )}
         <Table size="small">
           <TableHead>
             <TableRow>
@@ -169,7 +173,13 @@ export function VisitasNaoRealizadasPage() {
               <TableCell align="right">Ação</TableCell>
             </TableRow>
           </TableHead>
-          <TableBody>
+          <TableBody
+            sx={
+              query.isPlaceholderData
+                ? { opacity: 0.45, pointerEvents: 'none', transition: 'opacity 150ms' }
+                : { transition: 'opacity 150ms' }
+            }
+          >
             {query.isLoading && (
               <TableRow>
                 <TableCell colSpan={7} align="center">

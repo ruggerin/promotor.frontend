@@ -25,6 +25,10 @@ export type Permissao =
   | 'pedidos_venda.criar'
   | 'pedidos_venda.aprovar'
   | 'relatorios.personalizados.gerenciar'
+  | 'faturamento.visualizar'
+  // Regras de visita (docs/74): restringem quem tem a marca, em vez de liberar.
+  | 'visitas.exigir_agenda'
+  | 'visitas.exigir_sequencia'
   // Acesso a tela (docs/64) — ver lib/acesso/telas.ts.
   | 'tela.operacao_dia'
   | 'tela.atividades'

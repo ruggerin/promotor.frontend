@@ -25,6 +25,10 @@ function formatarDia(iso: string): string {
   return `${dia}/${mes}/${ano}`;
 }
 
+function brl(v: number | null | undefined): string {
+  return v === null || v === undefined ? '—' : v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
 function Kpi({ rotulo, valor, extra }: { rotulo: string; valor: string; extra?: React.ReactNode }) {
   return (
     <Paper sx={{ p: 2, flex: '1 1 150px' }}>
@@ -84,6 +88,10 @@ export function TempoNaLojaPage() {
   const total = query.data?.total;
   const comp = query.data?.comparativo?.total;
   const linhas = query.data?.linhas ?? [];
+  // Esforço × Retorno: as colunas só existem quando a API liberou o faturamento (parâmetro + permissão).
+  const fat = query.data?.faturamento;
+  const colunasFat = Boolean(fat) && agrupar !== 'promotor';
+  const extras = (colunasFat ? 4 : 0) + (comparar ? 1 : 0);
 
   return (
     <Box>
@@ -146,6 +154,12 @@ export function TempoNaLojaPage() {
         </Alert>
       )}
 
+      {fat?.nota && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          {fat.nota}
+        </Alert>
+      )}
+
       {total && (
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 2 }}>
           <Kpi rotulo="Visitas consideradas" valor={String(total.visitas)} extra={<Variacao atual={total.visitas} anterior={comp?.visitas} />} />
@@ -155,6 +169,14 @@ export function TempoNaLojaPage() {
           <Kpi rotulo="Itens trabalhados" valor={total.itens_trabalhados === null ? 'sem informação' : String(total.itens_trabalhados)} />
           <Kpi rotulo="Min por item" valor={total.minutos_por_item === null ? 'sem informação' : String(total.minutos_por_item).replace('.', ',')} />
           <Kpi rotulo="Desconsideradas" valor={String(total.desconsideradas)} />
+          {colunasFat && (
+            <>
+              <Kpi rotulo="Faturamento líquido" valor={total.faturamento_liquido == null ? 'sem informação' : brl(total.faturamento_liquido)} />
+              <Kpi rotulo="R$ por hora na loja" valor={total.faturamento_por_hora == null ? 'sem informação' : brl(total.faturamento_por_hora)} />
+              <Kpi rotulo="Lucro" valor={total.lucro == null ? 'sem informação' : brl(total.lucro)} />
+              <Kpi rotulo="Margem" valor={total.margem_pct == null ? 'sem informação' : `${String(total.margem_pct).replace('.', ',')}%`} />
+            </>
+          )}
         </Box>
       )}
 
@@ -176,20 +198,28 @@ export function TempoNaLojaPage() {
               <TableCell align="right">Mediana</TableCell>
               <TableCell align="right">Itens</TableCell>
               <TableCell align="right">Min/item</TableCell>
+              {colunasFat && (
+                <>
+                  <TableCell align="right">Faturamento líq.</TableCell>
+                  <TableCell align="right">R$/hora</TableCell>
+                  <TableCell align="right">Lucro</TableCell>
+                  <TableCell align="right">Margem</TableCell>
+                </>
+              )}
               {comparar && <TableCell align="right">Média no comparativo</TableCell>}
             </TableRow>
           </TableHead>
           <TableBody>
             {query.isLoading && (
               <TableRow>
-                <TableCell colSpan={comparar ? 8 : 7} align="center">
+                <TableCell colSpan={7 + extras} align="center">
                   <CircularProgress size={24} />
                 </TableCell>
               </TableRow>
             )}
             {!query.isLoading && linhas.length === 0 && (
               <TableRow>
-                <TableCell colSpan={comparar ? 8 : 7} align="center" sx={{ py: 4 }}>
+                <TableCell colSpan={7 + extras} align="center" sx={{ py: 4 }}>
                   Não temos visitas com checkout nesse período.
                 </TableCell>
               </TableRow>
@@ -206,6 +236,14 @@ export function TempoNaLojaPage() {
                 <TableCell align="right">{formatarMinutos(l.mediana_minutos)}</TableCell>
                 <TableCell align="right">{l.itens_trabalhados ?? '—'}</TableCell>
                 <TableCell align="right">{l.minutos_por_item === null ? '—' : String(l.minutos_por_item).replace('.', ',')}</TableCell>
+                {colunasFat && (
+                  <>
+                    <TableCell align="right">{brl(l.faturamento_liquido)}</TableCell>
+                    <TableCell align="right">{brl(l.faturamento_por_hora)}</TableCell>
+                    <TableCell align="right">{brl(l.lucro)}</TableCell>
+                    <TableCell align="right">{l.margem_pct == null ? '—' : `${String(l.margem_pct).replace('.', ',')}%`}</TableCell>
+                  </>
+                )}
                 {comparar && <TableCell align="right">{formatarMinutos(l.media_minutos_comparativo)}</TableCell>}
               </TableRow>
             ))}

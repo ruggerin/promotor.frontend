@@ -446,8 +446,8 @@ function Editor({ relatorio }: { relatorio?: RelatorioPersonalizado }) {
             ))}
           </TextField>
           {estado.entidade === 'registro' && (
-            <TextField select label="Formulário" value={estado.formulario ?? ''} sx={{ width: 230 }} onChange={(e) => trocarFormulario(e.target.value)}>
-              <MenuItem value="">Todos os formulários</MenuItem>
+            <TextField select label="Tipo de registro" value={estado.formulario ?? ''} sx={{ width: 230 }} onChange={(e) => trocarFormulario(e.target.value)}>
+              <MenuItem value="">Todos os tipos</MenuItem>
               {(formulariosQuery.data ?? []).map((f) => (
                 <MenuItem key={f.valor} value={f.valor}>
                   {f.rotulo}
@@ -522,7 +522,7 @@ function Editor({ relatorio }: { relatorio?: RelatorioPersonalizado }) {
               {catalogoQuery.isLoading && <CircularProgress size={20} sx={{ mt: 2 }} />}
               {estado.entidade === 'registro' && !estado.formulario && (
                 <Typography sx={{ fontSize: 12, color: 'text.secondary', mt: 1.5, px: 0.5 }}>
-                  Escolha um formulário no topo para usar as perguntas dele.
+                  Escolha um tipo de registro no topo para usar as perguntas do formulário dele.
                 </Typography>
               )}
               {gruposDaLista.map((g) => (

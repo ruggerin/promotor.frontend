@@ -16,6 +16,9 @@ export interface TiposRegistroListResponse {
 
 export interface TiposRegistroListParams {
   ativo?: boolean;
+  // Formulário que o promotor pode abrir por conta própria na visita (registro espontâneo).
+  disponivel_registro_livre?: boolean;
+  busca?: string;
   // Só tem efeito pra quem chama como SUPERADMIN — ver docs/02-API-BACKEND.md.
   empresa_uuid?: string;
   // "Formulário desta campanha" (Fase 3 de docs/20-FORMULARIO-DINAMICO-CAMPANHA.md §3) — lista
@@ -29,6 +32,9 @@ export async function listarTiposRegistro(params: TiposRegistroListParams = {}):
   const { data } = await apiClient.get<TiposRegistroListResponse>('/tipos-registro', {
     params: {
       ativo: params.ativo === undefined ? undefined : params.ativo ? 1 : 0,
+      disponivel_registro_livre:
+        params.disponivel_registro_livre === undefined ? undefined : params.disponivel_registro_livre ? 1 : 0,
+      busca: params.busca || undefined,
       empresa_uuid: params.empresa_uuid,
       campanha_auditoria_uuid: params.campanha_auditoria_uuid,
       por_pagina: params.por_pagina,

@@ -113,7 +113,10 @@ export const TELAS: DefTela[] = [
     rotulo: 'Relatórios',
     grupo: 'Relatórios',
     libera: ['tela.relatorios'],
-    acoes: [{ valor: 'relatorios.personalizados.gerenciar', rotulo: 'Criar, editar e fixar relatórios para a empresa' }],
+    acoes: [
+      { valor: 'relatorios.personalizados.gerenciar', rotulo: 'Criar, editar e fixar relatórios para a empresa' },
+      { valor: 'faturamento.visualizar', rotulo: 'Ver faturamento, lucro e Esforço × Retorno (precisa estar habilitado nas Configurações)' },
+    ],
   },
   {
     chave: 'lojas',

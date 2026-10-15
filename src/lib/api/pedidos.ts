@@ -30,6 +30,14 @@ export interface Pedido {
   // previsão já passou; senão A_CAMINHO.
   status: 'A_CAMINHO' | 'ATRASADO' | 'ENTREGUE';
   entregue_em: string | null;
+  // Valor e faturamento (docs/61): só presentes quando a empresa habilitou o faturamento e o usuário
+  // tem faturamento.visualizar — nunca para o promotor.
+  valor_total?: number | null;
+  valor_lucro_total?: number | null;
+  margem_pct?: number | null;
+  status_faturamento?: 'NAO_FATURADO' | 'FATURADO' | 'CANCELADO' | 'DEVOLVIDO' | null;
+  faturado_em?: string | null;
+  valor_divergente?: boolean;
   itens: PedidoItem[];
   entregas: PedidoEntrega[];
 }

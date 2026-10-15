@@ -168,7 +168,7 @@ describe('RelatorioEditorPage — registros e formulários', () => {
 
     await usuario.click(await screen.findByRole('combobox', { name: 'Analisar' }));
     await usuario.click(await screen.findByRole('option', { name: 'Registros e formulários' }));
-    await usuario.click(await screen.findByRole('combobox', { name: 'Formulário' }));
+    await usuario.click(await screen.findByRole('combobox', { name: 'Tipo de registro' }));
     await usuario.click(await screen.findByRole('option', { name: 'Loja perfeita' }));
 
     expect(await screen.findByText('Perguntas do formulário')).toBeInTheDocument();
