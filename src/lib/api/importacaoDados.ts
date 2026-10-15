@@ -15,13 +15,18 @@ export interface RelatorioImportacao {
   // Só a carteira vendedor × loja: ela substitui a carteira de cada loja do arquivo.
   lojas?: number;
   removidas?: number;
+  // Lojas: vínculos de vendedor criados pela coluna `vendedores` (docs/78 §3).
+  vendedores_vinculados?: number;
+  // Rota de visitas (docs/78 §4): dias que saíram da rota.
+  agendas_desativadas?: number;
   aplicado: boolean;
 }
 
-async function enviar(url: string, arquivo: File, simular: boolean): Promise<RelatorioImportacao> {
+async function enviar(url: string, arquivo: File, simular: boolean, extras: Record<string, string> = {}): Promise<RelatorioImportacao> {
   const form = new FormData();
   form.append('arquivo', arquivo);
   form.append('simular', simular ? '1' : '0');
+  for (const [chave, valor] of Object.entries(extras)) form.append(chave, valor);
   const { data } = await apiClient.post<RelatorioImportacao>(url, form);
   return data;
 }
@@ -30,5 +35,7 @@ export const importarPontosVenda = (arquivo: File, simular: boolean) => enviar('
 export const importarProdutos = (arquivo: File, simular: boolean) => enviar('/produtos-auditoria/importar', arquivo, simular);
 export const importarSupervisores = (arquivo: File, simular: boolean) => enviar('/supervisores/importar', arquivo, simular);
 export const importarVendedores = (arquivo: File, simular: boolean) => enviar('/vendedores/importar', arquivo, simular);
+export const importarRotaVisitas = (arquivo: File, simular: boolean, extras?: Record<string, string>) =>
+  enviar('/agendas-visita/importar', arquivo, simular, extras);
 export const importarCarteira = (arquivo: File, simular: boolean) => enviar('/carteira-vendedores/importar', arquivo, simular);
 export const importarSortimento = (arquivo: File, simular: boolean) => enviar('/sortimentos/importar', arquivo, simular);

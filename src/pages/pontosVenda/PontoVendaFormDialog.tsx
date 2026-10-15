@@ -18,6 +18,7 @@ import axios from 'axios';
 import { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
+import { UFS } from '../../lib/uf';
 import { atualizarPontoVenda, criarPontoVenda } from '../../lib/api/pontosVenda';
 import { listarRamosAtividade } from '../../lib/api/ramosAtividade';
 import { listarRedesLojas } from '../../lib/api/redesLojas';
@@ -41,6 +42,8 @@ const schema = z.object({
   numero: z.string(),
   bairro: z.string(),
   cidade: z.string().min(1, 'Obrigatório').max(100),
+  // '' = sem UF (lojas antigas).
+  uf: z.string(),
   cep: z.string(),
   telefone: z.string(),
   email: z.union([z.literal(''), z.string().email('E-mail inválido')]),
@@ -67,6 +70,7 @@ const DEFAULT_VALUES: PontoVendaFormData = {
   numero: '',
   bairro: '',
   cidade: '',
+  uf: '',
   cep: '',
   telefone: '',
   email: '',
@@ -126,6 +130,7 @@ export function PontoVendaFormDialog({ open, pontoVenda, onClose }: PontoVendaFo
               numero: pontoVenda.numero ?? '',
               bairro: pontoVenda.bairro ?? '',
               cidade: pontoVenda.cidade,
+              uf: pontoVenda.uf ?? '',
               cep: pontoVenda.cep ?? '',
               telefone: pontoVenda.telefone ?? '',
               email: pontoVenda.email ?? '',
@@ -153,6 +158,7 @@ export function PontoVendaFormDialog({ open, pontoVenda, onClose }: PontoVendaFo
         numero: data.numero || null,
         bairro: data.bairro || null,
         cidade: data.cidade,
+        uf: data.uf || null,
         cep: data.cep || null,
         telefone: data.telefone || null,
         email: data.email || null,
@@ -351,6 +357,20 @@ export function PontoVendaFormDialog({ open, pontoVenda, onClose }: PontoVendaFo
                   error={!!fieldState.error}
                   helperText={fieldState.error?.message}
                 />
+              )}
+            />
+            <Controller
+              name="uf"
+              control={control}
+              render={({ field }) => (
+                <TextField {...field} select label="UF" margin="normal" sx={{ minWidth: 96 }} id="pdv-uf">
+                  <MenuItem value="">—</MenuItem>
+                  {UFS.map((uf) => (
+                    <MenuItem key={uf} value={uf}>
+                      {uf}
+                    </MenuItem>
+                  ))}
+                </TextField>
               )}
             />
             <Controller

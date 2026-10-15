@@ -1,5 +1,6 @@
 import AddIcon from '@mui/icons-material/Add';
 import { BotaoExportar } from '../../components/BotaoExportar';
+import { cidadeComUf, UFS } from '../../lib/uf';
 import { usePageHeader } from '../../components/layout/PageHeaderSlot';
 import { TituloComAtualizar } from '../../components/RefreshButton';
 import BlockIcon from '@mui/icons-material/Block';
@@ -59,6 +60,7 @@ export function PontosVendaListPage() {
   const [filtroPromotorUuid, setFiltroPromotorUuid] = useState<string | null>(null);
   const [filtroRedeUuid, setFiltroRedeUuid] = useState<string | null>(null);
   const [cidade, setCidade] = useState('');
+  const [uf, setUf] = useState('');
   const [cidadeDebounced, setCidadeDebounced] = useState('');
   // Período: por data de cadastro (quem entrou na base) ou de última alteração do cadastro.
   const [dataCampo, setDataCampo] = useState<'created_at' | 'updated_at'>('created_at');
@@ -105,13 +107,14 @@ export function PontosVendaListPage() {
     sem_promotor: filtroPromotorUuid === SEM_PROMOTOR || undefined,
     rede_loja_uuid: filtroRedeUuid ?? undefined,
     cidade: cidadeDebounced || undefined,
+    uf: uf || undefined,
     data_campo: dataCampo,
     data_inicio: dataInicio || undefined,
     data_fim: dataFim || undefined,
     ordenar,
   };
   const temFiltro =
-    filtroAtivo !== 'ativos' || !!busca || !!filtroPromotorUuid || !!filtroRedeUuid || !!cidade || !!dataInicio || !!dataFim || ordenar !== 'fantasia';
+    filtroAtivo !== 'ativos' || !!busca || !!filtroPromotorUuid || !!filtroRedeUuid || !!cidade || !!uf || !!dataInicio || !!dataFim || ordenar !== 'fantasia';
 
   const pdvQuery = useQuery({
     queryKey: ['pontos-venda', { page, ...filtros }],
@@ -251,7 +254,7 @@ export function PontosVendaListPage() {
       coluna.accessor((pdv) => pdv.codigo_externo ?? '—', { id: 'codigo_externo', header: 'Código' }),
       coluna.accessor('fantasia', { header: 'Fantasia' }),
       coluna.accessor('razao_social', { header: 'Razão social' }),
-      coluna.accessor('cidade', { header: 'Cidade' }),
+      coluna.accessor('cidade', { header: 'Cidade', cell: (c) => cidadeComUf(c.getValue(), c.row.original.uf) }),
       coluna.accessor((pdv) => pdv.bairro ?? '—', { id: 'bairro', header: 'Bairro' }),
       coluna.accessor((pdv) => pdv.telefone ?? '—', { id: 'telefone', header: 'Telefone' }),
       // Só a última alteração do cadastro — a data de cadastro saiu da linha (poluía a tabela), mas
@@ -404,6 +407,21 @@ export function PontosVendaListPage() {
             value={cidade}
             onChange={(e) => mudarFiltro(() => setCidade(e.target.value))}
           />
+          <TextField
+            select
+            label="UF"
+            size="small"
+            sx={{ width: 90 }}
+            value={uf}
+            onChange={(e) => mudarFiltro(() => setUf(e.target.value))}
+          >
+            <MenuItem value="">Todas</MenuItem>
+            {UFS.map((sigla) => (
+              <MenuItem key={sigla} value={sigla}>
+                {sigla}
+              </MenuItem>
+            ))}
+          </TextField>
         </Box>
         <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
           <TextField
@@ -469,7 +487,7 @@ export function PontosVendaListPage() {
         <BotaoExportar
           rotina="lojas"
           filtros={filtros}
-          descricaoFiltros={[filtroAtivo !== 'todos' && `Situação: ${filtroAtivo}`, busca && `Busca: ${busca}`, cidade && `Cidade: ${cidade}`, dataInicio && `De ${dataInicio}`, dataFim && `Até ${dataFim}`].filter(Boolean).join(' · ')}
+          descricaoFiltros={[filtroAtivo !== 'todos' && `Situação: ${filtroAtivo}`, busca && `Busca: ${busca}`, cidade && `Cidade: ${cidade}`, uf && `UF: ${uf}`, dataInicio && `De ${dataInicio}`, dataFim && `Até ${dataFim}`].filter(Boolean).join(' · ')}
         />
       </Box>
 

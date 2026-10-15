@@ -36,6 +36,7 @@ import { listarAgendasVisita } from '../../lib/api/agendasVisita';
 import { apiClient } from '../../lib/api/client';
 import { listarDepartamentos } from '../../lib/api/departamentos';
 import { formatarDataSemFuso } from '../../lib/formatarData';
+import { cidadeComUf } from '../../lib/uf';
 import { listarMarcas } from '../../lib/api/marcas';
 import {
   adicionarPromotorPontoVenda,
@@ -482,7 +483,7 @@ export function PontoVendaDetailPage() {
               Cidade / CEP
             </Typography>
             <Typography>
-              {pdv.cidade}
+              {cidadeComUf(pdv.cidade, pdv.uf)}
               {pdv.cep ? ` — ${pdv.cep}` : ''}
             </Typography>
           </Box>

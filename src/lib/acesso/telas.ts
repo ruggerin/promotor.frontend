@@ -156,7 +156,7 @@ export const TELAS: DefTela[] = [
     ajuda: 'Parâmetros, tipos e objetivos de visita, motivos',
     acoes: [{ valor: 'parametros.gerenciar', rotulo: 'Alterar parâmetros' }],
   },
-  { chave: 'importacao', rotulo: 'Importação de dados', grupo: 'Configurações', libera: ['pontos_venda.gerenciar', 'catalogo.gerenciar', 'vendedores.gerenciar'] },
+  { chave: 'importacao', rotulo: 'Importação de dados', grupo: 'Configurações', libera: ['pontos_venda.gerenciar', 'catalogo.gerenciar', 'vendedores.gerenciar', 'ordens_servico.gerenciar'] },
   { chave: 'manual', rotulo: 'Manual', grupo: 'Ajuda', superadmin: true },
   { chave: 'empresas', rotulo: 'Empresas', grupo: 'Ajuda', superadmin: true },
 ];

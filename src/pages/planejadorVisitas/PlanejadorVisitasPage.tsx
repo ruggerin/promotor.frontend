@@ -671,7 +671,8 @@ export function PlanejadorVisitasPage() {
                           {pdv.fantasia}
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
-                          {pdv.rede_loja?.descricao ?? 'Independente'} · {pdv.cidade}
+                          {/* Bairro ajuda mais a montar a rota que a rede (quase sempre "Independente"). */}
+                          {[pdv.bairro, pdv.cidade].filter(Boolean).join(' · ')}
                         </Typography>
                         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.75 }}>
                           {diasVisiveis.map((dia) => {

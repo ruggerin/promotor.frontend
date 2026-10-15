@@ -19,6 +19,7 @@ export interface PontosVendaListParams {
   // Filtros da lista de PDVs do admin — `busca` também acha por código externo e CNPJ.
   rede_loja_uuid?: string;
   cidade?: string;
+  uf?: string;
   sem_promotor?: boolean;
   // Período por data de cadastro (created_at, default) ou de última alteração (updated_at).
   data_campo?: 'created_at' | 'updated_at';
@@ -51,6 +52,7 @@ export async function listarPontosVenda(params: PontosVendaListParams = {}): Pro
       empresa_uuid: params.empresa_uuid || undefined,
       rede_loja_uuid: params.rede_loja_uuid || undefined,
       cidade: params.cidade || undefined,
+      uf: params.uf || undefined,
       sem_promotor: params.sem_promotor ? 1 : undefined,
       data_campo: params.data_inicio || params.data_fim || params.ordenar === 'recentes' ? params.data_campo : undefined,
       data_inicio: params.data_inicio || undefined,
@@ -74,6 +76,7 @@ export interface PontoVendaPayload {
   numero?: string | null;
   bairro?: string | null;
   cidade: string;
+  uf?: string | null;
   cep?: string | null;
   telefone?: string | null;
   email?: string | null;

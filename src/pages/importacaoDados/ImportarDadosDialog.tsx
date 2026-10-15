@@ -3,6 +3,7 @@ import DownloadIcon from '@mui/icons-material/Download';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   CircularProgress,
@@ -17,12 +18,15 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TextField,
   Typography,
 } from '@mui/material';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import { useRef, useState } from 'react';
 import type { RelatorioImportacao } from '../../lib/api/importacaoDados';
+import { listarUsuarios } from '../../lib/api/usuarios';
+import type { Usuario } from '../../types/api';
 import { baixarCsv } from '../../lib/csv';
 import type { TipoImportacao } from './tiposImportacao';
 
@@ -52,11 +56,20 @@ export function ImportarDadosDialog({ tipo, onClose }: Props) {
   const [arquivo, setArquivo] = useState<File | null>(null);
   const [relatorio, setRelatorio] = useState<RelatorioImportacao | null>(null);
   const [erro, setErro] = useState<string | null>(null);
+  // Rota de visitas (docs/78 §2.2): promotor das linhas que vierem sem a coluna `promotor`.
+  const [promotorDaRota, setPromotorDaRota] = useState<Usuario | null>(null);
+
+  const promotoresQuery = useQuery({
+    queryKey: ['usuarios', { user_type: 'PROMOTOR', ativo: true, por_pagina: 200 }],
+    queryFn: () => listarUsuarios({ user_type: 'PROMOTOR', ativo: true, por_pagina: 200 }),
+    enabled: Boolean(tipo?.promotorDaRota),
+  });
 
   const mutation = useMutation({
     // Arquivo vai nas variáveis (não lido do state) — a validação dispara no mesmo clique em que o
     // arquivo é escolhido, antes do setArquivo ter efeito.
-    mutationFn: ({ file, simular }: { file: File; simular: boolean }) => tipo!.importar(file, simular),
+    mutationFn: ({ file, simular, promotor }: { file: File; simular: boolean; promotor?: Usuario | null }) =>
+      tipo!.importar(file, simular, promotor ? { promotor_padrao: promotor.email } : undefined),
     onSuccess: (dados) => {
       setRelatorio(dados);
       setErro(null);
@@ -74,13 +87,21 @@ export function ImportarDadosDialog({ tipo, onClose }: Props) {
     setArquivo(file);
     setRelatorio(null);
     setErro(null);
-    if (file) mutation.mutate({ file, simular: true });
+    if (file) mutation.mutate({ file, simular: true, promotor: promotorDaRota });
+  }
+
+  // Trocar o promotor da rota muda o resultado: valida de novo o arquivo já escolhido.
+  function escolherPromotor(promotor: Usuario | null) {
+    setPromotorDaRota(promotor);
+    setRelatorio(null);
+    if (arquivo) mutation.mutate({ file: arquivo, simular: true, promotor });
   }
 
   function fechar() {
     setArquivo(null);
     setRelatorio(null);
     setErro(null);
+    setPromotorDaRota(null);
     if (inputRef.current) inputRef.current.value = '';
     onClose();
   }
@@ -91,7 +112,9 @@ export function ImportarDadosDialog({ tipo, onClose }: Props) {
   const item = tipo.itemSingularPlural;
   // Loja/Produto: criadas + atualizadas. Vínculo: criadas + já existentes (nada a atualizar).
   const segundaContagem =
-    relatorio?.removidas !== undefined
+    relatorio?.agendas_desativadas !== undefined
+      ? `${relatorio.agendas_desativadas} dia(s) saindo da rota, em ${relatorio.lojas ?? 0} loja(s)`
+      : relatorio?.removidas !== undefined
       ? `${relatorio.removidas} removido(s), em ${relatorio.lojas ?? 0} loja(s)`
       : relatorio?.ja_existentes !== undefined
       ? `${relatorio.ja_existentes} já existia(m) e fica(m) como está(ão)`
@@ -102,7 +125,9 @@ export function ImportarDadosDialog({ tipo, onClose }: Props) {
       <DialogTitle>Importar {tipo.titulo.toLowerCase()} por CSV</DialogTitle>
       <DialogContent>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-          {tipo.chave === 'sortimento' ? (
+          {tipo.introducao ? (
+            tipo.introducao
+          ) : tipo.chave === 'sortimento' ? (
             <>
               Cada linha liga uma loja a um produto, pelos <strong>códigos externos</strong> dos dois.
             </>
@@ -118,6 +143,23 @@ export function ImportarDadosDialog({ tipo, onClose }: Props) {
           {tipo.ajuda} Se houver qualquer erro no arquivo, nada é gravado.
         </Typography>
 
+        {tipo.promotorDaRota && (
+          <Autocomplete
+            id="importacao-promotor-rota"
+            size="small"
+            sx={{ mb: 2, maxWidth: 420 }}
+            options={promotoresQuery.data?.usuarios ?? []}
+            getOptionLabel={(u) => `${u.nome} (${u.email})`}
+            isOptionEqualToValue={(a, b) => a.id === b.id}
+            loading={promotoresQuery.isLoading}
+            value={promotorDaRota}
+            onChange={(_, u) => escolherPromotor(u)}
+            disabled={mutation.isPending}
+            renderInput={(params) => (
+              <TextField {...params} label="Promotor da rota" helperText="Vale pras linhas sem a coluna promotor. Opcional." />
+            )}
+          />
+        )}
         <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
           <Button
             variant="outlined"

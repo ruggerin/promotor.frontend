@@ -354,6 +354,8 @@ export interface PontoVenda {
   numero: string | null;
   bairro: string | null;
   cidade: string;
+  // UF (docs/78 §5) — null nas lojas antigas até alguém preencher.
+  uf?: string | null;
   cep: string | null;
   telefone: string | null;
   email: string | null;

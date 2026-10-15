@@ -3,6 +3,7 @@ import {
   importarPontosVenda,
   importarProdutos,
   importarCarteira,
+  importarRotaVisitas,
   importarSortimento,
   importarSupervisores,
   importarVendedores,
@@ -15,7 +16,7 @@ import type { Permissao } from '../../types/api';
 // App\Support\Importacao* no backend (mesma ordem).
 
 export interface TipoImportacao {
-  chave: 'lojas' | 'produtos' | 'sortimento' | 'supervisores' | 'vendedores' | 'carteira';
+  chave: 'lojas' | 'produtos' | 'sortimento' | 'supervisores' | 'vendedores' | 'carteira' | 'rota';
   titulo: string;
   resumo: string;
   permissao: Permissao;
@@ -25,7 +26,11 @@ export interface TipoImportacao {
   ajuda: ReactNode;
   // Palavras do relatório ("3 loja(s) nova(s)").
   itemSingularPlural: string;
-  importar: (arquivo: File, simular: boolean) => Promise<RelatorioImportacao>;
+  importar: (arquivo: File, simular: boolean, extras?: Record<string, string>) => Promise<RelatorioImportacao>;
+  // Rota de visitas: campo "Promotor da rota", que vale pras linhas sem a coluna `promotor` (docs/78 §2.2).
+  promotorDaRota?: boolean;
+  // Texto do topo do diálogo, quando o padrão ("o código externo é a chave...") não serve.
+  introducao?: ReactNode;
   // Chaves do React Query a invalidar depois de importar de verdade.
   invalidar: string[];
 }
@@ -37,20 +42,22 @@ export const TIPOS_IMPORTACAO: TipoImportacao[] = [
     resumo: 'Pontos de venda — cria as novas e atualiza as existentes pelo código externo.',
     permissao: 'pontos_venda.gerenciar',
     colunas: [
-      'codigo_externo', 'cnpj', 'razao_social', 'fantasia', 'endereco', 'numero', 'bairro', 'cidade', 'cep', 'telefone',
-      'email', 'latitude', 'longitude', 'rede', 'ramo_atividade', 'numero_checkouts', 'ativo',
+      'codigo_externo', 'cnpj', 'razao_social', 'fantasia', 'endereco', 'numero', 'bairro', 'cidade', 'uf', 'cep', 'telefone',
+      'email', 'latitude', 'longitude', 'rede', 'ramo_atividade', 'numero_checkouts', 'ativo', 'vendedores',
     ],
     exemplo: [
       ['1001', '11.222.333/0001-44', 'Supermercado Exemplo LTDA', 'Super Exemplo Centro', 'Av. Eduardo Ribeiro', '520', 'Centro',
-        'Manaus', '69010-001', '(92) 3333-0000', 'contato@exemplo.com.br', '-3,1316', '-60,0233', '', '', '6', 'sim'],
-      ['1002', '', 'Mercadinho Bairro ME', 'Mercadinho do Bairro', 'Rua das Flores', '45', 'Aleixo', 'Manaus', '', '', '',
-        '-3,0950', '-59,9950', '', '', '', 'sim'],
+        'Manaus', 'AM', '69010-001', '(92) 3333-0000', 'contato@exemplo.com.br', '-3,1316', '-60,0233', '', '', '6', 'sim', '374|680'],
+      ['1002', '', 'Mercadinho Bairro ME', 'Mercadinho do Bairro', 'Rua das Flores', '45', 'Aleixo', 'Manaus', 'AM', '', '', '',
+        '-3,0950', '-59,9950', '', '', '', 'sim', '374 - DIEMY'],
     ],
     arquivoModelo: 'modelo-importacao-lojas.csv',
     ajuda: (
       <>
         Loja nova precisa de razão social, fantasia, endereço, cidade, latitude e longitude. Rede e ramo de atividade vão
-        pelo nome já cadastrado. Ativo: sim ou não.
+        pelo nome já cadastrado. Ativo: sim ou não. UF pela sigla (AM, SP...). <strong>vendedores</strong>: código do
+        vendedor no ERP (aceita "374 - DIEMY"), vários separados por |; preenchida substitui a carteira da loja, vazia não
+        mexe.
       </>
     ),
     itemSingularPlural: 'loja(s)',
@@ -168,5 +175,34 @@ export const TIPOS_IMPORTACAO: TipoImportacao[] = [
     itemSingularPlural: 'vínculo(s)',
     importar: importarCarteira,
     invalidar: ['vendedores', 'pontos-venda'],
+  },
+  {
+    chave: 'rota',
+    titulo: 'Rota de visitas',
+    resumo: 'Dias de atendimento de cada promotor por loja — vira o planejamento semanal de visitas.',
+    permissao: 'ordens_servico.gerenciar',
+    colunas: ['codigo_externo_loja', 'promotor', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab', 'dom', 'horario'],
+    exemplo: [
+      ['1001', 'promotor@exemplo.com.br', '', 'X', '', 'X', 'X', '', '', ''],
+      ['1002', 'promotor@exemplo.com.br', 'X', '', '', '', '', '', '', '08:30'],
+    ],
+    arquivoModelo: 'modelo-importacao-rota-de-visitas.csv',
+    promotorDaRota: true,
+    introducao: (
+      <>
+        Cada linha é uma loja já cadastrada e o promotor que a visita; marque com <strong>X</strong> os dias de atendimento.
+      </>
+    ),
+    ajuda: (
+      <>
+        Promotor pelo e-mail ou pelo código externo do usuário (ou escolha abaixo o promotor da rota, pras linhas sem
+        ele). <strong>Cada loja do arquivo fica exatamente com os dias marcados pra aquele promotor</strong>: dia
+        desmarcado sai da rota, e linha sem nenhum X tira a loja da rota dele. Outros promotores da loja não mudam. O
+        promotor passa a ver a loja no app.
+      </>
+    ),
+    itemSingularPlural: 'dia(s) de visita',
+    importar: importarRotaVisitas,
+    invalidar: ['agendas-visita', 'ordens-servico', 'pontos-venda'],
   },
 ];
