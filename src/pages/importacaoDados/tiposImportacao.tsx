@@ -1,5 +1,13 @@
 import type { ReactNode } from 'react';
-import { importarPontosVenda, importarProdutos, importarSortimento, type RelatorioImportacao } from '../../lib/api/importacaoDados';
+import {
+  importarPontosVenda,
+  importarProdutos,
+  importarCarteira,
+  importarSortimento,
+  importarSupervisores,
+  importarVendedores,
+  type RelatorioImportacao,
+} from '../../lib/api/importacaoDados';
 import type { Permissao } from '../../types/api';
 
 // Configuração de cada tipo da Importação de Dados (docs/42-IMPORTACAO-DE-DADOS.md) — o
@@ -7,7 +15,7 @@ import type { Permissao } from '../../types/api';
 // App\Support\Importacao* no backend (mesma ordem).
 
 export interface TipoImportacao {
-  chave: 'lojas' | 'produtos' | 'sortimento';
+  chave: 'lojas' | 'produtos' | 'sortimento' | 'supervisores' | 'vendedores' | 'carteira';
   titulo: string;
   resumo: string;
   permissao: Permissao;
@@ -95,5 +103,70 @@ export const TIPOS_IMPORTACAO: TipoImportacao[] = [
     itemSingularPlural: 'vínculo(s)',
     importar: importarSortimento,
     invalidar: ['sortimento', 'pontos-venda'],
+  },
+  {
+    chave: 'supervisores',
+    titulo: 'Supervisores',
+    resumo: 'Supervisores de vendas do ERP — cria os novos e atualiza os existentes pelo código.',
+    permissao: 'vendedores.gerenciar',
+    colunas: ['codigo_externo', 'nome', 'telefone', 'email', 'ativo'],
+    exemplo: [
+      ['S10', 'Ana Souza', '(92) 99999-1000', 'ana.souza@exemplo.com.br', 'sim'],
+      ['S20', 'Bruno Lima', '', '', 'sim'],
+    ],
+    arquivoModelo: 'modelo-importacao-supervisores.csv',
+    ajuda: (
+      <>
+        Supervisor novo precisa de nome. Importe os supervisores <strong>antes</strong> dos vendedores. Quem saiu do ERP vai
+        com ativo = não: o cadastro fica, só deixa de aparecer como ativo.
+      </>
+    ),
+    itemSingularPlural: 'supervisor(es)',
+    importar: importarSupervisores,
+    invalidar: ['supervisores', 'vendedores'],
+  },
+  {
+    chave: 'vendedores',
+    titulo: 'Vendedores',
+    resumo: 'Vendedores (RCA) do ERP, com o supervisor de cada um pelo codsupervisor.',
+    permissao: 'vendedores.gerenciar',
+    colunas: ['codigo_externo', 'nome', 'telefone', 'email', 'codsupervisor', 'ativo'],
+    exemplo: [
+      ['101', 'Carlos Pereira', '(92) 98888-0101', 'carlos@exemplo.com.br', 'S10', 'sim'],
+      ['102', 'Dora Matos', '', '', 'S20', 'sim'],
+    ],
+    arquivoModelo: 'modelo-importacao-vendedores.csv',
+    ajuda: (
+      <>
+        Vendedor novo precisa de nome. <strong>codsupervisor</strong> é o código do supervisor no ERP; se ele ainda não
+        estiver cadastrado, o vendedor entra assim mesmo e é ligado ao supervisor quando ele for importado.
+      </>
+    ),
+    itemSingularPlural: 'vendedor(es)',
+    importar: importarVendedores,
+    invalidar: ['vendedores', 'supervisores'],
+  },
+  {
+    chave: 'carteira',
+    titulo: 'Vínculo Loja × Vendedor',
+    resumo: 'Carteira: quais vendedores atendem cada loja. Uma loja pode ter vários.',
+    permissao: 'vendedores.gerenciar',
+    colunas: ['codigo_externo_loja', 'codigo_externo_vendedor'],
+    exemplo: [
+      ['1001', '101'],
+      ['1001', '102'],
+      ['1002', '101'],
+    ],
+    arquivoModelo: 'modelo-importacao-vinculo-loja-vendedor.csv',
+    ajuda: (
+      <>
+        Uma linha por par loja + vendedor. <strong>Cada loja do arquivo fica exatamente com os vendedores listados</strong>: quem
+        não estiver no arquivo sai da carteira daquela loja. Lojas que não aparecem no arquivo não mudam. Importe os
+        vendedores antes.
+      </>
+    ),
+    itemSingularPlural: 'vínculo(s)',
+    importar: importarCarteira,
+    invalidar: ['vendedores', 'pontos-venda'],
   },
 ];

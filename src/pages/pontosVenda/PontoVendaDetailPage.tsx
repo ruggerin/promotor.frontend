@@ -60,6 +60,7 @@ import { listarUsuarios } from '../../lib/api/usuarios';
 import type { AgendaVisita, PontoVenda, StatusVisita, TipoItemCampanha } from '../../types/api';
 import { AgendaVisitaFormDialog } from '../agendasVisita/AgendaVisitaFormDialog';
 import { PontoVendaFormDialog } from './PontoVendaFormDialog';
+import { VendedoresDaLojaCard } from './VendedoresDaLojaCard';
 
 const DIAS_SEMANA = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
 
@@ -661,6 +662,8 @@ export function PontoVendaDetailPage() {
         )}
       </Paper>
       </Box>
+
+      <VendedoresDaLojaCard pdv={pdv} />
 
       {/* Pedidos do ERP (docs/28 §4.2) — só aparece quando o integrador já gravou algum. */}
       {(pedidosQuery.data?.pedidos.length ?? 0) > 0 && (

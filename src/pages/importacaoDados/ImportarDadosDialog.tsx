@@ -91,7 +91,9 @@ export function ImportarDadosDialog({ tipo, onClose }: Props) {
   const item = tipo.itemSingularPlural;
   // Loja/Produto: criadas + atualizadas. Vínculo: criadas + já existentes (nada a atualizar).
   const segundaContagem =
-    relatorio?.ja_existentes !== undefined
+    relatorio?.removidas !== undefined
+      ? `${relatorio.removidas} removido(s), em ${relatorio.lojas ?? 0} loja(s)`
+      : relatorio?.ja_existentes !== undefined
       ? `${relatorio.ja_existentes} já existia(m) e fica(m) como está(ão)`
       : `${relatorio?.atualizadas ?? 0} atualização(ões)`;
 
@@ -154,6 +156,19 @@ export function ImportarDadosDialog({ tipo, onClose }: Props) {
 
         {relatorio && !mutation.isPending && (
           <>
+            {/* Linhas que entram com ressalva (vendedor sem supervisor cadastrado, docs/73) — não impedem a importação. */}
+            {relatorio.erros.length === 0 && (relatorio.avisos?.length ?? 0) > 0 && (
+              <Alert severity="warning" sx={{ mb: 1 }}>
+                {relatorio.avisos!.length} linha(s) com aviso:
+                <Box component="ul" sx={{ m: 0, pl: 2.5, maxHeight: 160, overflowY: 'auto' }}>
+                  {relatorio.avisos!.map((a, i) => (
+                    <li key={i}>
+                      Linha {a.linha} ({a.codigo_externo ?? '—'}): {a.mensagem}
+                    </li>
+                  ))}
+                </Box>
+              </Alert>
+            )}
             {relatorio.aplicado ? (
               <Alert severity="success" icon={<CheckCircleOutlineIcon />}>
                 Importação concluída: {relatorio.criadas} {item} criado(s) e {segundaContagem}.

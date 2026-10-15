@@ -26,6 +26,8 @@ export type Permissao =
   | 'pedidos_venda.aprovar'
   | 'relatorios.personalizados.gerenciar'
   | 'faturamento.visualizar'
+  // Vendedores e supervisores do ERP (docs/73): tela de conferência, importação e integrador.
+  | 'vendedores.gerenciar'
   // Regras de visita (docs/74): restringem quem tem a marca, em vez de liberar.
   | 'visitas.exigir_agenda'
   | 'visitas.exigir_sequencia'
@@ -365,6 +367,8 @@ export interface PontoVenda {
   // Promotores atribuídos a esta loja (regra de negócio 6, ver docs/02-API-BACKEND.md) — vazio
   // quando ninguém foi atribuído ainda (a loja fica visível a todos os promotores da empresa).
   promotores: { id: string; nome: string }[];
+  // Carteira (docs/73 §11.1): vendedores do ERP que atendem a loja — N por loja. Só no detalhe.
+  vendedores?: VendedorDaLoja[];
   // Só vem preenchido pra quem pede como SUPERADMIN (ver docs/02-API-BACKEND.md) — usado pra
   // escolher a loja certa ao cadastrar contrato de uma empresa que não é a própria.
   empresa?: Empresa;
@@ -448,6 +452,52 @@ export interface DepartamentoAuditoria {
   empresa?: Empresa;
   ativo: boolean;
   created_at: string;
+  updated_at: string;
+}
+
+// Equipe comercial espelhada do ERP (docs/73) — não são usuários do Horus; `usuario` é o vínculo
+// opcional com o login de quem também usa o sistema.
+export interface PessoaVinculada {
+  id: string;
+  nome: string;
+}
+
+export interface Supervisor {
+  id: string;
+  codigo_externo: string;
+  nome: string;
+  telefone: string | null;
+  email: string | null;
+  ativo: boolean;
+  usuario: PessoaVinculada | null;
+  vendedores_count: number;
+  updated_at: string;
+}
+
+export interface VendedorDaLoja {
+  id: string;
+  codigo_externo: string;
+  nome: string;
+  telefone: string | null;
+  /** Não vem pro promotor. */
+  email?: string | null;
+  ativo: boolean;
+  supervisor: { id: string; nome: string } | null;
+}
+
+export interface Vendedor {
+  id: string;
+  codigo_externo: string;
+  nome: string;
+  telefone: string | null;
+  email: string | null;
+  ativo: boolean;
+  /** `codsupervisor` cru do ERP — com `supervisor` null, é o código que não casou com ninguém. */
+  codigo_supervisor: string | null;
+  supervisor: { id: string; codigo_externo: string; nome: string } | null;
+  usuario: PessoaVinculada | null;
+  /** Lojas na carteira do vendedor. */
+  lojas_count: number | null;
   updated_at: string;
 }
 

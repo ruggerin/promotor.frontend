@@ -50,6 +50,7 @@ import { RedesLojasListPage } from './pages/redesLojas/RedesLojasListPage';
 import { TipoRegistroFormPage } from './pages/tiposRegistro/TipoRegistroFormPage';
 import { TiposRegistroListPage } from './pages/tiposRegistro/TiposRegistroListPage';
 import { TiposVisitaListPage } from './pages/tiposVisita/TiposVisitaListPage';
+import { EquipeComercialPage } from './pages/equipeComercial/EquipeComercialPage';
 import { UsuarioDetailPage } from './pages/usuarios/UsuarioDetailPage';
 import { UsuariosListPage } from './pages/usuarios/UsuariosListPage';
 import { VisitaDetailPage } from './pages/visitas/VisitaDetailPage';
@@ -123,6 +124,7 @@ export function App() {
           <Route path="/objetivos-visita" element={<ObjetivosVisitaListPage />} />
           <Route path="/centros-custo" element={<CentrosCustoListPage />} />
           <Route path="/usuarios" element={<UsuariosListPage />} />
+          <Route path="/equipe-comercial" element={<EquipeComercialPage />} />
           <Route path="/usuarios/:publicId" element={<UsuarioDetailPage />} />
           <Route path="/parametros" element={<ConfiguracoesPage />} />
           {/* Tabela crua chave/valor (docs/62 — "Avançado"): inclui chaves fora do catálogo. */}

@@ -22,6 +22,7 @@ export type ChaveTela =
   | 'catalogo'
   | 'formularios'
   | 'usuarios'
+  | 'equipe_comercial'
   | 'perfis'
   | 'licencas'
   | 'centros_custo'
@@ -136,6 +137,13 @@ export const TELAS: DefTela[] = [
   },
   { chave: 'formularios', rotulo: 'Formulários', grupo: 'Cadastros', libera: ['tela.formularios'], superadmin: true },
   { chave: 'usuarios', rotulo: 'Usuários', grupo: 'Equipe e acesso', libera: ['usuarios.gerenciar'], superadmin: true, ajuda: 'Ver e editar' },
+  {
+    chave: 'equipe_comercial',
+    rotulo: 'Vendedores e supervisores',
+    grupo: 'Equipe e acesso',
+    libera: ['vendedores.gerenciar'],
+    ajuda: 'Cadastro do ERP: ver, importar e ajustar contato (docs/73)',
+  },
   { chave: 'perfis', rotulo: 'Perfis', grupo: 'Equipe e acesso', ajuda: 'Sempre só do ADMIN' },
   { chave: 'licencas', rotulo: 'Licenças e plano', grupo: 'Equipe e acesso', ajuda: 'Sempre só do ADMIN' }, // docs/67
   { chave: 'centros_custo', rotulo: 'Centros de custo', grupo: 'Equipe e acesso', libera: ['centros_custo.gerenciar'], superadmin: true, ajuda: 'Dado financeiro' },
@@ -148,7 +156,7 @@ export const TELAS: DefTela[] = [
     ajuda: 'Parâmetros, tipos e objetivos de visita, motivos',
     acoes: [{ valor: 'parametros.gerenciar', rotulo: 'Alterar parâmetros' }],
   },
-  { chave: 'importacao', rotulo: 'Importação de dados', grupo: 'Configurações', libera: ['pontos_venda.gerenciar', 'catalogo.gerenciar'] },
+  { chave: 'importacao', rotulo: 'Importação de dados', grupo: 'Configurações', libera: ['pontos_venda.gerenciar', 'catalogo.gerenciar', 'vendedores.gerenciar'] },
   { chave: 'manual', rotulo: 'Manual', grupo: 'Ajuda', superadmin: true },
   { chave: 'empresas', rotulo: 'Empresas', grupo: 'Ajuda', superadmin: true },
 ];

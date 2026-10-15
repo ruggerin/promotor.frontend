@@ -1,5 +1,7 @@
 import CategoryIcon from '@mui/icons-material/Category';
+import BadgeIcon from '@mui/icons-material/Badge';
 import LinkIcon from '@mui/icons-material/Link';
+import SupervisorAccountIcon from '@mui/icons-material/SupervisorAccount';
 import StoreIcon from '@mui/icons-material/Store';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import { Alert, Box, Button, Paper, Typography } from '@mui/material';
@@ -14,6 +16,9 @@ const ICONES: Record<TipoImportacao['chave'], ReactNode> = {
   lojas: <StoreIcon color="primary" />,
   produtos: <CategoryIcon color="primary" />,
   sortimento: <LinkIcon color="primary" />,
+  supervisores: <SupervisorAccountIcon color="primary" />,
+  vendedores: <BadgeIcon color="primary" />,
+  carteira: <LinkIcon color="primary" />,
 };
 
 // ADMIN sempre; GESTOR pela permissão do perfil (mesma regra do EnsurePermissao no backend).

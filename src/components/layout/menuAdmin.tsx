@@ -2,6 +2,7 @@ import AccountTreeIcon from '@mui/icons-material/AccountTreeOutlined';
 import AltRouteIcon from '@mui/icons-material/AltRouteOutlined';
 import AssessmentIcon from '@mui/icons-material/AssessmentOutlined';
 import AssignmentIcon from '@mui/icons-material/AssignmentOutlined';
+import BadgeIcon from '@mui/icons-material/BadgeOutlined';
 import BoltIcon from '@mui/icons-material/BoltOutlined';
 import BusinessIcon from '@mui/icons-material/BusinessOutlined';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonthOutlined';
@@ -171,6 +172,8 @@ export function montarMenu(
       rotulo: 'Equipe e acesso',
       itens: [
         item('usuarios', { rotulo: 'Usuários', caminho: '/usuarios', icone: <PeopleIcon /> }),
+        // docs/73 — espelho do ERP; não são usuários do Horus.
+        item('equipe_comercial', { rotulo: 'Vendedores e supervisores', caminho: '/equipe-comercial', icone: <BadgeIcon /> }),
         // Gestão de perfis é sempre user_type:ADMIN exato no backend (nem SUPERADMIN passa).
         item('perfis', { rotulo: 'Perfis', caminho: '/perfis', icone: <SecurityIcon /> }),
         // docs/67 — licenças do app mobile e aparelhos; só ADMIN, como Perfis.
