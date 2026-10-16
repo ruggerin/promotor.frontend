@@ -4,7 +4,7 @@ import type { TipoComparativo } from './relatorios';
 // Gerador de relatórios (docs/60-GERADOR-DE-RELATORIOS.md §5). O front só monta/mostra: quem
 // calcula (inclusive o comparativo) é o backend.
 
-export type EntidadeRelatorio = 'ordem_servico' | 'visita' | 'registro';
+export type EntidadeRelatorio = 'ordem_servico' | 'visita' | 'registro' | 'acompanhamento';
 export type PresetPeriodo =
   | 'hoje'
   | 'ultimos_7_dias'

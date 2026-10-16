@@ -37,6 +37,8 @@ export const GRANULARIDADE_LABELS: Record<Granularidade, string> = {
 export const ENTIDADE_LABELS: Record<string, string> = {
   ordem_servico: 'Visitas planejadas',
   visita: 'Visitas realizadas',
+  // docs/83 — duração do ponto extra, tempo de reposição da ruptura.
+  acompanhamento: 'Acompanhamentos ("ainda está lá?")',
   registro: 'Registros e formulários',
 };
 

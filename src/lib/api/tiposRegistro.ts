@@ -1,4 +1,5 @@
 import type {
+  AoContinuarAcompanhamento,
   EscopoAcaoTipoRegistro,
   GranularidadeResposta,
   ListaRecorte,
@@ -90,6 +91,15 @@ export interface TipoRegistroPayload {
   escolhe_secao?: boolean;
   lista_recorte?: ListaRecorte;
   filtra_marca?: boolean;
+  acompanha?: boolean;
+  acompanha_gatilho_chave?: string | null;
+  acompanha_gatilho_valor?: string | null;
+  acompanha_intervalo_dias?: number;
+  acompanha_rotulo_continua?: string | null;
+  acompanha_rotulo_acabou?: string | null;
+  acompanha_ao_continuar?: AoContinuarAcompanhamento;
+  acompanha_formulario_acabou_uuid?: string | null;
+  acompanha_prazo_dias?: number | null;
   // Lista completa — sempre substitui as exceções existentes por inteiro (ver
   // TipoRegistroController::sincronizarExcecoesGranularidade).
   excecoes_granularidade?: { secao_uuid: string; granularidade: GranularidadeResposta }[];

@@ -71,6 +71,16 @@ export const schema = z
     // docs/82: só valem com a opção "o promotor escolhe".
     lista_recorte: z.enum(['PRIMEIRO_DA_LOJA', 'SO_DA_LOJA']),
     filtra_marca: z.boolean(),
+    // "Ainda está lá?" (docs/83 §3.1).
+    acompanha: z.boolean(),
+    acompanha_gatilho_chave: z.string().nullable(),
+    acompanha_gatilho_valor: z.string().nullable(),
+    acompanha_intervalo_dias: z.number().int('Use um número inteiro de dias.').min(0, 'Use 0 ou mais dias.').max(365, 'No máximo 365 dias.'),
+    acompanha_rotulo_continua: z.string().max(60, 'No máximo 60 caracteres.'),
+    acompanha_rotulo_acabou: z.string().max(60, 'No máximo 60 caracteres.'),
+    acompanha_ao_continuar: z.enum(['CONFIRMA', 'FORMULARIO_PREENCHIDO', 'FORMULARIO_CEGO']),
+    acompanha_formulario_acabou: z.object({ id: z.string(), descricao: z.string() }).nullable(),
+    acompanha_prazo_dias: z.number().int().min(1, 'Use 1 ou mais dias.').max(3650).nullable(),
     produtos_predefinidos: z.array(z.object({ uuid: z.string(), descricao: z.string() })),
     excecoes_granularidade: z.array(excecaoGranularidadeSchema),
     eh_ruptura: z.boolean(),
@@ -78,6 +88,15 @@ export const schema = z
     usa_pontuacao: z.boolean(),
     disponivel_registro_livre: z.boolean(),
     campos: z.array(campoSchema),
+  })
+  // docs/83: com o acompanhamento ligado, os dois botões precisam de texto; o gatilho, de resposta.
+  .refine((d) => !d.acompanha || (d.acompanha_rotulo_continua.trim() !== '' && d.acompanha_rotulo_acabou.trim() !== ''), {
+    message: 'Escreva o texto dos dois botões do acompanhamento.',
+    path: ['acompanha_rotulo_continua'],
+  })
+  .refine((d) => !d.acompanha || !d.acompanha_gatilho_chave || !!d.acompanha_gatilho_valor, {
+    message: 'Escolha a resposta que dispara o acompanhamento.',
+    path: ['acompanha_gatilho_valor'],
   })
   .refine((d) => !d.acao_obrigatoria || d.escopo_acao !== null, {
     message: 'Escolha quando essa pendência aparece.',
@@ -163,6 +182,15 @@ export const DEFAULT_VALUES: FormData = {
   escolhe_secao: false,
   lista_recorte: 'PRIMEIRO_DA_LOJA',
   filtra_marca: false,
+  acompanha: false,
+  acompanha_gatilho_chave: null,
+  acompanha_gatilho_valor: null,
+  acompanha_intervalo_dias: 0,
+  acompanha_rotulo_continua: '',
+  acompanha_rotulo_acabou: '',
+  acompanha_ao_continuar: 'CONFIRMA',
+  acompanha_formulario_acabou: null,
+  acompanha_prazo_dias: null,
   produtos_predefinidos: [],
   excecoes_granularidade: [],
   eh_ruptura: false,
@@ -258,6 +286,15 @@ export function formDoTipo(tipo: TipoRegistro): FormData {
     escolhe_secao: tipo.escolhe_secao ?? false,
     lista_recorte: tipo.lista_recorte ?? 'PRIMEIRO_DA_LOJA',
     filtra_marca: tipo.filtra_marca ?? false,
+    acompanha: tipo.acompanha ?? false,
+    acompanha_gatilho_chave: tipo.acompanha_gatilho_chave ?? null,
+    acompanha_gatilho_valor: tipo.acompanha_gatilho_valor ?? null,
+    acompanha_intervalo_dias: tipo.acompanha_intervalo_dias ?? 0,
+    acompanha_rotulo_continua: tipo.acompanha_rotulo_continua ?? '',
+    acompanha_rotulo_acabou: tipo.acompanha_rotulo_acabou ?? '',
+    acompanha_ao_continuar: tipo.acompanha_ao_continuar ?? 'CONFIRMA',
+    acompanha_formulario_acabou: tipo.acompanha_formulario_acabou ?? null,
+    acompanha_prazo_dias: tipo.acompanha_prazo_dias ?? null,
     produtos_predefinidos: (tipo.produtos_predefinidos ?? []).map((p) => ({ uuid: p.id, descricao: p.descricao })),
     excecoes_granularidade: tipo.excecoes_granularidade.map((e) => ({ secao_uuid: e.secao_uuid, granularidade: e.granularidade })),
     eh_ruptura: tipo.eh_ruptura,
@@ -292,6 +329,16 @@ export function payloadDoForm(d: FormData): TipoRegistroPayload {
     lista_recorte: temEscolhaDeRecorte(d) ? d.lista_recorte : 'PRIMEIRO_DA_LOJA',
     // O filtro de marca é "depois da seção/departamento": sem nenhum dos dois, não vale.
     filtra_marca: temEscolhaDeRecorte(d) && (d.escolhe_departamento || d.escolhe_secao) && d.filtra_marca,
+    // docs/83: desligado, a configuração vai limpa (o servidor também ignora sem `acompanha`).
+    acompanha: d.acompanha,
+    acompanha_gatilho_chave: d.acompanha && d.acompanha_gatilho_chave ? d.acompanha_gatilho_chave : null,
+    acompanha_gatilho_valor: d.acompanha && d.acompanha_gatilho_chave ? d.acompanha_gatilho_valor : null,
+    acompanha_intervalo_dias: d.acompanha_intervalo_dias,
+    acompanha_rotulo_continua: d.acompanha_rotulo_continua.trim() || null,
+    acompanha_rotulo_acabou: d.acompanha_rotulo_acabou.trim() || null,
+    acompanha_ao_continuar: d.acompanha_ao_continuar,
+    acompanha_formulario_acabou_uuid: d.acompanha ? (d.acompanha_formulario_acabou?.id ?? null) : null,
+    acompanha_prazo_dias: d.acompanha ? d.acompanha_prazo_dias : null,
     produtos_uuids: d.granularidade_padrao === 'PRODUTO' ? d.produtos_predefinidos.map((p) => p.uuid) : [],
     excecoes_granularidade: d.excecoes_granularidade,
     eh_ruptura: d.eh_ruptura,

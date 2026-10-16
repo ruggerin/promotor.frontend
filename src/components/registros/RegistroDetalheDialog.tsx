@@ -1,10 +1,13 @@
 import CloseIcon from '@mui/icons-material/Close';
 import ImageOutlinedIcon from '@mui/icons-material/ImageOutlined';
-import { Box, Chip, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, Skeleton, Stack, Typography } from '@mui/material';
+import { Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, Skeleton, Stack, Typography } from '@mui/material';
 import { useEffect, useState, type ReactNode } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../lib/api/client';
 import type { CampoRespondido, VisitaRegistro } from '../../types/api';
 import { ComentariosRegistro } from '../ComentariosRegistro';
+import { AcompanhamentoDialog } from '../acompanhamentos/AcompanhamentoDialog';
+import { listarAcompanhamentos, ROTULO_SITUACAO } from '../../lib/api/acompanhamentos';
 import { descricaoDoVinculo } from '../../lib/vinculoRegistro';
 
 // Detalhe de UM registro (fotos, campos respondidos, observação e conversa) — usado na tela da
@@ -191,6 +194,8 @@ export function RegistroDetalheDialog({
             </Box>
           )}
 
+          <AcompanhamentoDoRegistro registroId={registro.id} />
+
           <CamposRespondidos campos={registro.campos_respondidos} />
 
           {registro.observacao && (
@@ -215,3 +220,32 @@ export function RegistroDetalheDialog({
   );
 }
 
+/** Registro que abriu um "ainda está lá?" (docs/83): situação e atalho pra linha do tempo. */
+function AcompanhamentoDoRegistro({ registroId }: { registroId: string }) {
+  const [aberto, setAberto] = useState(false);
+  const query = useQuery({
+    queryKey: ['acompanhamentos', { registro_uuid: registroId }],
+    queryFn: () => listarAcompanhamentos({ registro_uuid: registroId }),
+    retry: false,
+  });
+  const acompanhamento = query.data?.acompanhamentos[0];
+  if (!acompanhamento) return null;
+
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, p: 1.25, borderRadius: 1.5, bgcolor: 'action.hover' }}>
+      <Box>
+        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+          Acompanhamento · {ROTULO_SITUACAO[acompanhamento.situacao]}
+        </Typography>
+        <Typography variant="caption" color="text.secondary">
+          {acompanhamento.respostas_count} conferência{acompanhamento.respostas_count === 1 ? '' : 's'} · {acompanhamento.dias_em_aberto} dia
+          {acompanhamento.dias_em_aberto === 1 ? '' : 's'}
+        </Typography>
+      </Box>
+      <Button size="small" onClick={() => setAberto(true)}>
+        Ver linha do tempo
+      </Button>
+      {aberto && <AcompanhamentoDialog id={acompanhamento.id} onFechar={() => setAberto(false)} />}
+    </Box>
+  );
+}

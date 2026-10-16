@@ -651,6 +651,16 @@ export interface TipoRegistro {
   // docs/82: lista "Onde é" (o que a loja tem primeiro, ou só ele) e filtro de marca depois da seção.
   lista_recorte?: ListaRecorte;
   filtra_marca?: boolean;
+  // "Ainda está lá?" (docs/83 §3.1).
+  acompanha?: boolean;
+  acompanha_gatilho_chave?: string | null;
+  acompanha_gatilho_valor?: string | null;
+  acompanha_intervalo_dias?: number;
+  acompanha_rotulo_continua?: string | null;
+  acompanha_rotulo_acabou?: string | null;
+  acompanha_ao_continuar?: AoContinuarAcompanhamento;
+  acompanha_formulario_acabou?: { id: string; descricao: string } | null;
+  acompanha_prazo_dias?: number | null;
   excecoes_granularidade: { secao_uuid: string; secao_descricao: string; granularidade: GranularidadeResposta }[];
   // Marca a coluna "Ruptura" da grade de coleta (Fase 2) — sempre a primeira, marcar um produto
   // exclui ele das demais colunas da mesma linha. Ver docs/16-GRANULARIDADE-CHECKLIST-AUDITORIA.md §9.
@@ -1355,3 +1365,8 @@ export interface PedidoVenda {
 
 // docs/82 §5.1 — o que a tela "Onde é este registro?" mostra.
 export type ListaRecorte = 'PRIMEIRO_DA_LOJA' | 'SO_DA_LOJA';
+
+// docs/83 — "ainda está lá?".
+export type AoContinuarAcompanhamento = 'CONFIRMA' | 'FORMULARIO_PREENCHIDO' | 'FORMULARIO_CEGO';
+export type SituacaoAcompanhamento = 'ABERTO' | 'ENCERRADO' | 'EXPIRADO' | 'SUBSTITUIDO' | 'ENCERRADO_PELO_GESTOR' | 'CANCELADO';
+export type RespostaAcompanhamento = 'CONTINUA' | 'ACABOU' | 'NAO_CONSEGUI_VER';

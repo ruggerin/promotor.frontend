@@ -160,7 +160,7 @@ describe('TipoRegistroFormPage (editor de formulário)', () => {
 
     await user.click(screen.getAllByText('Perguntas')[0]);
 
-    expect(screen.getAllByRole('button', { name: 'Editar' })).toHaveLength(4);
+    expect(screen.getAllByRole('button', { name: 'Editar' })).toHaveLength(5); // as 5 outras seções (6 com "Acompanhar", docs/83)
     expect(screen.queryByPlaceholderText('Ex.: Pesquisa de Preço')).not.toBeInTheDocument();
     expect(screen.getByText('Em toda visita — Qualquer loja visitada')).toBeInTheDocument();
   });
@@ -184,5 +184,112 @@ describe('TipoRegistroFormPage (editor de formulário)', () => {
     await user.click(within(previa).getByText('Salvar produto'));
     expect(within(previa).getByText('1 de 2 produtos preenchido')).toBeInTheDocument();
     expect(within(previa).getByText('Salvar (faltam 1)')).toBeInTheDocument();
+  });
+
+  // docs/83 — passo 6 "Acompanhar": cadastro e edição, de leve (o fluxo inteiro é testado na API).
+  describe('acompanhar na próxima visita', () => {
+    function tipoComAcompanhamento(): TipoRegistro {
+      return {
+        ...tipoSalvo(),
+        acompanha: true,
+        acompanha_gatilho_chave: null,
+        acompanha_gatilho_valor: null,
+        acompanha_intervalo_dias: 7,
+        acompanha_rotulo_continua: 'Ainda está lá',
+        acompanha_rotulo_acabou: 'Não está mais',
+        acompanha_ao_continuar: 'FORMULARIO_PREENCHIDO',
+        acompanha_formulario_acabou: { id: 'just-1', descricao: 'Por que saiu?' },
+        acompanha_prazo_dias: 60,
+      } as unknown as TipoRegistro;
+    }
+
+    it('cria com acompanhamento: exige os textos dos botões e manda a configuração', async () => {
+      vi.mocked(tiposApi.listarTiposRegistro).mockResolvedValue({
+        tipos_registro: [{ id: 'just-1', descricao: 'Por que saiu?' }],
+        meta,
+      } as never);
+      const user = userEvent.setup();
+      renderizar('/tipos-registro/novo');
+
+      await user.type(screen.getByPlaceholderText('Ex.: Pesquisa de Preço'), 'Ponto extra');
+      await user.click(screen.getByLabelText('Acompanhar na próxima visita'));
+
+      // Ligado sem texto nos botões: não salva.
+      await user.click(screen.getByRole('button', { name: 'Criar formulário' }));
+      expect(await screen.findAllByText('Escreva o texto dos dois botões do acompanhamento.')).not.toHaveLength(0);
+      expect(tiposApi.criarTipoRegistro).not.toHaveBeenCalled();
+
+      await user.type(screen.getByLabelText('Quando continua'), 'Ainda está lá');
+      await user.type(screen.getByLabelText('Quando acabou'), 'Não está mais');
+      const dias = screen.getByLabelText('Dias entre conferências');
+      await user.clear(dias);
+      await user.type(dias, '7');
+      await user.click(screen.getByText('Abrir o formulário com a última coleta'));
+      await user.click(screen.getByLabelText('Formulário de justificativa'));
+      await user.click(await screen.findByRole('option', { name: 'Por que saiu?' }));
+
+      await user.click(screen.getByRole('button', { name: 'Criar formulário' }));
+
+      await waitFor(() => expect(tiposApi.criarTipoRegistro).toHaveBeenCalledTimes(1));
+      expect(vi.mocked(tiposApi.criarTipoRegistro).mock.calls[0][0]).toMatchObject({
+        descricao: 'Ponto extra',
+        acompanha: true,
+        acompanha_gatilho_chave: null,
+        acompanha_intervalo_dias: 7,
+        acompanha_rotulo_continua: 'Ainda está lá',
+        acompanha_rotulo_acabou: 'Não está mais',
+        acompanha_ao_continuar: 'FORMULARIO_PREENCHIDO',
+        acompanha_formulario_acabou_uuid: 'just-1',
+      });
+    }, 20_000);
+
+    it('edita: abre com a configuração salva e manda a alteração', async () => {
+      vi.mocked(tiposApi.buscarTipoRegistro).mockResolvedValue({ tipo_registro: tipoComAcompanhamento() } as never);
+      vi.mocked(tiposApi.atualizarTipoRegistro).mockResolvedValue({ tipo_registro: tipoComAcompanhamento() } as never);
+      const user = userEvent.setup();
+      renderizar('/tipos-registro/tipo-1');
+      await screen.findByText('Tudo salvo');
+
+      expect(screen.getByLabelText('Acompanhar na próxima visita')).toBeChecked();
+      expect(screen.getByDisplayValue('Ainda está lá')).toBeInTheDocument();
+      expect(screen.getByLabelText('Dias entre conferências')).toHaveValue(7);
+      expect(screen.getByDisplayValue('Por que saiu?')).toBeInTheDocument();
+
+      const continua = screen.getByLabelText('Quando continua');
+      await user.clear(continua);
+      await user.type(continua, 'Continua montado');
+      await user.click(screen.getByRole('button', { name: 'Salvar' }));
+
+      await waitFor(() => expect(tiposApi.atualizarTipoRegistro).toHaveBeenCalledTimes(1));
+      const [id, payload] = vi.mocked(tiposApi.atualizarTipoRegistro).mock.calls[0];
+      expect(id).toBe('tipo-1');
+      expect(payload).toMatchObject({
+        acompanha: true,
+        acompanha_rotulo_continua: 'Continua montado',
+        acompanha_rotulo_acabou: 'Não está mais',
+        acompanha_intervalo_dias: 7,
+        acompanha_formulario_acabou_uuid: 'just-1',
+        acompanha_prazo_dias: 60,
+      });
+    }, 20_000);
+
+    it('desligar o acompanhamento manda a configuração limpa', async () => {
+      vi.mocked(tiposApi.buscarTipoRegistro).mockResolvedValue({ tipo_registro: tipoComAcompanhamento() } as never);
+      vi.mocked(tiposApi.atualizarTipoRegistro).mockResolvedValue({ tipo_registro: tipoSalvo() } as never);
+      const user = userEvent.setup();
+      renderizar('/tipos-registro/tipo-1');
+      await screen.findByText('Tudo salvo');
+
+      await user.click(screen.getByLabelText('Acompanhar na próxima visita'));
+      expect(screen.queryByLabelText('Quando continua')).not.toBeInTheDocument();
+      await user.click(screen.getByRole('button', { name: 'Salvar' }));
+
+      await waitFor(() => expect(tiposApi.atualizarTipoRegistro).toHaveBeenCalledTimes(1));
+      expect(vi.mocked(tiposApi.atualizarTipoRegistro).mock.calls[0][1]).toMatchObject({
+        acompanha: false,
+        acompanha_formulario_acabou_uuid: null,
+        acompanha_prazo_dias: null,
+      });
+    });
   });
 });

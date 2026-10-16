@@ -1,4 +1,5 @@
-import { Alert, Autocomplete, Box, Button, Chip, CircularProgress, Dialog, DialogContent, MenuItem, Paper, TextField, Typography } from '@mui/material';
+import { Alert, Autocomplete, Box, Button, Chip, CircularProgress, Dialog, DialogContent, MenuItem, Paper, Tab, Tabs, TextField, Typography } from '@mui/material';
+import { AcompanhamentosLista } from './AcompanhamentosLista';
 import { BotaoExportar } from '../../components/BotaoExportar';
 import { usePageHeader } from '../../components/layout/PageHeaderSlot';
 import { TituloComAtualizar } from '../../components/RefreshButton';
@@ -31,7 +32,7 @@ const coluna = createColumnHelper<RegistroLista>();
 // Tela genérica de registros de visita (ruptura, avaria, validade próxima, foto, observação, o
 // que mais for cadastrado) — docs/44-TELA-REGISTROS.md. Antes desta tela não existia lugar
 // nenhum pra ver um registro fora do contexto de uma visita específica já aberta.
-export function RegistrosListPage() {
+function RegistrosAba() {
   const navigate = useNavigate();
   // Drill-down do "Rupturas por SKU" da Operação do Dia chega aqui via link
   // (?produto_auditoria_uuid=&produto_descricao=&ruptura=1) — mesmo mecanismo já usado pela
@@ -195,11 +196,8 @@ export function RegistrosListPage() {
     [],
   );
 
-  const cabecalho = usePageHeader(<TituloComAtualizar titulo="Registros" />);
-
   return (
     <Box>
-      {cabecalho}
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         Qualquer ocorrência registrada em campo — ruptura, avaria, validade próxima, foto ou
         observação — filtrável por tipo, loja, rede e período, sempre ligada à visita de origem.
@@ -412,5 +410,35 @@ function RegistroDaLista({
         )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+/**
+ * Registros e, em outra aba, os acompanhamentos "ainda está lá?" (docs/83 §5.3, aba em vez de tela
+ * própria no menu). `?aba=acompanhamentos` abre direto na segunda.
+ */
+export function RegistrosListPage() {
+  const [params, setParams] = useSearchParams();
+  const aba = params.get('aba') === 'acompanhamentos' ? 'acompanhamentos' : 'registros';
+  const cabecalho = usePageHeader(<TituloComAtualizar titulo="Registros" />);
+
+  return (
+    <Box>
+      {cabecalho}
+      <Tabs
+        value={aba}
+        onChange={(_, v: string) => {
+          const novo = new URLSearchParams(params);
+          if (v === 'acompanhamentos') novo.set('aba', v);
+          else novo.delete('aba');
+          setParams(novo, { replace: true });
+        }}
+        sx={{ mb: 2 }}
+      >
+        <Tab value="registros" label="Registros" />
+        <Tab value="acompanhamentos" label="Acompanhamentos" />
+      </Tabs>
+      {aba === 'acompanhamentos' ? <AcompanhamentosLista /> : <RegistrosAba />}
+    </Box>
   );
 }

@@ -25,6 +25,7 @@ import {
   type CampanhaContexto,
   type FormData,
 } from './formulario/modelo';
+import { SecaoAcompanhamento } from './formulario/SecaoAcompanhamento';
 import { SecaoPerguntas } from './formulario/SecaoPerguntas';
 import { OPCOES_AVANCADAS, rotuloQuando, rotuloSobre } from './formulario/rotulos';
 import {
@@ -35,7 +36,7 @@ import {
 } from './formulario/Secoes';
 import { horus } from '../../theme';
 
-type NumeroSecao = 1 | 2 | 3 | 4 | 5;
+type NumeroSecao = 1 | 2 | 3 | 4 | 5 | 6;
 
 const SECOES: { n: NumeroSecao; aba: string; titulo: string; sub?: string }[] = [
   { n: 1, aba: 'Identificação', titulo: 'Identificação' },
@@ -43,6 +44,12 @@ const SECOES: { n: NumeroSecao; aba: string; titulo: string; sub?: string }[] = 
   { n: 3, aba: 'Produtos', titulo: 'Sobre o que o promotor responde?', sub: 'Define se cada resposta é da loja, de um produto ou de uma seção.' },
   { n: 4, aba: 'Perguntas', titulo: 'Perguntas', sub: 'O que o promotor preenche, na ordem em que aparece no app. Arraste para reordenar.' },
   { n: 5, aba: 'Avançado', titulo: 'Opções avançadas' },
+  {
+    n: 6,
+    aba: 'Acompanhar',
+    titulo: 'Acompanhar na próxima visita',
+    sub: 'Na próxima visita à loja, o promotor confirma se o que foi registrado ainda está lá.',
+  },
 ];
 
 /**
@@ -386,6 +393,7 @@ export function TipoRegistroFormPage() {
                 </Button>
               ) : undefined,
           })}
+          {secao(6, <SecaoAcompanhamento control={control} tipoAtualId={tipo?.id ?? null} />)}
         </Box>
         <Box sx={{ display: { xs: 'none', lg: 'block' } }}>
           <Lateral control={control} />
@@ -488,6 +496,11 @@ function ResumoSecao({ control, n }: { control: Control<FormData>; n: NumeroSeca
     const total = d.campos?.length ?? 0;
     const obrig = (d.campos ?? []).filter((c) => c.obrigatorio).length;
     texto = `${total} pergunta${total === 1 ? '' : 's'}${total ? ` · ${obrig} obrigatória${obrig === 1 ? '' : 's'}` : ''} · ${d.exige_foto ? 'pede foto' : 'sem foto'}`;
+  }
+  if (n === 6) {
+    texto = d.acompanha
+      ? `Ligado — ${d.acompanha_intervalo_dias === 0 ? 'confere em toda visita' : `a cada ${d.acompanha_intervalo_dias} dias`}${d.acompanha_gatilho_chave ? ', só com a resposta escolhida' : ''}`
+      : 'Desligado. O registro vale só no dia em que foi feito.';
   }
   if (n === 5) {
     const ligadas = OPCOES_AVANCADAS.filter((o) => d[o.nome]).map((o) => o.curto);
