@@ -20,8 +20,11 @@ import {
   Link,
   MenuItem,
   Popover,
+  Radio,
+  RadioGroup,
   Switch,
   TextField,
+  Tooltip,
   Typography,
   alpha,
 } from '@mui/material';
@@ -46,7 +49,7 @@ import {
   type QuandoAparece,
   type SobreOQue,
 } from './modelo';
-import { OPCOES_AVANCADAS, OPCOES_QUANDO, OPCOES_SOBRE, RECORTES_ESCOLHIVEIS } from './rotulos';
+import { OPCOES_AVANCADAS, OPCOES_QUANDO, OPCOES_SOBRE, LISTAS_RECORTE, RECORTES_ESCOLHIVEIS } from './rotulos';
 import { SeletorProdutosDialog } from './SeletorProdutosDialog';
 import { horus } from '../../../theme';
 
@@ -727,7 +730,45 @@ export function SecaoSobreOQue({
                 )}
               />
             ))}
+            {/* docs/82 §5.2 — marca como filtro depois da seção/departamento ("Biscoito · Piraquê"). */}
+            <Controller
+              name="filtra_marca"
+              control={control}
+              render={({ field }) => (
+                <FormControlLabel
+                  label={<Typography variant="body2">Pode filtrar por marca depois da seção/departamento</Typography>}
+                  control={
+                    <Checkbox
+                      size="small"
+                      checked={field.value && (escolheDepartamento || escolheSecao)}
+                      disabled={!escolheDepartamento && !escolheSecao}
+                      onChange={(e) => field.onChange(e.target.checked)}
+                    />
+                  }
+                />
+              )}
+            />
           </Box>
+          {atual === 'PROMOTOR_ESCOLHE_RECORTE' && (
+            <Box sx={{ px: 2, pb: 1.5, pl: 5.5 }}>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.25 }}>
+                Lista mostrada
+              </Typography>
+              <Controller
+                name="lista_recorte"
+                control={control}
+                render={({ field }) => (
+                  <RadioGroup row value={field.value} onChange={(e) => field.onChange(e.target.value)}>
+                    {LISTAS_RECORTE.map((l) => (
+                      <Tooltip key={l.valor} title={l.ajuda}>
+                        <FormControlLabel value={l.valor} control={<Radio size="small" />} label={<Typography variant="body2">{l.rotulo}</Typography>} />
+                      </Tooltip>
+                    ))}
+                  </RadioGroup>
+                )}
+              />
+            </Box>
+          )}
         </OpcaoRadio>
       </Box>
       {atual === 'PRODUTO' && <PainelProdutos control={control} tipoAtualId={tipoAtualId} nomeFormulario={nomeFormulario} />}

@@ -52,6 +52,7 @@ import {
   forcarCheckoutVisita,
 } from '../../lib/api/visitas';
 import type { AcaoIntervencaoVisita, StatusVisita, Visita, VisitaRegistro } from '../../types/api';
+import { descricaoDoVinculo } from '../../lib/vinculoRegistro';
 
 const STATUS_COLORS: Record<StatusVisita, 'warning' | 'success' | 'default'> = {
   ABERTA: 'warning',
@@ -132,7 +133,7 @@ function mensagemDeErro(err: unknown): string {
 }
 
 function RegistroCard({ registro, onAbrir }: { registro: VisitaRegistro; onAbrir: () => void }) {
-  const vinculo = registro.secao?.descricao ?? registro.departamento?.descricao ?? registro.marca?.descricao;
+  const vinculo = descricaoDoVinculo(registro);
   const previaValores = registro.campos_respondidos
     .filter((c) => c.tipo_campo !== 'SORTIMENTO')
     .map((c) => c.valor)

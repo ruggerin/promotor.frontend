@@ -5,6 +5,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { apiClient } from '../../lib/api/client';
 import type { CampoRespondido, VisitaRegistro } from '../../types/api';
 import { ComentariosRegistro } from '../ComentariosRegistro';
+import { descricaoDoVinculo } from '../../lib/vinculoRegistro';
 
 // Detalhe de UM registro (fotos, campos respondidos, observação e conversa) — usado na tela da
 // visita e na lista de Registros, pra abrir o registro sem sair da tela.
@@ -109,7 +110,7 @@ export function CamposRespondidos({ campos }: { campos: CampoRespondido[] }) {
 }
 
 export function tituloRegistro(registro: VisitaRegistro): string {
-  const vinculo = registro.secao?.descricao ?? registro.departamento?.descricao ?? registro.marca?.descricao;
+  const vinculo = descricaoDoVinculo(registro);
   return registro.produto_auditoria?.descricao ?? vinculo ?? registro.tipo_registro.descricao;
 }
 
@@ -130,7 +131,7 @@ export function RegistroDetalheDialog({
   statusAlerta?: { aberto: boolean; motivo?: string | null } | null;
 }) {
   if (!registro) return null;
-  const vinculo = registro.secao?.descricao ?? registro.departamento?.descricao ?? registro.marca?.descricao;
+  const vinculo = descricaoDoVinculo(registro);
 
   return (
     <Dialog open onClose={onClose} maxWidth="sm" fullWidth>

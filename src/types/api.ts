@@ -648,6 +648,9 @@ export interface TipoRegistro {
   escolhe_marca: boolean;
   escolhe_departamento: boolean;
   escolhe_secao: boolean;
+  // docs/82: lista "Onde é" (o que a loja tem primeiro, ou só ele) e filtro de marca depois da seção.
+  lista_recorte?: ListaRecorte;
+  filtra_marca?: boolean;
   excecoes_granularidade: { secao_uuid: string; secao_descricao: string; granularidade: GranularidadeResposta }[];
   // Marca a coluna "Ruptura" da grade de coleta (Fase 2) — sempre a primeira, marcar um produto
   // exclui ele das demais colunas da mesma linha. Ver docs/16-GRANULARIDADE-CHECKLIST-AUDITORIA.md §9.
@@ -1349,3 +1352,6 @@ export interface PedidoVenda {
   created_at: string;
   updated_at: string;
 }
+
+// docs/82 §5.1 — o que a tela "Onde é este registro?" mostra.
+export type ListaRecorte = 'PRIMEIRO_DA_LOJA' | 'SO_DA_LOJA';

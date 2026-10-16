@@ -1,6 +1,7 @@
 import type {
   EscopoAcaoTipoRegistro,
   GranularidadeResposta,
+  ListaRecorte,
   PaginatedMeta,
   SortimentoOrigemCampo,
   SortimentoTipoVinculo,
@@ -87,6 +88,8 @@ export interface TipoRegistroPayload {
   escolhe_marca?: boolean;
   escolhe_departamento?: boolean;
   escolhe_secao?: boolean;
+  lista_recorte?: ListaRecorte;
+  filtra_marca?: boolean;
   // Lista completa — sempre substitui as exceções existentes por inteiro (ver
   // TipoRegistroController::sincronizarExcecoesGranularidade).
   excecoes_granularidade?: { secao_uuid: string; granularidade: GranularidadeResposta }[];

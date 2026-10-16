@@ -78,3 +78,21 @@ describe('intervalo entre cobranças', () => {
     expect(payloadDoForm({ ...base, intervalo_dias: 7, acao_obrigatoria: false }).intervalo_dias).toBe(0);
   });
 });
+
+// docs/82 — lista "Na loja" e filtro de marca depois da seção/departamento.
+describe('lista do onde é e filtro de marca', () => {
+  it('vai no payload com a escolha do promotor', () => {
+    const payload = payloadDoForm({ ...pontoExtra(), lista_recorte: 'SO_DA_LOJA', filtra_marca: true });
+    expect(payload).toMatchObject({ lista_recorte: 'SO_DA_LOJA', filtra_marca: true });
+  });
+
+  it('sem a escolha do promotor volta ao padrão e não filtra marca', () => {
+    const d = { ...pontoExtra(), ...camposDoSobreOQue('LINHA'), lista_recorte: 'SO_DA_LOJA' as const, filtra_marca: true };
+    expect(payloadDoForm(d)).toMatchObject({ lista_recorte: 'PRIMEIRO_DA_LOJA', filtra_marca: false });
+  });
+
+  it('filtro de marca precisa de seção ou departamento', () => {
+    const d = { ...pontoExtra(), escolhe_marca: true, escolhe_departamento: false, escolhe_secao: false, filtra_marca: true };
+    expect(payloadDoForm(d).filtra_marca).toBe(false);
+  });
+});

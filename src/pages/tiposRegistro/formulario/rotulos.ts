@@ -26,16 +26,22 @@ export const OPCOES_SOBRE: Record<SobreOQue, { titulo: string; sub: string }> = 
   LINHA: { titulo: 'Cada seção / linha', sub: 'Uma resposta cobre a gôndola. Ex.: "seção organizada?"' },
   PROMOTOR_DECIDE: { titulo: 'O promotor decide', sub: 'Ele escolhe na hora se liga a produto ou seção.' },
   PROMOTOR_ESCOLHE_RECORTE: {
-    titulo: 'Marca, departamento ou seção — o promotor escolhe',
-    sub: 'Na hora, ele marca onde é (ex.: o departamento Limpeza inteiro ou só a seção Amaciante). Uma resposta vale pra tudo.',
+    titulo: 'Onde é o registro? — o promotor escolhe',
+    sub: 'Departamento, seção ou marca. Opcional: filtrar a marca depois da seção.',
   },
 };
 
 // Caixinhas da opção "o promotor escolhe" (docs/79 decisão 1).
 export const RECORTES_ESCOLHIVEIS: { nome: 'escolhe_marca' | 'escolhe_departamento' | 'escolhe_secao'; rotulo: string }[] = [
-  { nome: 'escolhe_marca', rotulo: 'Pode escolher marca' },
+  { nome: 'escolhe_marca', rotulo: 'Pode escolher a marca inteira' },
   { nome: 'escolhe_departamento', rotulo: 'Pode escolher departamento' },
   { nome: 'escolhe_secao', rotulo: 'Pode escolher seção' },
+];
+
+// docs/82 §5.1 — "Lista mostrada" na tela "Onde é este registro?".
+export const LISTAS_RECORTE: { valor: 'PRIMEIRO_DA_LOJA' | 'SO_DA_LOJA'; rotulo: string; ajuda: string }[] = [
+  { valor: 'PRIMEIRO_DA_LOJA', rotulo: 'Primeiro o que a loja tem', ajuda: 'O que está no Mix aparece no topo; o resto fica abaixo, com busca.' },
+  { valor: 'SO_DA_LOJA', rotulo: 'Só o que a loja tem', ajuda: 'Só o que está no Mix. Loja sem Mix cadastrado libera a lista inteira.' },
 ];
 
 export function rotuloSobre(s: SobreOQue) {
