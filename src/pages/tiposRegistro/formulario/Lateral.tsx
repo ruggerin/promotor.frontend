@@ -79,7 +79,9 @@ function Resumo({ d }: { d: FormData }) {
         : <> de <b>cada produto</b></>
       : sobre === 'LINHA'
         ? <> para a <b>linha/seção inteira</b></>
-        : null;
+        : sobre === 'PROMOTOR_ESCOLHE_RECORTE'
+          ? <> para a <b>marca, departamento ou seção que ele escolher</b></>
+          : null;
 
   const oque: ReactNode = campos.length === 0 ? (
     <>{d.exige_foto ? 'tirar a foto' : 'registrar'}</>

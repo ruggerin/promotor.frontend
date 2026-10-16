@@ -85,6 +85,7 @@ export function TiposRegistroListPage() {
     CAMPANHA: 'Campanha',
     CONTRATO: 'Contrato ativo',
     LOJA_REDE: 'Lojas/redes',
+    LINHA_AUSENTE: 'Linha fora do Mix',
   };
 
   const reativarMutation = useMutation({

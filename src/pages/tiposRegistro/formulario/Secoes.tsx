@@ -27,10 +27,13 @@ import {
 } from '@mui/material';
 import { useQueries, useQuery } from '@tanstack/react-query';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Controller, useFieldArray, useWatch, type Control, type UseFormSetValue } from 'react-hook-form';
+import { Controller, useFieldArray, useWatch, type Control, type UseFormGetValues, type UseFormSetValue } from 'react-hook-form';
 import { MdiIcon } from '../../../components/MdiIcon';
 import { listarCampanhas } from '../../../lib/api/campanhas';
+import { listarDepartamentos } from '../../../lib/api/departamentos';
+import { listarMarcas } from '../../../lib/api/marcas';
 import { listarPontosVenda } from '../../../lib/api/pontosVenda';
+import { listarRamosAtividade } from '../../../lib/api/ramosAtividade';
 import { listarRedesLojas } from '../../../lib/api/redesLojas';
 import { listarSecoes } from '../../../lib/api/secoes';
 import { SelecionarPontoVendaDialog } from '../../usuarios/SelecionarPontoVendaDialog';
@@ -43,7 +46,7 @@ import {
   type QuandoAparece,
   type SobreOQue,
 } from './modelo';
-import { OPCOES_AVANCADAS, OPCOES_QUANDO, OPCOES_SOBRE } from './rotulos';
+import { OPCOES_AVANCADAS, OPCOES_QUANDO, OPCOES_SOBRE, RECORTES_ESCOLHIVEIS } from './rotulos';
 import { SeletorProdutosDialog } from './SeletorProdutosDialog';
 import { horus } from '../../../theme';
 
@@ -250,7 +253,15 @@ function SeletorIcone({ valor, onChange }: { valor: string | null; onChange: (v:
 
 
 
-export function SecaoQuandoAparece({ control, setValue }: { control: Control<FormData>; setValue: UseFormSetValue<FormData> }) {
+export function SecaoQuandoAparece({
+  control,
+  setValue,
+  getValues,
+}: {
+  control: Control<FormData>;
+  setValue: UseFormSetValue<FormData>;
+  getValues: UseFormGetValues<FormData>;
+}) {
   const acao = useWatch({ control, name: 'acao_obrigatoria' });
   const escopo = useWatch({ control, name: 'escopo_acao' });
   const livre = useWatch({ control, name: 'disponivel_registro_livre' });
@@ -263,6 +274,10 @@ export function SecaoQuandoAparece({ control, setValue }: { control: Control<For
     setValue('acao_obrigatoria', campos.acao_obrigatoria, { shouldDirty: true, shouldValidate: true });
     setValue('escopo_acao', campos.escopo_acao, { shouldDirty: true, shouldValidate: true });
     setValue('disponivel_registro_livre', campos.disponivel_registro_livre, { shouldDirty: true });
+    // Linha ausente começa por seção — o recorte mais acionável (docs/80 decisão 1).
+    if (q === 'LINHA_AUSENTE' && !getValues('escopo_tipo_vinculo')) {
+      setValue('escopo_tipo_vinculo', 'SECAO', { shouldDirty: true });
+    }
   }
 
   const opcao = (q: QuandoAparece, extra?: ReactNode) => (
@@ -282,9 +297,12 @@ export function SecaoQuandoAparece({ control, setValue }: { control: Control<For
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
         {opcao('SEMPRE')}
         {opcao('LOJA_REDE', <EscopoLojaRede control={control} />)}
+        {opcao('LINHA_AUSENTE', <EscopoLinhaAusente control={control} setValue={setValue} />)}
         {opcao('CAMPANHA', <EscopoCampanha control={control} />)}
         {opcao('CONTRATO')}
       </Box>
+      {acao && <FiltroRamos control={control} />}
+      {acao && <IntervaloCobranca control={control} />}
       {acao && (
         <Controller
           name="disponivel_registro_livre"
@@ -349,6 +367,147 @@ function EscopoCampanha({ control }: { control: Control<FormData> }) {
         )}
       />
     </PainelEscopo>
+  );
+}
+
+// Escopo LINHA_AUSENTE (docs/80 §5.1): a linha que, fora do Mix da loja, dispara o levantamento.
+function EscopoLinhaAusente({ control, setValue }: { control: Control<FormData>; setValue: UseFormSetValue<FormData> }) {
+  const recorte = useWatch({ control, name: 'escopo_tipo_vinculo' });
+  const secoesQuery = useQuery({ queryKey: ['secoes', { ativo: true }], queryFn: () => listarSecoes({ ativo: true }), enabled: recorte === 'SECAO' });
+  const departamentosQuery = useQuery({
+    queryKey: ['departamentos', { ativo: true }],
+    queryFn: () => listarDepartamentos({ ativo: true }),
+    enabled: recorte === 'DEPARTAMENTO',
+  });
+  const marcasQuery = useQuery({ queryKey: ['marcas', { ativo: true }], queryFn: () => listarMarcas({ ativo: true }), enabled: recorte === 'MARCA' });
+
+  const itens =
+    recorte === 'SECAO'
+      ? secoesQuery.data?.secoes ?? []
+      : recorte === 'DEPARTAMENTO'
+        ? departamentosQuery.data?.departamentos ?? []
+        : marcasQuery.data?.marcas ?? [];
+  const campo =
+    recorte === 'SECAO' ? ('escopo_secao_uuid' as const) : recorte === 'DEPARTAMENTO' ? ('escopo_departamento_uuid' as const) : ('escopo_marca_uuid' as const);
+
+  return (
+    <PainelEscopo>
+      <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+        <Typography variant="body2" color="text.secondary">
+          Aparece nas lojas cujo Mix não tem a
+        </Typography>
+        <Controller
+          name="escopo_tipo_vinculo"
+          control={control}
+          render={({ field }) => (
+            <TextField
+              select
+              size="small"
+              value={field.value ?? ''}
+              onChange={(e) => {
+                field.onChange(e.target.value || null);
+                setValue('escopo_secao_uuid', null);
+                setValue('escopo_departamento_uuid', null);
+                setValue('escopo_marca_uuid', null);
+              }}
+              sx={{ bgcolor: 'background.paper', minWidth: 150 }}
+            >
+              <MenuItem value="SECAO">seção</MenuItem>
+              <MenuItem value="DEPARTAMENTO">departamento</MenuItem>
+              <MenuItem value="MARCA">marca</MenuItem>
+            </TextField>
+          )}
+        />
+        {recorte && (
+          <Controller
+            name={campo}
+            control={control}
+            render={({ field, fieldState }) => (
+              <Autocomplete
+                size="small"
+                sx={{ minWidth: 260, bgcolor: 'background.paper' }}
+                options={itens}
+                getOptionLabel={(o) => o.descricao}
+                value={itens.find((o) => o.id === field.value) ?? null}
+                onChange={(_, v) => field.onChange(v?.id ?? null)}
+                renderInput={(params) => <TextField {...params} placeholder="Escolha" error={!!fieldState.error} />}
+              />
+            )}
+          />
+        )}
+      </Box>
+      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+        Loja sem nenhum Mix cadastrado não recebe. Item do Mix ainda pendente de aprovação não conta como linha presente.
+      </Typography>
+    </PainelEscopo>
+  );
+}
+
+// Intervalo entre cobranças (docs/80 §5.2) — vale pra qualquer escopo obrigatório.
+function IntervaloCobranca({ control }: { control: Control<FormData> }) {
+  return (
+    <Controller
+      name="intervalo_dias"
+      control={control}
+      render={({ field, fieldState }) => (
+        <Box sx={{ mt: 2 }}>
+          <Typography variant="body2" sx={{ fontWeight: 700 }}>
+            Cobrar de novo na mesma loja depois de
+          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.75, flexWrap: 'wrap' }}>
+            <TextField
+              size="small"
+              type="number"
+              value={Number.isNaN(field.value) ? '' : field.value}
+              onChange={(e) => field.onChange(e.target.value === '' ? 0 : Number(e.target.value))}
+              error={!!fieldState.error}
+              helperText={fieldState.error?.message}
+              slotProps={{ htmlInput: { min: 0, max: 3650, step: 1, 'aria-label': 'Dias entre cobranças' } }}
+              sx={{ width: 110, bgcolor: 'background.paper' }}
+            />
+            <Typography variant="body2">dias</Typography>
+          </Box>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+            0 = toda visita. 1 = no máximo uma vez por dia. 7 = no máximo uma vez a cada 7 dias. Conta o último registro deste
+            formulário na loja, de qualquer promotor.
+          </Typography>
+        </Box>
+      )}
+    />
+  );
+}
+
+// Filtro por ramo de atividade (docs/80 §5.4) — vale pra qualquer escopo obrigatório.
+function FiltroRamos({ control }: { control: Control<FormData> }) {
+  const ramosQuery = useQuery({ queryKey: ['ramos-atividade', { ativo: true }], queryFn: () => listarRamosAtividade({ ativo: true }) });
+  const ramos = ramosQuery.data?.ramos_atividade ?? [];
+  return (
+    <Box sx={{ mt: 2 }}>
+      <Typography variant="body2" sx={{ fontWeight: 700 }}>
+        Só em lojas destes ramos
+      </Typography>
+      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+        Opcional. Ex.: drogaria não recebe levantamento de lava-roupas. Vazio = todos os ramos; loja sem ramo cadastrado sempre recebe.
+      </Typography>
+      <Controller
+        name="ramos_atividade_uuids"
+        control={control}
+        render={({ field }) => (
+          <Autocomplete
+            multiple
+            size="small"
+            options={ramos}
+            getOptionLabel={(r) => r.descricao}
+            value={ramos.filter((r) => field.value.includes(r.id))}
+            onChange={(_, v) => field.onChange(v.map((r) => r.id))}
+            loading={ramosQuery.isLoading}
+            renderInput={(params) => <TextField {...params} placeholder={field.value.length ? '' : 'Todos os ramos'} />}
+            noOptionsText="Nenhum ramo de atividade cadastrado"
+            sx={{ bgcolor: 'background.paper', maxWidth: 520 }}
+          />
+        )}
+      />
+    </Box>
   );
 }
 
@@ -510,12 +669,26 @@ export function SecaoSobreOQue({
 }) {
   const granularidade = useWatch({ control, name: 'granularidade_padrao' });
   const vincular = useWatch({ control, name: 'permite_vincular_catalogo' });
-  const atual = sobreOQue({ granularidade_padrao: granularidade, permite_vincular_catalogo: vincular });
+  const [escolheMarca, escolheDepartamento, escolheSecao] = useWatch({
+    control,
+    name: ['escolhe_marca', 'escolhe_departamento', 'escolhe_secao'],
+  });
+  const atual = sobreOQue({
+    granularidade_padrao: granularidade,
+    permite_vincular_catalogo: vincular,
+    escolhe_marca: escolheMarca,
+    escolhe_departamento: escolheDepartamento,
+    escolhe_secao: escolheSecao,
+  });
+  const marcadas = [escolheMarca, escolheDepartamento, escolheSecao].filter(Boolean).length;
 
   function escolher(s: SobreOQue) {
     const c = camposDoSobreOQue(s);
     setValue('granularidade_padrao', c.granularidade_padrao, { shouldDirty: true });
     setValue('permite_vincular_catalogo', c.permite_vincular_catalogo, { shouldDirty: true });
+    setValue('escolhe_marca', c.escolhe_marca, { shouldDirty: true });
+    setValue('escolhe_departamento', c.escolhe_departamento, { shouldDirty: true });
+    setValue('escolhe_secao', c.escolhe_secao, { shouldDirty: true });
   }
 
   return (
@@ -524,6 +697,38 @@ export function SecaoSobreOQue({
         {(['VISITA', 'PRODUTO', 'LINHA', 'PROMOTOR_DECIDE'] as SobreOQue[]).map((s) => (
           <OpcaoRadio key={s} titulo={OPCOES_SOBRE[s].titulo} sub={OPCOES_SOBRE[s].sub} ativo={atual === s} onClick={() => escolher(s)} />
         ))}
+      </Box>
+      <Box sx={{ mt: 1 }}>
+        <OpcaoRadio
+          titulo={OPCOES_SOBRE.PROMOTOR_ESCOLHE_RECORTE.titulo}
+          sub={OPCOES_SOBRE.PROMOTOR_ESCOLHE_RECORTE.sub}
+          ativo={atual === 'PROMOTOR_ESCOLHE_RECORTE'}
+          onClick={() => escolher('PROMOTOR_ESCOLHE_RECORTE')}
+        >
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', columnGap: 3, px: 2, pb: 1.25, pl: 5.5 }}>
+            {RECORTES_ESCOLHIVEIS.map((r) => (
+              <Controller
+                key={r.nome}
+                name={r.nome}
+                control={control}
+                render={({ field }) => (
+                  <FormControlLabel
+                    label={<Typography variant="body2">{r.rotulo}</Typography>}
+                    control={
+                      <Checkbox
+                        size="small"
+                        checked={field.value}
+                        // A última marcada não desmarca: sem nenhuma, a opção deixaria de existir.
+                        disabled={field.value && marcadas === 1}
+                        onChange={(e) => field.onChange(e.target.checked)}
+                      />
+                    }
+                  />
+                )}
+              />
+            ))}
+          </Box>
+        </OpcaoRadio>
       </Box>
       {atual === 'PRODUTO' && <PainelProdutos control={control} tipoAtualId={tipoAtualId} nomeFormulario={nomeFormulario} />}
       {(atual === 'PRODUTO' || atual === 'LINHA') && <ExcecoesPorSecao control={control} />}

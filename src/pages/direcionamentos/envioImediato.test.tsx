@@ -9,7 +9,7 @@ import * as usuariosApi from '../../lib/api/usuarios';
 import { renderComProviders } from '../../test/renderWithProviders';
 import type { TipoRegistro } from '../../types/api';
 import { DirecionamentoFormDialog } from './DirecionamentoFormDialog';
-import { valoresEnvioImediato } from './envioImediato';
+import { precisaResolverLojas, valoresEnvioImediato } from './envioImediato';
 
 vi.mock('../../lib/api/direcionamentos');
 vi.mock('../../lib/api/pontosVenda');
@@ -57,6 +57,25 @@ describe('valoresEnvioImediato (docs/66)', () => {
     expect(valoresEnvioImediato(tipo({ escopo_acao: 'SEMPRE' }), [], agora).pontos_venda).toEqual([]);
     // Sem ação obrigatória, o escopo não vale — vai pra todas as lojas.
     expect(valoresEnvioImediato(tipo({ acao_obrigatoria: false, escopo_acao: 'LOJA_REDE', pontos_venda_escopo: [{ id: 'l1', fantasia: 'Loja 1' }] }), [], agora).pontos_venda).toEqual([]);
+  });
+
+  it('linha ausente e filtro por ramo usam as lojas resolvidas pelo backend, sem redes (docs/80)', () => {
+    const resolvidas = [{ id: 'l5', fantasia: 'Sem a linha' }];
+    expect(precisaResolverLojas(tipo({ escopo_acao: 'LINHA_AUSENTE' }))).toBe(true);
+    expect(valoresEnvioImediato(tipo({ escopo_acao: 'LINHA_AUSENTE' }), resolvidas, agora).pontos_venda).toEqual([{ uuid: 'l5', fantasia: 'Sem a linha' }]);
+
+    const lojaRedeComRamo = tipo({
+      escopo_acao: 'LOJA_REDE',
+      ramos_atividade_uuids: ['supermercado'],
+      redes_lojas_escopo: [{ id: 'r1', descricao: 'Rede Norte' }],
+    });
+    expect(precisaResolverLojas(lojaRedeComRamo)).toBe(true);
+    const v = valoresEnvioImediato(lojaRedeComRamo, resolvidas, agora);
+    expect(v.pontos_venda).toEqual([{ uuid: 'l5', fantasia: 'Sem a linha' }]);
+    expect(v.redes_loja).toEqual([]);
+
+    expect(precisaResolverLojas(tipo({ escopo_acao: 'SEMPRE' }))).toBe(false);
+    expect(precisaResolverLojas(tipo({ acao_obrigatoria: false, escopo_acao: 'LINHA_AUSENTE' }))).toBe(false);
   });
 });
 

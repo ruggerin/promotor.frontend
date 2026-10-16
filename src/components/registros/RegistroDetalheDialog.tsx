@@ -78,7 +78,15 @@ export function CamposRespondidos({ campos }: { campos: CampoRespondido[] }) {
               </Typography>
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                 {campo.sortimento?.presentes.map((p) => (
-                  <Chip key={p.id} label={p.descricao} size="small" color="success" variant="outlined" />
+                  <Chip
+                    key={p.id}
+                    // Adicionado pelo promotor de fora do mix da loja (docs/79 decisão 8).
+                    label={p.fora_do_mix ? `${p.descricao} · fora do mix` : p.descricao}
+                    size="small"
+                    color="success"
+                    variant="outlined"
+                    sx={p.fora_do_mix ? { borderStyle: 'dashed' } : undefined}
+                  />
                 ))}
                 {campo.sortimento?.ausentes.map((p) => (
                   <Chip key={p.id} label={p.descricao} size="small" color="error" variant="outlined" />

@@ -60,6 +60,7 @@ export interface CampoTipoRegistroPayload {
   sortimento_departamento_uuid?: string | null;
   sortimento_marca_uuid?: string | null;
   sortimento_produtos_uuids?: string[];
+  sortimento_segue_escolha?: boolean;
   confirmar_ruptura_ausentes?: boolean;
 }
 
@@ -77,6 +78,15 @@ export interface TipoRegistroPayload {
   pontos_venda_uuids?: string[];
   redes_lojas_uuids?: string[];
   granularidade_padrao?: GranularidadeResposta | null;
+  escopo_tipo_vinculo?: SortimentoTipoVinculo | null;
+  escopo_secao_uuid?: string | null;
+  escopo_departamento_uuid?: string | null;
+  escopo_marca_uuid?: string | null;
+  ramos_atividade_uuids?: string[];
+  intervalo_dias?: number;
+  escolhe_marca?: boolean;
+  escolhe_departamento?: boolean;
+  escolhe_secao?: boolean;
   // Lista completa — sempre substitui as exceções existentes por inteiro (ver
   // TipoRegistroController::sincronizarExcecoesGranularidade).
   excecoes_granularidade?: { secao_uuid: string; granularidade: GranularidadeResposta }[];
@@ -123,6 +133,26 @@ export async function moverTipoRegistro(uuid: string, direcao: 'cima' | 'baixo')
 // Duplicar (decisão 6 de docs/20-FORMULARIO-DINAMICO-CAMPANHA.md) — clona um tipo existente
 // (com todos os campos) como ponto de partida de um formulário novo; a cópia nasce solta (sem
 // ação obrigatória/campanha), independente do original depois.
+// Lojas onde a Ação vale — pré-seleção do "Enviar agora" quando o escopo depende do Mix
+// (LINHA_AUSENTE), do contrato ou há filtro por ramo (docs/80).
+export async function listarLojasDaAcao(uuid: string): Promise<{ id: string; fantasia: string }[]> {
+  const { data } = await apiClient.get<{ pontos_venda: { id: string; fantasia: string }[] }>(`/tipos-registro/${uuid}/lojas-da-acao`);
+  return data.pontos_venda;
+}
+
+// Conversão do levantamento de linha ausente (docs/80 §5.3). Datas em AAAA-MM-DD.
+export interface ConversaoLinha {
+  monitoradas: number;
+  convertidas: number;
+  percentual: number | null;
+  lojas_convertidas: { id: string; fantasia: string; primeiro_levantamento_em: string; linha_entrou_em: string }[];
+}
+
+export async function buscarConversaoLinha(uuid: string, inicio: string, fim: string): Promise<ConversaoLinha> {
+  const { data } = await apiClient.get<ConversaoLinha>(`/tipos-registro/${uuid}/conversao`, { params: { inicio, fim } });
+  return data;
+}
+
 export async function duplicarTipoRegistro(uuid: string): Promise<{ tipo_registro: TipoRegistro }> {
   const { data } = await apiClient.post<{ tipo_registro: TipoRegistro }>(`/tipos-registro/${uuid}/duplicar`);
   return data;

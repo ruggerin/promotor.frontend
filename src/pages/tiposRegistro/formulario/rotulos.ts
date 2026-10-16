@@ -8,6 +8,10 @@ export const OPCOES_QUANDO: Record<QuandoAparece, { titulo: string; sub: string 
   SO_CAMPANHAS: { titulo: 'Só dentro de campanhas', sub: 'Não aparece sozinho — entra como parte do formulário de uma campanha.' },
   SEMPRE: { titulo: 'Em toda visita', sub: 'Qualquer loja visitada.' },
   LOJA_REDE: { titulo: 'Em lojas ou redes específicas', sub: 'Só nas lojas escolhidas abaixo.' },
+  LINHA_AUSENTE: {
+    titulo: 'Onde a linha não está no Mix',
+    sub: 'Levantamento de concorrência: aparece sozinho nas lojas sem a linha e some quando ela entra.',
+  },
   CAMPANHA: { titulo: 'Numa campanha', sub: 'Só nas visitas ligadas à campanha escolhida.' },
   CONTRATO: { titulo: 'Em loja com contrato ativo', sub: 'Comodato de expositor, ponto extra etc.' },
 };
@@ -21,7 +25,18 @@ export const OPCOES_SOBRE: Record<SobreOQue, { titulo: string; sub: string }> = 
   PRODUTO: { titulo: 'Cada produto', sub: 'Uma resposta por item. Ex.: preço de cada um.' },
   LINHA: { titulo: 'Cada seção / linha', sub: 'Uma resposta cobre a gôndola. Ex.: "seção organizada?"' },
   PROMOTOR_DECIDE: { titulo: 'O promotor decide', sub: 'Ele escolhe na hora se liga a produto ou seção.' },
+  PROMOTOR_ESCOLHE_RECORTE: {
+    titulo: 'Marca, departamento ou seção — o promotor escolhe',
+    sub: 'Na hora, ele marca onde é (ex.: o departamento Limpeza inteiro ou só a seção Amaciante). Uma resposta vale pra tudo.',
+  },
 };
+
+// Caixinhas da opção "o promotor escolhe" (docs/79 decisão 1).
+export const RECORTES_ESCOLHIVEIS: { nome: 'escolhe_marca' | 'escolhe_departamento' | 'escolhe_secao'; rotulo: string }[] = [
+  { nome: 'escolhe_marca', rotulo: 'Pode escolher marca' },
+  { nome: 'escolhe_departamento', rotulo: 'Pode escolher departamento' },
+  { nome: 'escolhe_secao', rotulo: 'Pode escolher seção' },
+];
 
 export function rotuloSobre(s: SobreOQue) {
   return OPCOES_SOBRE[s];

@@ -594,6 +594,8 @@ export interface CampoTipoRegistro {
   sortimento_marca: { id: string; descricao: string } | null;
   // Lista curada — só populada quando sortimento_origem = FIXO.
   sortimento_produtos: { id: string; descricao: string }[];
+  // true = o recorte vem da escolha do promotor no registro, não do cadastro (docs/79).
+  sortimento_segue_escolha: boolean;
   // Ausência no checklist vira ruptura só quando este switch está ligado (decisão 4).
   confirmar_ruptura_ausentes: boolean;
 }
@@ -602,7 +604,8 @@ export interface CampoTipoRegistro {
 // customizável por empresa, com campos extras próprios (ex.: "Ponto extra" pede quantidade e
 // valor além da foto). Ver docs/01-MODELO-DE-DADOS.md#tipos-de-registro.
 // LOJA_REDE = só nas lojas/redes escolhidas no tipo (docs/40-ACAO-OBRIGATORIA-LOJA-REDE.md).
-export type EscopoAcaoTipoRegistro = 'SEMPRE' | 'CAMPANHA' | 'CONTRATO' | 'LOJA_REDE';
+// LINHA_AUSENTE = onde o Mix não cobre o recorte escolhido (docs/80-MONITORAMENTO-LINHA-AUSENTE.md).
+export type EscopoAcaoTipoRegistro = 'SEMPRE' | 'CAMPANHA' | 'CONTRATO' | 'LOJA_REDE' | 'LINHA_AUSENTE';
 export type GranularidadeResposta = 'LINHA' | 'PRODUTO';
 
 export interface TipoRegistro {
@@ -628,9 +631,23 @@ export interface TipoRegistro {
   produtos_predefinidos?: { id: string; descricao: string; codigo_barras: string | null; codigo_externo: string | null }[];
   pontos_venda_escopo?: { id: string; fantasia: string }[];
   redes_lojas_escopo?: { id: string; descricao: string }[];
+  // Escopo LINHA_AUSENTE (docs/80 §5.1) — recorte que não pode estar no Mix da loja.
+  escopo_tipo_vinculo?: SortimentoTipoVinculo | null;
+  escopo_secao?: { id: string; descricao: string; departamento_uuid: string | null } | null;
+  escopo_departamento?: { id: string; descricao: string } | null;
+  escopo_marca?: { id: string; descricao: string } | null;
+  // Intervalo entre cobranças da Ação, em dias (docs/80 §5.2) — 0 = toda visita.
+  intervalo_dias?: number;
+  // Filtro da Ação por ramo de atividade da loja (docs/80 §5.4) — vazio = todos os ramos.
+  ramos_atividade_uuids?: string[];
+  ramos_atividade_escopo?: { id: string; descricao: string }[];
   // Granularidade da resposta (linha/seção inteira vs. produto individual) — ver
   // docs/16-GRANULARIDADE-CHECKLIST-AUDITORIA.md §4. `null` = sem regra, comportamento livre.
   granularidade_padrao: GranularidadeResposta | null;
+  // Promotor escolhe marca/departamento/seção no início do formulário — ver docs/79.
+  escolhe_marca: boolean;
+  escolhe_departamento: boolean;
+  escolhe_secao: boolean;
   excecoes_granularidade: { secao_uuid: string; secao_descricao: string; granularidade: GranularidadeResposta }[];
   // Marca a coluna "Ruptura" da grade de coleta (Fase 2) — sempre a primeira, marcar um produto
   // exclui ele das demais colunas da mesma linha. Ver docs/16-GRANULARIDADE-CHECKLIST-AUDITORIA.md §9.
@@ -733,8 +750,9 @@ export interface CampoRespondido {
   // null quando tipo_campo = SORTIMENTO (usar o campo sortimento abaixo nesse caso).
   valor: string | null;
   sortimento: {
-    presentes: { id: string; descricao: string }[];
-    ausentes: { id: string; descricao: string }[];
+    // fora_do_mix: adicionado pelo promotor de fora do mix da loja (docs/79 decisão 8).
+    presentes: { id: string; descricao: string; fora_do_mix?: boolean }[];
+    ausentes: { id: string; descricao: string; fora_do_mix?: boolean }[];
   } | null;
 }
 

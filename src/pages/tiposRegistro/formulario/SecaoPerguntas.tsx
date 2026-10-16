@@ -45,6 +45,7 @@ import {
   gerarChave,
   opcoesDoTexto,
   problemaDeOrdem,
+  temEscolhaDeRecorte,
   tipoResposta,
   TIPOS_RESPOSTA,
   type CampoForm,
@@ -580,6 +581,17 @@ function ConfigChecklist({
 }) {
   const origem = useWatch({ control, name: `campos.${indice}.sortimento_origem` });
   const recorte = useWatch({ control, name: `campos.${indice}.sortimento_tipo_vinculo` });
+  const segueEscolha = useWatch({ control, name: `campos.${indice}.sortimento_segue_escolha` });
+  const [escolheMarca, escolheDepartamento, escolheSecao] = useWatch({
+    control,
+    name: ['escolhe_marca', 'escolhe_departamento', 'escolhe_secao'],
+  });
+  // Passo 3 deixa o promotor escolher o recorte → o Mix pode seguir essa escolha (docs/79).
+  const formularioTemEscolha = temEscolhaDeRecorte({
+    escolhe_marca: escolheMarca,
+    escolhe_departamento: escolheDepartamento,
+    escolhe_secao: escolheSecao,
+  });
   const [seletor, setSeletor] = useState(false);
 
   const secoesQuery = useQuery({ queryKey: ['secoes', { ativo: true }], queryFn: () => listarSecoes({ ativo: true }), enabled: recorte === 'SECAO' });
@@ -593,8 +605,10 @@ function ConfigChecklist({
   const opcaoOrigem = (valor: 'FIXO' | 'DINAMICO', titulo: string, sub: string) => (
     <Box
       onClick={() => {
+        const seguir = valor === 'DINAMICO' && formularioTemEscolha;
         setValue(`campos.${indice}.sortimento_origem`, valor, { shouldDirty: true });
-        setValue(`campos.${indice}.sortimento_tipo_vinculo`, valor === 'DINAMICO' ? 'SECAO' : null, { shouldDirty: true });
+        setValue(`campos.${indice}.sortimento_segue_escolha`, seguir, { shouldDirty: true });
+        setValue(`campos.${indice}.sortimento_tipo_vinculo`, valor === 'DINAMICO' && !seguir ? 'SECAO' : null, { shouldDirty: true });
       }}
       sx={{
         flex: 1,
@@ -692,9 +706,11 @@ function ConfigChecklist({
               <TextField
                 select
                 size="small"
-                value={field.value ?? ''}
+                value={segueEscolha ? 'ESCOLHA' : (field.value ?? '')}
                 onChange={(e) => {
-                  field.onChange(e.target.value || null);
+                  const v = e.target.value;
+                  setValue(`campos.${indice}.sortimento_segue_escolha`, v === 'ESCOLHA', { shouldDirty: true });
+                  field.onChange(v === 'ESCOLHA' || !v ? null : v);
                   setValue(`campos.${indice}.sortimento_secao_uuid`, null);
                   setValue(`campos.${indice}.sortimento_departamento_uuid`, null);
                   setValue(`campos.${indice}.sortimento_marca_uuid`, null);
@@ -704,10 +720,17 @@ function ConfigChecklist({
                 <MenuItem value="SECAO">seção</MenuItem>
                 <MenuItem value="DEPARTAMENTO">departamento</MenuItem>
                 <MenuItem value="MARCA">marca</MenuItem>
+                {(formularioTemEscolha || segueEscolha) && <MenuItem value="ESCOLHA">parte que o promotor escolher</MenuItem>}
               </TextField>
             )}
           />
-          {recorte && (
+          {segueEscolha && (
+            <Typography variant="caption" color="text.secondary" sx={{ flexBasis: '100%' }}>
+              Marca: lista agrupada por departamento e seção. Departamento: agrupada por seção. Seção: só os produtos dela.
+              O promotor também pode adicionar um produto fora do mix, dentro da parte escolhida.
+            </Typography>
+          )}
+          {recorte && !segueEscolha && (
             <Controller
               name={campoRecorte}
               control={control}

@@ -20,16 +20,25 @@ export function paraInputDateTime(data: Date): string {
 }
 
 /**
+ * As lojas do envio precisam vir resolvidas do backend (GET /tipos-registro/{uuid}/lojas-da-acao):
+ * contrato ativo, linha ausente do Mix ou filtro por ramo de atividade (docs/80).
+ */
+export function precisaResolverLojas(tipo: TipoRegistro): boolean {
+  if (!tipo.acao_obrigatoria) return false;
+  return tipo.escopo_acao === 'CONTRATO' || tipo.escopo_acao === 'LINHA_AUSENTE' || (tipo.ramos_atividade_uuids ?? []).length > 0;
+}
+
+/**
  * Pré-preenchimento do Direcionamento a partir do formulário salvo.
  * - Início = agora menos 1 minuto: a geração só roda com `vigencia_inicio <= now()` no servidor
  *   (docs/66 §4.1), e o minuto de folga cobre relógio do navegador adiantado.
  * - Fim = fim do dia de hoje (editável).
- * - Lojas pelo escopo: LOJA_REDE usa as do formulário; CONTRATO, as lojas com contrato ativo
- *   (passadas por quem chama); SEMPRE/sem ação = sem filtro (todas as lojas ativas).
+ * - Lojas pelo escopo: quando precisaResolverLojas(), as resolvidas pelo backend (passadas por quem
+ *   chama); senão LOJA_REDE usa as do formulário; SEMPRE/sem ação = sem filtro (todas as lojas).
  */
 export function valoresEnvioImediato(
   tipo: TipoRegistro,
-  lojasComContrato: { id: string; fantasia: string }[] = [],
+  lojasResolvidas: { id: string; fantasia: string }[] = [],
   agora: Date = new Date(),
 ): ValoresDirecionamento {
   const inicio = new Date(agora.getTime() - 60_000);
@@ -37,19 +46,15 @@ export function valoresEnvioImediato(
   fimDoDia.setHours(23, 59, 0, 0);
 
   const escopo = tipo.acao_obrigatoria ? tipo.escopo_acao : null;
-  const pontos =
-    escopo === 'LOJA_REDE'
-      ? (tipo.pontos_venda_escopo ?? [])
-      : escopo === 'CONTRATO'
-        ? lojasComContrato
-        : [];
+  const resolvidas = precisaResolverLojas(tipo);
+  const pontos = resolvidas ? lojasResolvidas : escopo === 'LOJA_REDE' ? (tipo.pontos_venda_escopo ?? []) : [];
 
   return {
     descricao: `${tipo.descricao} — envio imediato`,
     vigencia_inicio: paraInputDateTime(inicio),
     vigencia_fim: paraInputDateTime(fimDoDia),
     pontos_venda: pontos.map((p) => ({ uuid: p.id, fantasia: p.fantasia })),
-    redes_loja: escopo === 'LOJA_REDE' ? (tipo.redes_lojas_escopo ?? []).map((r) => ({ uuid: r.id, descricao: r.descricao })) : [],
+    redes_loja: escopo === 'LOJA_REDE' && !resolvidas ? (tipo.redes_lojas_escopo ?? []).map((r) => ({ uuid: r.id, descricao: r.descricao })) : [],
     promotores: [],
     formularios: [{ tipo_registro_uuid: tipo.id, descricao: tipo.descricao, obrigatorio: true, calcula_percentual_compliance: false }],
   };

@@ -10,10 +10,10 @@ import { Controller, useForm, useWatch, type Control, type FieldErrors } from 'r
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { MdiIcon } from '../../components/MdiIcon';
 import { usePageHeader } from '../../components/layout/PageHeaderSlot';
-import { atualizarTipoRegistro, buscarTipoRegistro, criarTipoRegistro } from '../../lib/api/tiposRegistro';
-import { listarPontosVenda } from '../../lib/api/pontosVenda';
+import { atualizarTipoRegistro, buscarTipoRegistro, criarTipoRegistro, listarLojasDaAcao } from '../../lib/api/tiposRegistro';
 import { DirecionamentoFormDialog } from '../direcionamentos/DirecionamentoFormDialog';
-import { valoresEnvioImediato, type ValoresDirecionamento } from '../direcionamentos/envioImediato';
+import { precisaResolverLojas, valoresEnvioImediato, type ValoresDirecionamento } from '../direcionamentos/envioImediato';
+import { ConversaoLinha } from './formulario/ConversaoLinha';
 import { Lateral } from './formulario/Lateral';
 import {
   formDoTipo,
@@ -155,22 +155,23 @@ export function TipoRegistroFormPage() {
   async function abrirEnvio() {
     if (!tipo) return;
     setErroEnvio(null);
-    if (!(tipo.acao_obrigatoria && tipo.escopo_acao === 'CONTRATO')) {
+    if (!precisaResolverLojas(tipo)) {
       setEnvio(valoresEnvioImediato(tipo));
       return;
     }
-    // Escopo CONTRATO: pré-seleciona as lojas com contrato ativo. Sem nenhuma, não abre — filtro de
-    // lojas vazio no Direcionamento quer dizer "todas", o oposto do que o formulário pede.
+    // Contrato, linha ausente ou filtro por ramo: as lojas vêm resolvidas do backend (docs/80). Sem
+    // nenhuma, não abre — filtro de lojas vazio no Direcionamento quer dizer "todas", o oposto do
+    // que o formulário pede.
     setPreparandoEnvio(true);
     try {
-      const { pontos_venda: lojas } = await listarPontosVenda({ ativo: true, com_contrato_ativo: true, por_pagina: 200 });
+      const lojas = await listarLojasDaAcao(tipo.id);
       if (lojas.length === 0) {
-        setErroEnvio('Nenhuma loja tem contrato ativo — não há para quem enviar este formulário.');
+        setErroEnvio('Nenhuma loja se encaixa no que este formulário pede — não há para quem enviar.');
         return;
       }
       setEnvio(valoresEnvioImediato(tipo, lojas));
     } catch {
-      setErroEnvio('Não foi possível carregar as lojas com contrato ativo.');
+      setErroEnvio('Não foi possível carregar as lojas deste formulário.');
     } finally {
       setPreparandoEnvio(false);
     }
@@ -365,7 +366,7 @@ export function TipoRegistroFormPage() {
             </Alert>
           )}
           {secao(1, <SecaoIdentificacao control={control} />)}
-          {secao(2, <SecaoQuandoAparece control={control} setValue={setValue} />)}
+          {secao(2, <SecaoQuandoAparece control={control} setValue={setValue} getValues={getValues} />)}
           {secao(3, <SecaoSobreOQue control={control} setValue={setValue} tipoAtualId={tipo?.id ?? null} nomeFormulario={getValues('descricao')} />)}
           {secao(
             4,
@@ -388,6 +389,7 @@ export function TipoRegistroFormPage() {
         </Box>
         <Box sx={{ display: { xs: 'none', lg: 'block' } }}>
           <Lateral control={control} />
+          {tipo?.acao_obrigatoria && tipo.escopo_acao === 'LINHA_AUSENTE' && <ConversaoLinha tipoId={tipo.id} />}
         </Box>
       </Box>
       {erroEnvio && (

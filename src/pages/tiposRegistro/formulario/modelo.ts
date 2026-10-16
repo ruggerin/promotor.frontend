@@ -33,6 +33,8 @@ export const campoSchema = z.object({
   sortimento_departamento_uuid: z.string().nullable(),
   sortimento_marca_uuid: z.string().nullable(),
   sortimento_produtos: z.array(z.object({ uuid: z.string(), descricao: z.string() })),
+  // Mix segue a marca/departamento/seção que o promotor escolhe no registro (docs/79).
+  sortimento_segue_escolha: z.boolean(),
   confirmar_ruptura_ausentes: z.boolean(),
 });
 
@@ -49,11 +51,23 @@ export const schema = z
     permite_vincular_catalogo: z.boolean(),
     ativo: z.boolean(),
     acao_obrigatoria: z.boolean(),
-    escopo_acao: z.enum(['SEMPRE', 'CAMPANHA', 'CONTRATO', 'LOJA_REDE']).nullable(),
+    escopo_acao: z.enum(['SEMPRE', 'CAMPANHA', 'CONTRATO', 'LOJA_REDE', 'LINHA_AUSENTE']).nullable(),
+    // Escopo LINHA_AUSENTE (docs/80 §5.1): seção (padrão), departamento ou marca.
+    escopo_tipo_vinculo: z.enum(['SECAO', 'DEPARTAMENTO', 'MARCA']).nullable(),
+    escopo_secao_uuid: z.string().nullable(),
+    escopo_departamento_uuid: z.string().nullable(),
+    escopo_marca_uuid: z.string().nullable(),
+    // Filtro da Ação por ramo de atividade (docs/80 §5.4) — vazio = todos.
+    ramos_atividade_uuids: z.array(z.string()),
+    // Intervalo entre cobranças da Ação (docs/80 §5.2) — 0 = toda visita.
+    intervalo_dias: z.number().int('Use um número inteiro de dias.').min(0, 'Use 0 ou mais dias.').max(3650, 'No máximo 3650 dias.'),
     campanha_auditoria_uuid: z.string().nullable(),
     pontos_venda_escopo: z.array(z.object({ id: z.string(), fantasia: z.string() })),
     redes_lojas_uuids: z.array(z.string()),
     granularidade_padrao: z.enum(['LINHA', 'PRODUTO']).nullable(),
+    escolhe_marca: z.boolean(),
+    escolhe_departamento: z.boolean(),
+    escolhe_secao: z.boolean(),
     produtos_predefinidos: z.array(z.object({ uuid: z.string(), descricao: z.string() })),
     excecoes_granularidade: z.array(excecaoGranularidadeSchema),
     eh_ruptura: z.boolean(),
@@ -66,6 +80,15 @@ export const schema = z
     message: 'Escolha quando essa pendência aparece.',
     path: ['escopo_acao'],
   })
+  .refine(
+    (d) =>
+      !d.acao_obrigatoria ||
+      d.escopo_acao !== 'LINHA_AUSENTE' ||
+      (d.escopo_tipo_vinculo === 'SECAO' && !!d.escopo_secao_uuid) ||
+      (d.escopo_tipo_vinculo === 'DEPARTAMENTO' && !!d.escopo_departamento_uuid) ||
+      (d.escopo_tipo_vinculo === 'MARCA' && !!d.escopo_marca_uuid),
+    { message: 'Escolha a linha que não pode estar no Mix.', path: ['escopo_tipo_vinculo'] },
+  )
   .refine((d) => d.escopo_acao !== 'CAMPANHA' || !!d.campanha_auditoria_uuid, {
     message: 'Escolha a campanha.',
     path: ['campanha_auditoria_uuid'],
@@ -94,7 +117,7 @@ export const schema = z
   .refine(
     (d) =>
       d.campos.every((c) => {
-        if (c.sortimento_origem !== 'DINAMICO') return true;
+        if (c.sortimento_origem !== 'DINAMICO' || c.sortimento_segue_escolha) return true;
         if (c.sortimento_tipo_vinculo === 'SECAO') return !!c.sortimento_secao_uuid;
         if (c.sortimento_tipo_vinculo === 'DEPARTAMENTO') return !!c.sortimento_departamento_uuid;
         if (c.sortimento_tipo_vinculo === 'MARCA') return !!c.sortimento_marca_uuid;
@@ -102,6 +125,10 @@ export const schema = z
       }),
     { message: 'Checklist pelo mix da loja: escolha a seção, o departamento ou a marca.', path: ['campos'] },
   )
+  .refine((d) => !d.campos.some((c) => c.sortimento_segue_escolha) || temEscolhaDeRecorte(d), {
+    message: 'Checklist "o que o promotor escolher": no passo 3, deixe o promotor escolher marca, departamento ou seção.',
+    path: ['campos'],
+  })
   .refine((d) => d.campos.every((c) => c.sortimento_origem !== 'FIXO' || c.sortimento_produtos.length > 0), {
     message: 'Checklist com lista escolhida: adicione pelo menos um produto.',
     path: ['campos'],
@@ -118,10 +145,19 @@ export const DEFAULT_VALUES: FormData = {
   ativo: true,
   acao_obrigatoria: false,
   escopo_acao: null,
+  escopo_tipo_vinculo: null,
+  escopo_secao_uuid: null,
+  escopo_departamento_uuid: null,
+  escopo_marca_uuid: null,
+  ramos_atividade_uuids: [],
+  intervalo_dias: 0,
   campanha_auditoria_uuid: null,
   pontos_venda_escopo: [],
   redes_lojas_uuids: [],
   granularidade_padrao: null,
+  escolhe_marca: false,
+  escolhe_departamento: false,
+  escolhe_secao: false,
   produtos_predefinidos: [],
   excecoes_granularidade: [],
   eh_ruptura: false,
@@ -165,6 +201,7 @@ export function campoVazio(tipo: TipoCampoRegistro = 'BOOLEANO'): CampoForm {
     sortimento_departamento_uuid: null,
     sortimento_marca_uuid: null,
     sortimento_produtos: [],
+    sortimento_segue_escolha: false,
     confirmar_ruptura_ausentes: false,
   };
 }
@@ -187,6 +224,7 @@ export function campoDaApi(c: CampoTipoRegistro, manterCondicao: boolean): Campo
     sortimento_departamento_uuid: c.sortimento_departamento?.id ?? null,
     sortimento_marca_uuid: c.sortimento_marca?.id ?? null,
     sortimento_produtos: c.sortimento_produtos.map((p) => ({ uuid: p.id, descricao: p.descricao })),
+    sortimento_segue_escolha: c.sortimento_segue_escolha ?? false,
     confirmar_ruptura_ausentes: c.confirmar_ruptura_ausentes,
   };
 }
@@ -200,10 +238,19 @@ export function formDoTipo(tipo: TipoRegistro): FormData {
     ativo: tipo.ativo,
     acao_obrigatoria: tipo.acao_obrigatoria,
     escopo_acao: tipo.escopo_acao,
+    escopo_tipo_vinculo: tipo.escopo_tipo_vinculo ?? null,
+    escopo_secao_uuid: tipo.escopo_secao?.id ?? null,
+    escopo_departamento_uuid: tipo.escopo_departamento?.id ?? null,
+    escopo_marca_uuid: tipo.escopo_marca?.id ?? null,
+    ramos_atividade_uuids: tipo.ramos_atividade_uuids ?? [],
+    intervalo_dias: tipo.intervalo_dias ?? 0,
     campanha_auditoria_uuid: tipo.campanha_auditoria_uuid,
     pontos_venda_escopo: tipo.pontos_venda_escopo ?? [],
     redes_lojas_uuids: tipo.redes_lojas_uuids ?? [],
     granularidade_padrao: tipo.granularidade_padrao,
+    escolhe_marca: tipo.escolhe_marca ?? false,
+    escolhe_departamento: tipo.escolhe_departamento ?? false,
+    escolhe_secao: tipo.escolhe_secao ?? false,
     produtos_predefinidos: (tipo.produtos_predefinidos ?? []).map((p) => ({ uuid: p.id, descricao: p.descricao })),
     excecoes_granularidade: tipo.excecoes_granularidade.map((e) => ({ secao_uuid: e.secao_uuid, granularidade: e.granularidade })),
     eh_ruptura: tipo.eh_ruptura,
@@ -222,10 +269,19 @@ export function payloadDoForm(d: FormData): TipoRegistroPayload {
     permite_vincular_catalogo: d.permite_vincular_catalogo,
     acao_obrigatoria: d.acao_obrigatoria,
     escopo_acao: d.acao_obrigatoria ? d.escopo_acao : null,
+    escopo_tipo_vinculo: linhaAusente(d) ? d.escopo_tipo_vinculo : null,
+    escopo_secao_uuid: linhaAusente(d) && d.escopo_tipo_vinculo === 'SECAO' ? d.escopo_secao_uuid : null,
+    escopo_departamento_uuid: linhaAusente(d) && d.escopo_tipo_vinculo === 'DEPARTAMENTO' ? d.escopo_departamento_uuid : null,
+    escopo_marca_uuid: linhaAusente(d) && d.escopo_tipo_vinculo === 'MARCA' ? d.escopo_marca_uuid : null,
+    ramos_atividade_uuids: d.acao_obrigatoria ? d.ramos_atividade_uuids : [],
+    intervalo_dias: d.acao_obrigatoria ? d.intervalo_dias : 0,
     campanha_auditoria_uuid: d.acao_obrigatoria && d.escopo_acao === 'CAMPANHA' ? d.campanha_auditoria_uuid : null,
     pontos_venda_uuids: d.acao_obrigatoria && d.escopo_acao === 'LOJA_REDE' ? d.pontos_venda_escopo.map((p) => p.id) : [],
     redes_lojas_uuids: d.acao_obrigatoria && d.escopo_acao === 'LOJA_REDE' ? d.redes_lojas_uuids : [],
     granularidade_padrao: d.granularidade_padrao,
+    escolhe_marca: d.escolhe_marca,
+    escolhe_departamento: d.escolhe_departamento,
+    escolhe_secao: d.escolhe_secao,
     produtos_uuids: d.granularidade_padrao === 'PRODUTO' ? d.produtos_predefinidos.map((p) => p.uuid) : [],
     excecoes_granularidade: d.excecoes_granularidade,
     eh_ruptura: d.eh_ruptura,
@@ -242,15 +298,30 @@ export function payloadDoForm(d: FormData): TipoRegistroPayload {
       depende_de_chave: c.depende_de_chave,
       depende_de_valor: c.depende_de_chave ? c.depende_de_valor : null,
       sortimento_origem: c.tipo_campo === 'SORTIMENTO' ? c.sortimento_origem : null,
-      sortimento_tipo_vinculo: c.tipo_campo === 'SORTIMENTO' && c.sortimento_origem === 'DINAMICO' ? c.sortimento_tipo_vinculo : null,
-      sortimento_secao_uuid: c.sortimento_tipo_vinculo === 'SECAO' ? c.sortimento_secao_uuid : null,
-      sortimento_departamento_uuid: c.sortimento_tipo_vinculo === 'DEPARTAMENTO' ? c.sortimento_departamento_uuid : null,
-      sortimento_marca_uuid: c.sortimento_tipo_vinculo === 'MARCA' ? c.sortimento_marca_uuid : null,
+      sortimento_tipo_vinculo: mixRecorteFixo(c) ? c.sortimento_tipo_vinculo : null,
+      sortimento_secao_uuid: mixRecorteFixo(c) && c.sortimento_tipo_vinculo === 'SECAO' ? c.sortimento_secao_uuid : null,
+      sortimento_departamento_uuid: mixRecorteFixo(c) && c.sortimento_tipo_vinculo === 'DEPARTAMENTO' ? c.sortimento_departamento_uuid : null,
+      sortimento_marca_uuid: mixRecorteFixo(c) && c.sortimento_tipo_vinculo === 'MARCA' ? c.sortimento_marca_uuid : null,
+      sortimento_segue_escolha: c.tipo_campo === 'SORTIMENTO' && c.sortimento_origem === 'DINAMICO' && c.sortimento_segue_escolha,
       sortimento_produtos_uuids:
         c.tipo_campo === 'SORTIMENTO' && c.sortimento_origem === 'FIXO' ? c.sortimento_produtos.map((p) => p.uuid) : undefined,
       confirmar_ruptura_ausentes: c.tipo_campo === 'SORTIMENTO' ? c.confirmar_ruptura_ausentes : false,
     })),
   } as TipoRegistroPayload;
+}
+
+function linhaAusente(d: Pick<FormData, 'acao_obrigatoria' | 'escopo_acao'>): boolean {
+  return d.acao_obrigatoria && d.escopo_acao === 'LINHA_AUSENTE';
+}
+
+/** Mix dinâmico com seção/departamento/marca fixos no cadastro (não segue a escolha do promotor). */
+function mixRecorteFixo(c: CampoForm): boolean {
+  return c.tipo_campo === 'SORTIMENTO' && c.sortimento_origem === 'DINAMICO' && !c.sortimento_segue_escolha;
+}
+
+// Tipo explícito (não Pick<FormData>): o schema usa esta função, e FormData vem do schema.
+export function temEscolhaDeRecorte(d: { escolhe_marca: boolean; escolhe_departamento: boolean; escolhe_secao: boolean }): boolean {
+  return d.escolhe_marca || d.escolhe_departamento || d.escolhe_secao;
 }
 
 export function opcoesDoTexto(texto: string): string[] {
@@ -262,7 +333,7 @@ export function opcoesDoTexto(texto: string): string[] {
 
 // ---- "Quando o promotor vê este formulário?" (seção 2) ⇄ acao_obrigatoria/escopo/registro livre ----
 
-export type QuandoAparece = 'LIVRE' | 'SO_CAMPANHAS' | 'SEMPRE' | 'LOJA_REDE' | 'CAMPANHA' | 'CONTRATO';
+export type QuandoAparece = 'LIVRE' | 'SO_CAMPANHAS' | 'SEMPRE' | 'LOJA_REDE' | 'CAMPANHA' | 'CONTRATO' | 'LINHA_AUSENTE';
 
 export function quandoAparece(d: Pick<FormData, 'acao_obrigatoria' | 'escopo_acao' | 'disponivel_registro_livre'>): QuandoAparece {
   if (d.acao_obrigatoria && d.escopo_acao) return d.escopo_acao;
@@ -281,24 +352,42 @@ export function camposDoQuandoAparece(
 
 // ---- "Sobre o que o promotor responde?" (seção 3) ⇄ granularidade/vínculo ----
 
-export type SobreOQue = 'VISITA' | 'PRODUTO' | 'LINHA' | 'PROMOTOR_DECIDE';
+export type SobreOQue = 'VISITA' | 'PRODUTO' | 'LINHA' | 'PROMOTOR_DECIDE' | 'PROMOTOR_ESCOLHE_RECORTE';
 
-export function sobreOQue(d: Pick<FormData, 'granularidade_padrao' | 'permite_vincular_catalogo'>): SobreOQue {
+type CamposSobreOQue = Pick<
+  FormData,
+  'granularidade_padrao' | 'permite_vincular_catalogo' | 'escolhe_marca' | 'escolhe_departamento' | 'escolhe_secao'
+>;
+
+export function sobreOQue(d: CamposSobreOQue): SobreOQue {
+  // Escolha de recorte (docs/79) sempre grava LINHA — por isso vem antes da checagem de LINHA.
+  if (temEscolhaDeRecorte(d)) return 'PROMOTOR_ESCOLHE_RECORTE';
   if (d.granularidade_padrao === 'PRODUTO') return 'PRODUTO';
   if (d.granularidade_padrao === 'LINHA') return 'LINHA';
   return d.permite_vincular_catalogo ? 'PROMOTOR_DECIDE' : 'VISITA';
 }
 
-export function camposDoSobreOQue(opcao: SobreOQue): Pick<FormData, 'granularidade_padrao' | 'permite_vincular_catalogo'> {
+const SEM_ESCOLHA = { escolhe_marca: false, escolhe_departamento: false, escolhe_secao: false };
+
+export function camposDoSobreOQue(opcao: SobreOQue): CamposSobreOQue {
   switch (opcao) {
     case 'VISITA':
-      return { granularidade_padrao: null, permite_vincular_catalogo: false };
+      return { granularidade_padrao: null, permite_vincular_catalogo: false, ...SEM_ESCOLHA };
     case 'PROMOTOR_DECIDE':
-      return { granularidade_padrao: null, permite_vincular_catalogo: true };
+      return { granularidade_padrao: null, permite_vincular_catalogo: true, ...SEM_ESCOLHA };
     case 'LINHA':
-      return { granularidade_padrao: 'LINHA', permite_vincular_catalogo: true };
+      return { granularidade_padrao: 'LINHA', permite_vincular_catalogo: true, ...SEM_ESCOLHA };
     case 'PRODUTO':
-      return { granularidade_padrao: 'PRODUTO', permite_vincular_catalogo: true };
+      return { granularidade_padrao: 'PRODUTO', permite_vincular_catalogo: true, ...SEM_ESCOLHA };
+    case 'PROMOTOR_ESCOLHE_RECORTE':
+      // Começa com departamento e seção marcados — o caso do Ponto Extra (docs/79 §1).
+      return {
+        granularidade_padrao: 'LINHA',
+        permite_vincular_catalogo: true,
+        escolhe_marca: false,
+        escolhe_departamento: true,
+        escolhe_secao: true,
+      };
   }
 }
 

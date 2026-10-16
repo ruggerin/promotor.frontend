@@ -49,14 +49,14 @@ export const TIPOS_IMPORTACAO: TipoImportacao[] = [
       ['1001', '11.222.333/0001-44', 'Supermercado Exemplo LTDA', 'Super Exemplo Centro', 'Av. Eduardo Ribeiro', '520', 'Centro',
         'Manaus', 'AM', '69010-001', '(92) 3333-0000', 'contato@exemplo.com.br', '-3,1316', '-60,0233', '', '', '6', 'sim', '374|680'],
       ['1002', '', 'Mercadinho Bairro ME', 'Mercadinho do Bairro', 'Rua das Flores', '45', 'Aleixo', 'Manaus', 'AM', '', '', '',
-        '-3,0950', '-59,9950', '', '', '', 'sim', '374 - DIEMY'],
+        '-3,0950', '-59,9950', '', '', '', 'sim', '1234 - JOÃO'],
     ],
     arquivoModelo: 'modelo-importacao-lojas.csv',
     ajuda: (
       <>
         Loja nova precisa de razão social, fantasia, endereço, cidade, latitude e longitude. Rede e ramo de atividade vão
         pelo nome já cadastrado. Ativo: sim ou não. UF pela sigla (AM, SP...). <strong>vendedores</strong>: código do
-        vendedor no ERP (aceita "374 - DIEMY"), vários separados por |; preenchida substitui a carteira da loja, vazia não
+        vendedor no ERP (aceita "1234 - JOÃO"), vários separados por |; preenchida substitui a carteira da loja, vazia não
         mexe.
       </>
     ),
