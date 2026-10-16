@@ -1,6 +1,8 @@
 import AddIcon from '@mui/icons-material/Add';
 import BlockIcon from '@mui/icons-material/Block';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import CallMergeIcon from '@mui/icons-material/CallMerge';
+import DoneIcon from '@mui/icons-material/Done';
 import EditIcon from '@mui/icons-material/Edit';
 import SearchIcon from '@mui/icons-material/Search';
 import {
@@ -9,7 +11,9 @@ import {
   Button,
   Chip,
   CircularProgress,
+  FormControlLabel,
   IconButton,
+  Switch,
   InputAdornment,
   MenuItem,
   Paper,
@@ -24,7 +28,8 @@ import {
 } from '@mui/material';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { atualizarMarca, desativarMarca, listarMarcas } from '../../lib/api/marcas';
+import { aprovarMarca, atualizarMarca, desativarMarca, listarMarcas } from '../../lib/api/marcas';
+import { JuntarMarcaDialog } from './JuntarMarcaDialog';
 import type { MarcaAuditoria, Propriedade } from '../../types/api';
 import { MarcaFormDialog } from './MarcaFormDialog';
 
@@ -40,14 +45,18 @@ export function MarcasTab({ empresaUuid, isSuperadmin }: MarcasTabProps) {
   const [dialogAberto, setDialogAberto] = useState(false);
   const [emEdicao, setEmEdicao] = useState<MarcaAuditoria | null>(null);
   const [erro, setErro] = useState<string | null>(null);
+  // Fila de aprovação (docs/85 §4.3): marcas que o promotor cadastrou pela visita.
+  const [soAAprovar, setSoAAprovar] = useState(false);
+  const [juntando, setJuntando] = useState<MarcaAuditoria | null>(null);
 
   const query = useQuery({
-    queryKey: ['marcas', { empresaUuid, busca, filtroPropriedade }],
+    queryKey: ['marcas', { empresaUuid, busca, filtroPropriedade, soAAprovar }],
     queryFn: () =>
       listarMarcas({
         empresa_uuid: empresaUuid ?? undefined,
         busca: busca || undefined,
         propriedade: filtroPropriedade || undefined,
+        a_aprovar: soAAprovar || undefined,
       }),
     placeholderData: keepPreviousData,
   });
@@ -70,6 +79,15 @@ export function MarcasTab({ empresaUuid, isSuperadmin }: MarcasTabProps) {
       void queryClient.invalidateQueries({ queryKey: ['marcas'] });
     },
     onError: () => setErro('Não foi possível desativar a marca.'),
+  });
+
+  const aprovarMutation = useMutation({
+    mutationFn: (m: MarcaAuditoria) => aprovarMarca(m.id),
+    onSuccess: () => {
+      setErro(null);
+      void queryClient.invalidateQueries({ queryKey: ['marcas'] });
+    },
+    onError: () => setErro('Não foi possível aprovar a marca.'),
   });
 
   function alternarStatus(m: MarcaAuditoria) {
@@ -127,6 +145,10 @@ export function MarcasTab({ empresaUuid, isSuperadmin }: MarcasTabProps) {
             <MenuItem value="PROPRIA">Própria</MenuItem>
             <MenuItem value="CONCORRENTE">Concorrente</MenuItem>
           </TextField>
+          <FormControlLabel
+            control={<Switch size="small" checked={soAAprovar} onChange={(e) => setSoAAprovar(e.target.checked)} />}
+            label="Só a aprovar"
+          />
         </Box>
         {!isSuperadmin && (
           <Button
@@ -186,13 +208,33 @@ export function MarcasTab({ empresaUuid, isSuperadmin }: MarcasTabProps) {
                   />
                 </TableCell>
                 <TableCell>
-                  <Chip label={m.ativo ? 'Ativo' : 'Inativo'} color={m.ativo ? 'success' : 'default'} size="small" />
+                  {m.a_aprovar ? (
+                    <Tooltip title={m.criado_por ? `Cadastrada por ${m.criado_por.nome} numa visita` : 'Cadastrada numa visita'}>
+                      <Chip label="A aprovar" color="warning" variant="outlined" size="small" />
+                    </Tooltip>
+                  ) : (
+                    <Chip label={m.ativo ? 'Ativo' : 'Inativo'} color={m.ativo ? 'success' : 'default'} size="small" />
+                  )}
                 </TableCell>
                 <TableCell align="right">
                   {isSuperadmin ? (
                     '—'
                   ) : (
                     <>
+                      {m.a_aprovar && (
+                        <>
+                          <Tooltip title="Aprovar">
+                            <IconButton size="small" aria-label={`Aprovar ${m.descricao}`} onClick={() => aprovarMutation.mutate(m)}>
+                              <DoneIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Juntar com uma marca que já existe">
+                            <IconButton size="small" aria-label={`Juntar ${m.descricao}`} onClick={() => setJuntando(m)}>
+                              <CallMergeIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </>
+                      )}
                       <Tooltip title="Editar">
                         <IconButton
                           size="small"
@@ -219,6 +261,7 @@ export function MarcasTab({ empresaUuid, isSuperadmin }: MarcasTabProps) {
       </TableContainer>
 
       {!isSuperadmin && <MarcaFormDialog open={dialogAberto} marca={emEdicao} onClose={() => setDialogAberto(false)} />}
+      <JuntarMarcaDialog marca={juntando} onClose={() => setJuntando(null)} />
     </Box>
   );
 }

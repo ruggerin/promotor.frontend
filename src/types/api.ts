@@ -549,6 +549,9 @@ export interface MarcaAuditoria {
   propriedade: Propriedade;
   empresa?: Empresa;
   ativo: boolean;
+  // Cadastrada pelo promotor e ainda não aprovada (docs/85 §4.2).
+  a_aprovar?: boolean;
+  criado_por?: { id: string; nome: string } | null;
   created_at: string;
   updated_at: string;
 }
@@ -606,7 +609,10 @@ export interface CampoTipoRegistro {
 // LOJA_REDE = só nas lojas/redes escolhidas no tipo (docs/40-ACAO-OBRIGATORIA-LOJA-REDE.md).
 // LINHA_AUSENTE = onde o Mix não cobre o recorte escolhido (docs/80-MONITORAMENTO-LINHA-AUSENTE.md).
 export type EscopoAcaoTipoRegistro = 'SEMPRE' | 'CAMPANHA' | 'CONTRATO' | 'LOJA_REDE' | 'LINHA_AUSENTE';
-export type GranularidadeResposta = 'LINHA' | 'PRODUTO';
+// MARCA = cada marca concorrente, com embalagem (docs/85).
+export type GranularidadeResposta = 'LINHA' | 'PRODUTO' | 'MARCA';
+// Lista guiada de "Cada produto": a fixa do admin ou o Mix da loja (docs/85 §7).
+export type ListaProdutosOrigem = 'FIXA' | 'MIX_LOJA';
 
 export interface TipoRegistro {
   id: string;
@@ -629,6 +635,11 @@ export interface TipoRegistro {
   redes_lojas_uuids?: string[];
   // Lista predefinida de produtos (granularidade PRODUTO) — com ela, o promotor só vincula a estes.
   produtos_predefinidos?: { id: string; descricao: string; codigo_barras: string | null; codigo_externo: string | null }[];
+  lista_produtos_origem?: ListaProdutosOrigem;
+  // Concorrentes por marca e embalagem (docs/85).
+  marcas_predefinidas?: { id: string; descricao: string; a_aprovar: boolean }[];
+  permite_marca_nova?: boolean;
+  varias_embalagens?: boolean;
   pontos_venda_escopo?: { id: string; fantasia: string }[];
   redes_lojas_escopo?: { id: string; descricao: string }[];
   // Escopo LINHA_AUSENTE (docs/80 §5.1) — recorte que não pode estar no Mix da loja.
@@ -772,6 +783,8 @@ export interface CampoRespondido {
 export interface VisitaRegistro {
   id: string;
   tipo_registro: { id: string; descricao: string; icone: string | null };
+  // Embalagem do registro por marca concorrente (docs/85) — "500 ml".
+  embalagem?: { quantidade: number; unidade: string; descricao: string | null } | null;
   produto_auditoria: { id: string; descricao: string } | null;
   // Vínculo opcional a um recorte mais amplo do catálogo — no máximo um destes três vem
   // preenchido, conforme `tipo_vinculo` (mesmo padrão de CampanhaItem).

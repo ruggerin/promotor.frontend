@@ -39,6 +39,7 @@ import { buscarConformidadeRastreamento } from '../../lib/api/localizacoes';
 import { listarOrdensServico } from '../../lib/api/ordensServico';
 import { podeVerTela } from '../../lib/acesso/telas';
 import { listarRelatoriosFixados } from '../../lib/api/relatoriosPersonalizados';
+import { buscarVersaoApi, VERSAO_ADMIN } from '../../lib/api/versao';
 import { useAuth } from '../../lib/auth/AuthContext';
 import { useTema } from '../../lib/tema/TemaProvider';
 import type { PreferenciaTema } from '../../types/api';
@@ -709,6 +710,9 @@ function RodapeUsuario({
   const [ancora, setAncora] = useState<HTMLElement | null>(null);
   const abrir = (e: ReactMouseEvent<HTMLElement>) => setAncora(e.currentTarget);
   const { preferencia, definir } = useTema();
+  // Versões do admin e da API no menu — pra achar problema de integração no piloto.
+  const versaoApiQuery = useQuery({ queryKey: ['versao-api'], queryFn: buscarVersaoApi, enabled: Boolean(ancora), staleTime: 60_000, retry: false });
+  const versaoApi = versaoApiQuery.data;
 
   return (
     <Box
@@ -774,6 +778,17 @@ function RodapeUsuario({
           <LogoutIcon sx={{ fontSize: 17, color: 'text.secondary' }} />
           Sair
         </MenuItem>
+        <Divider sx={{ my: 0.5 }} />
+        <Box sx={{ px: 1.25, pb: 0.5, fontSize: 11, color: horus.textoFraco, lineHeight: 1.6 }}>
+          <div>Admin {VERSAO_ADMIN}</div>
+          <div>
+            {versaoApi
+              ? `API ${versaoApi.versao} · ${versaoApi.ambiente}`
+              : versaoApiQuery.isError
+                ? 'API: sem resposta'
+                : 'API: …'}
+          </div>
+        </Box>
       </Menu>
     </Box>
   );

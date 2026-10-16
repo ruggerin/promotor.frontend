@@ -35,10 +35,23 @@ const C = {
 
 type Produto = { uuid: string; descricao: string };
 
+// Exemplos só pra prévia: o Mix de verdade é de cada loja (docs/85 §7).
+const EXEMPLOS_MIX: Produto[] = [
+  { uuid: 'mix-1', descricao: 'Produto do Mix 1' },
+  { uuid: 'mix-2', descricao: 'Produto do Mix 2' },
+  { uuid: 'mix-3', descricao: 'Produto do Mix 3' },
+];
+
 export function PreviaApp({ d }: { d: FormData }) {
-  const produtos = d.produtos_predefinidos ?? [];
   const sobre = sobreOQue(d);
-  const listaGuiada = sobre === 'PRODUTO' && produtos.length > 0;
+  const porMarca = sobre === 'MARCA';
+  // Por marca, a lista é de marcas (docs/85 §3.3); Mix da loja, exemplos; senão a lista fixa.
+  const produtos: Produto[] = porMarca
+    ? (d.marcas_predefinidas ?? []).map((m) => ({ uuid: m.uuid, descricao: m.descricao }))
+    : sobre === 'PRODUTO' && d.lista_produtos_origem === 'MIX_LOJA'
+      ? EXEMPLOS_MIX
+      : (d.produtos_predefinidos ?? []);
+  const listaGuiada = (sobre === 'PRODUTO' || porMarca) && produtos.length > 0;
 
   const [aberto, setAberto] = useState<Produto | null>(null);
   const [preenchidos, setPreenchidos] = useState<Set<string>>(new Set());
@@ -138,6 +151,7 @@ export function PreviaApp({ d }: { d: FormData }) {
               ruptura={ruptura}
               setRuptura={setRuptura}
               temProduto={!!produtoAberto}
+              porMarca={porMarca}
               onSalvar={produtoAberto ? salvarProduto : undefined}
             />
           )}
@@ -319,6 +333,7 @@ function Formulario({
   ruptura,
   setRuptura,
   temProduto,
+  porMarca = false,
   onSalvar,
 }: {
   d: FormData;
@@ -327,6 +342,7 @@ function Formulario({
   ruptura: boolean;
   setRuptura: (r: boolean) => void;
   temProduto: boolean;
+  porMarca?: boolean;
   onSalvar?: () => void;
 }) {
   const campos = d.campos ?? [];
@@ -397,6 +413,34 @@ function Formulario({
           </Box>
         </Bloco>
 
+        {/* Por marca: a embalagem é fixa e vem antes das perguntas (docs/85 §3.2). */}
+        {porMarca && (
+          <Bloco>
+            <Rotulo>Embalagem *</Rotulo>
+            <Box sx={{ display: 'flex', gap: 0.75 }}>
+              <Box sx={{ flex: 1, height: 30, borderRadius: '8px', border: `1px solid ${C.borda}`, px: 1, display: 'flex', alignItems: 'center' }}>
+                <Typography sx={{ fontSize: 11, color: C.textoTerciario }}>500</Typography>
+              </Box>
+              {['ml', 'L', 'g', 'kg', 'un'].map((u, i) => (
+                <Box
+                  key={u}
+                  sx={{
+                    px: 0.9,
+                    height: 30,
+                    borderRadius: '8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    border: `1px solid ${i === 0 ? C.primaria : C.borda}`,
+                    bgcolor: i === 0 ? C.primariaClara : '#fff',
+                  }}
+                >
+                  <Typography sx={{ fontSize: 10.5, fontWeight: 700, color: i === 0 ? C.primaria : C.texto }}>{u}</Typography>
+                </Box>
+              ))}
+            </Box>
+            <Typography sx={{ fontSize: 10, color: C.textoSecundario, mt: 0.5 }}>R$ por litro calculado na hora</Typography>
+          </Bloco>
+        )}
         {ruptura && visiveis.length > 0 && (
           <Typography sx={{ fontSize: 10.5, color: C.textoSecundario }}>
             Produto em ruptura — não precisa responder as perguntas.

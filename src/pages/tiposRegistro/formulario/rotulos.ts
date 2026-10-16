@@ -29,7 +29,30 @@ export const OPCOES_SOBRE: Record<SobreOQue, { titulo: string; sub: string }> = 
     titulo: 'Onde é o registro? — o promotor escolhe',
     sub: 'Departamento, seção ou marca. Opcional: filtrar a marca depois da seção.',
   },
+  MARCA: {
+    titulo: 'Cada marca concorrente',
+    sub: 'O promotor marca as marcas que encontrou e, em cada uma, as embalagens e o preço. Ex.: Downy 500 ml a R$ 12,00.',
+  },
 };
+
+// "Cada produto" (docs/85 §7): de onde vem a lista que o promotor percorre.
+export const ORIGENS_LISTA_PRODUTOS: { valor: 'FIXA' | 'MIX_LOJA'; rotulo: string; ajuda: string }[] = [
+  { valor: 'FIXA', rotulo: 'Lista fixa', ajuda: 'Os produtos escolhidos aqui, em qualquer loja (estejam no Mix ou não).' },
+  {
+    valor: 'MIX_LOJA',
+    rotulo: 'Mix da loja',
+    ajuda: 'Os nossos produtos do Mix de cada loja (sem concorrente). Bom pra checklist de presença.',
+  },
+];
+
+// Unidades da embalagem (docs/85 §3.1) — mesma lista da API (App\Enums\UnidadeEmbalagem).
+export const UNIDADES_EMBALAGEM: { valor: 'ML' | 'L' | 'G' | 'KG' | 'UN'; rotulo: string }[] = [
+  { valor: 'ML', rotulo: 'ml' },
+  { valor: 'L', rotulo: 'L' },
+  { valor: 'G', rotulo: 'g' },
+  { valor: 'KG', rotulo: 'kg' },
+  { valor: 'UN', rotulo: 'un' },
+];
 
 // Caixinhas da opção "o promotor escolhe" (docs/79 decisão 1).
 export const RECORTES_ESCOLHIVEIS: { nome: 'escolhe_marca' | 'escolhe_departamento' | 'escolhe_secao'; rotulo: string }[] = [

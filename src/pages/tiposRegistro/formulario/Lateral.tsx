@@ -39,7 +39,8 @@ function Resumo({ d }: { d: FormData }) {
 
   const campos = d.campos ?? [];
   const obrigatorias = campos.filter((c) => c.obrigatorio);
-  const produtos = d.produtos_predefinidos ?? [];
+  // Mix da loja (docs/85 §7): não há lista fixa — é o Mix de cada loja.
+  const produtos = d.lista_produtos_origem === 'MIX_LOJA' ? [] : (d.produtos_predefinidos ?? []);
   const sobre = sobreOQue(d);
 
   const onde: ReactNode = (() => {
@@ -73,7 +74,11 @@ function Resumo({ d }: { d: FormData }) {
   })();
 
   const alvo =
-    sobre === 'PRODUTO'
+    sobre === 'MARCA'
+      ? <> de <b>cada marca concorrente que encontrar, por embalagem</b></>
+      : sobre === 'PRODUTO' && d.lista_produtos_origem === 'MIX_LOJA'
+      ? <> de <b>cada produto nosso do Mix da loja</b></>
+      : sobre === 'PRODUTO'
       ? produtos.length
         ? <> de <b>cada um dos {produtos.length} produtos</b></>
         : <> de <b>cada produto</b></>

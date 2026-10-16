@@ -2,6 +2,7 @@ import type {
   AoContinuarAcompanhamento,
   EscopoAcaoTipoRegistro,
   GranularidadeResposta,
+  ListaProdutosOrigem,
   ListaRecorte,
   PaginatedMeta,
   SortimentoOrigemCampo,
@@ -77,6 +78,11 @@ export interface TipoRegistroPayload {
   // Escopo LOJA_REDE (docs/40) — ignoradas/limpas pelo backend em qualquer outro escopo.
   // Lista predefinida de produtos (só com granularidade PRODUTO; o backend limpa nas outras).
   produtos_uuids?: string[];
+  lista_produtos_origem?: ListaProdutosOrigem;
+  // Concorrentes por marca e embalagem (docs/85) — só com granularidade MARCA.
+  marcas_uuids?: string[];
+  permite_marca_nova?: boolean;
+  varias_embalagens?: boolean;
   pontos_venda_uuids?: string[];
   redes_lojas_uuids?: string[];
   granularidade_padrao?: GranularidadeResposta | null;
@@ -163,6 +169,30 @@ export interface ConversaoLinha {
 
 export async function buscarConversaoLinha(uuid: string, inicio: string, fim: string): Promise<ConversaoLinha> {
   const { data } = await apiClient.get<ConversaoLinha>(`/tipos-registro/${uuid}/conversao`, { params: { inicio, fim } });
+  return data;
+}
+
+// "Quem ocupa o espaço" (docs/85 §3.4) — uma linha por marca + embalagem.
+export interface LinhaConcorrente {
+  marca: { id: string; descricao: string; a_aprovar: boolean };
+  embalagem: string;
+  registros: number;
+  lojas: number;
+  preco_medio: number | null;
+  preco_min: number | null;
+  preco_max: number | null;
+  preco_por_referencia: number | null;
+  referencia: 'L' | 'kg' | null;
+  circunstancias: { rotulo: string; valor: string | null }[];
+}
+
+export interface Concorrentes {
+  linhas: LinhaConcorrente[];
+  destaques: { mais_barato: LinhaConcorrente | null; total_embalagens: number; total_marcas: number; total_registros: number };
+}
+
+export async function buscarConcorrentes(uuid: string, inicio: string, fim: string): Promise<Concorrentes> {
+  const { data } = await apiClient.get<Concorrentes>(`/tipos-registro/${uuid}/concorrentes`, { params: { inicio, fim } });
   return data;
 }
 

@@ -14,6 +14,7 @@ import { atualizarTipoRegistro, buscarTipoRegistro, criarTipoRegistro, listarLoj
 import { DirecionamentoFormDialog } from '../direcionamentos/DirecionamentoFormDialog';
 import { precisaResolverLojas, valoresEnvioImediato, type ValoresDirecionamento } from '../direcionamentos/envioImediato';
 import { ConversaoLinha } from './formulario/ConversaoLinha';
+import { ConcorrentesMarca } from './formulario/ConcorrentesMarca';
 import { Lateral } from './formulario/Lateral';
 import {
   formDoTipo,
@@ -398,6 +399,7 @@ export function TipoRegistroFormPage() {
         <Box sx={{ display: { xs: 'none', lg: 'block' } }}>
           <Lateral control={control} />
           {tipo?.acao_obrigatoria && tipo.escopo_acao === 'LINHA_AUSENTE' && <ConversaoLinha tipoId={tipo.id} />}
+          {tipo?.granularidade_padrao === 'MARCA' && <ConcorrentesMarca tipoId={tipo.id} />}
         </Box>
       </Box>
       {erroEnvio && (
@@ -490,7 +492,17 @@ function ResumoSecao({ control, n }: { control: Control<FormData>; n: NumeroSeca
   }
   if (n === 3) {
     const s = sobreOQue(d);
-    texto = `${rotuloSobre(s).titulo}${s === 'PRODUTO' ? ` — ${d.produtos_predefinidos?.length ? `${d.produtos_predefinidos.length} produtos na lista` : 'produtos do mix da loja'}` : ` — ${rotuloSobre(s).sub}`}`;
+    const detalhe =
+      s === 'PRODUTO'
+        ? d.lista_produtos_origem === 'MIX_LOJA'
+          ? 'nossos produtos do Mix de cada loja'
+          : d.produtos_predefinidos?.length
+            ? `${d.produtos_predefinidos.length} produtos na lista`
+            : 'produtos do mix da loja'
+        : s === 'MARCA'
+          ? `${d.marcas_predefinidas?.length ?? 0} marca(s) na lista${d.permite_marca_nova ? ' + marca nova' : ''}`
+          : rotuloSobre(s).sub;
+    texto = `${rotuloSobre(s).titulo} — ${detalhe}`;
   }
   if (n === 4) {
     const total = d.campos?.length ?? 0;

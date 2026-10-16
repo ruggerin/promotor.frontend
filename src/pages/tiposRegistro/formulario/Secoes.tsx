@@ -49,7 +49,8 @@ import {
   type QuandoAparece,
   type SobreOQue,
 } from './modelo';
-import { OPCOES_AVANCADAS, OPCOES_QUANDO, OPCOES_SOBRE, LISTAS_RECORTE, RECORTES_ESCOLHIVEIS } from './rotulos';
+import { OPCOES_AVANCADAS, OPCOES_QUANDO, OPCOES_SOBRE, LISTAS_RECORTE, ORIGENS_LISTA_PRODUTOS, RECORTES_ESCOLHIVEIS } from './rotulos';
+import { PainelMarcas } from './PainelMarcas';
 import { SeletorProdutosDialog } from './SeletorProdutosDialog';
 import { horus } from '../../../theme';
 
@@ -771,6 +772,11 @@ export function SecaoSobreOQue({
           )}
         </OpcaoRadio>
       </Box>
+      {/* docs/85 — concorrentes por marca e embalagem. */}
+      <Box sx={{ mt: 1 }}>
+        <OpcaoRadio titulo={OPCOES_SOBRE.MARCA.titulo} sub={OPCOES_SOBRE.MARCA.sub} ativo={atual === 'MARCA'} onClick={() => escolher('MARCA')} />
+      </Box>
+      {atual === 'MARCA' && <PainelMarcas control={control} />}
       {atual === 'PRODUTO' && <PainelProdutos control={control} tipoAtualId={tipoAtualId} nomeFormulario={nomeFormulario} />}
       {(atual === 'PRODUTO' || atual === 'LINHA') && <ExcecoesPorSecao control={control} />}
     </>
@@ -778,6 +784,41 @@ export function SecaoSobreOQue({
 }
 
 function PainelProdutos({ control, tipoAtualId, nomeFormulario }: { control: Control<FormData>; tipoAtualId: string | null; nomeFormulario: string }) {
+  const origem = useWatch({ control, name: 'lista_produtos_origem' });
+  return (
+    <>
+      {/* docs/85 §7 — de onde vem a lista que o promotor percorre. */}
+      <Box sx={{ mt: 2, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1 }}>
+        <Controller
+          name="lista_produtos_origem"
+          control={control}
+          render={({ field }) => (
+            <>
+              {ORIGENS_LISTA_PRODUTOS.map((o) => (
+                <OpcaoRadio key={o.valor} titulo={o.rotulo} sub={o.ajuda} ativo={field.value === o.valor} onClick={() => field.onChange(o.valor)} />
+              ))}
+            </>
+          )}
+        />
+      </Box>
+      {origem === 'MIX_LOJA' ? (
+        <Box sx={{ mt: 1.5, px: 2, py: 1.5, border: 1, borderColor: 'divider', borderRadius: 2.5 }}>
+          <Typography variant="body2">
+            Em cada loja, o promotor percorre os <b>nossos produtos do Mix dela</b> (concorrentes ficam de fora) e responde as
+            perguntas de cada um. Ex.: "Está na gôndola?" vira um checklist de presença.
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            Loja sem Mix cadastrado: o promotor escolhe o produto, como num registro solto.
+          </Typography>
+        </Box>
+      ) : (
+        <ListaFixaProdutos control={control} tipoAtualId={tipoAtualId} nomeFormulario={nomeFormulario} />
+      )}
+    </>
+  );
+}
+
+function ListaFixaProdutos({ control, tipoAtualId, nomeFormulario }: { control: Control<FormData>; tipoAtualId: string | null; nomeFormulario: string }) {
   const [filtro, setFiltro] = useState('');
   const [seletor, setSeletor] = useState(false);
   return (

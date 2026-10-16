@@ -27,6 +27,9 @@ ARG VITE_URL_SUPORTE
 ENV VITE_URL_SUPORTE=${VITE_URL_SUPORTE}
 ARG VITE_EMAIL_SUPORTE
 ENV VITE_EMAIL_SUPORTE=${VITE_EMAIL_SUPORTE}
+# Versão do admin (data + commit) — o menu do usuário mostra. Sem ela, "dev".
+ARG VITE_VERSAO=dev
+ENV VITE_VERSAO=${VITE_VERSAO}
 RUN npm run build
 
 # ---- Stage 2: imagem final (só Nginx servindo o estático) -------------------------------------

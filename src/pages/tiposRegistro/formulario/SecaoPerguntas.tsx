@@ -70,6 +70,7 @@ interface Props {
  */
 export function SecaoPerguntas({ control, setValue, getValues, tipoAtualId, erroCampos }: Props) {
   const { fields, append, remove, move, insert } = useFieldArray({ control, name: 'campos' });
+  const granularidade = useWatch({ control, name: 'granularidade_padrao' });
   const [aberta, setAberta] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
@@ -132,6 +133,7 @@ export function SecaoPerguntas({ control, setValue, getValues, tipoAtualId, erro
   return (
     <>
       <LinhaFoto control={control} />
+      {granularidade === 'MARCA' && <LinhaEmbalagem />}
 
       {aviso && (
         <Alert severity="warning" sx={{ mt: 1.5 }} onClose={() => setAviso(null)}>
@@ -211,6 +213,26 @@ function LinhaFoto({ control }: { control: Control<FormData> }) {
         </Box>
       )}
     />
+  );
+}
+
+/** Por marca (docs/85 §3.2): a embalagem é fixa, sempre pedida e vem antes das perguntas. */
+function LinhaEmbalagem() {
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mt: 1.25, border: 1, borderColor: 'divider', borderRadius: 2, px: 1.75, py: 1.25, bgcolor: horus.subcard }}>
+      <Box sx={{ width: 34, height: 34, borderRadius: 1.5, border: 1, borderColor: 'divider', bgcolor: 'background.paper', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700 }}>
+        ml
+      </Box>
+      <Box sx={{ flex: 1 }}>
+        <Typography variant="body2" sx={{ fontWeight: 700 }}>
+          Embalagem: quantidade + unidade
+        </Typography>
+        <Typography variant="caption" color="text.secondary">
+          Fixa e obrigatória — é ela que permite comparar o preço por litro/kg entre marcas. As perguntas abaixo repetem em cada embalagem.
+        </Typography>
+      </Box>
+      <Chip size="small" label="fixo" />
+    </Box>
   );
 }
 

@@ -64,7 +64,7 @@ export const schema = z
     campanha_auditoria_uuid: z.string().nullable(),
     pontos_venda_escopo: z.array(z.object({ id: z.string(), fantasia: z.string() })),
     redes_lojas_uuids: z.array(z.string()),
-    granularidade_padrao: z.enum(['LINHA', 'PRODUTO']).nullable(),
+    granularidade_padrao: z.enum(['LINHA', 'PRODUTO', 'MARCA']).nullable(),
     escolhe_marca: z.boolean(),
     escolhe_departamento: z.boolean(),
     escolhe_secao: z.boolean(),
@@ -82,6 +82,12 @@ export const schema = z
     acompanha_formulario_acabou: z.object({ id: z.string(), descricao: z.string() }).nullable(),
     acompanha_prazo_dias: z.number().int().min(1, 'Use 1 ou mais dias.').max(3650).nullable(),
     produtos_predefinidos: z.array(z.object({ uuid: z.string(), descricao: z.string() })),
+    // "Cada produto": lista fixa (a de cima) ou o Mix da loja, só nossos produtos (docs/85 §7).
+    lista_produtos_origem: z.enum(['FIXA', 'MIX_LOJA']),
+    // "Cada marca concorrente" (docs/85 §3.1).
+    marcas_predefinidas: z.array(z.object({ uuid: z.string(), descricao: z.string(), a_aprovar: z.boolean() })),
+    permite_marca_nova: z.boolean(),
+    varias_embalagens: z.boolean(),
     excecoes_granularidade: z.array(excecaoGranularidadeSchema),
     eh_ruptura: z.boolean(),
     eh_alerta: z.boolean(),
@@ -97,6 +103,11 @@ export const schema = z
   .refine((d) => !d.acompanha || !d.acompanha_gatilho_chave || !!d.acompanha_gatilho_valor, {
     message: 'Escolha a resposta que dispara o acompanhamento.',
     path: ['acompanha_gatilho_valor'],
+  })
+  // docs/85: por marca, precisa de marca na lista ou deixar o promotor cadastrar.
+  .refine((d) => d.granularidade_padrao !== 'MARCA' || d.marcas_predefinidas.length > 0 || d.permite_marca_nova, {
+    message: 'Escolha as marcas da lista ou deixe o promotor cadastrar marca nova.',
+    path: ['marcas_predefinidas'],
   })
   .refine((d) => !d.acao_obrigatoria || d.escopo_acao !== null, {
     message: 'Escolha quando essa pendência aparece.',
@@ -192,6 +203,10 @@ export const DEFAULT_VALUES: FormData = {
   acompanha_formulario_acabou: null,
   acompanha_prazo_dias: null,
   produtos_predefinidos: [],
+  lista_produtos_origem: 'FIXA',
+  marcas_predefinidas: [],
+  permite_marca_nova: true,
+  varias_embalagens: true,
   excecoes_granularidade: [],
   eh_ruptura: false,
   eh_alerta: false,
@@ -296,7 +311,14 @@ export function formDoTipo(tipo: TipoRegistro): FormData {
     acompanha_formulario_acabou: tipo.acompanha_formulario_acabou ?? null,
     acompanha_prazo_dias: tipo.acompanha_prazo_dias ?? null,
     produtos_predefinidos: (tipo.produtos_predefinidos ?? []).map((p) => ({ uuid: p.id, descricao: p.descricao })),
-    excecoes_granularidade: tipo.excecoes_granularidade.map((e) => ({ secao_uuid: e.secao_uuid, granularidade: e.granularidade })),
+    lista_produtos_origem: tipo.lista_produtos_origem ?? 'FIXA',
+    marcas_predefinidas: (tipo.marcas_predefinidas ?? []).map((m) => ({ uuid: m.id, descricao: m.descricao, a_aprovar: m.a_aprovar })),
+    permite_marca_nova: tipo.permite_marca_nova ?? true,
+    varias_embalagens: tipo.varias_embalagens ?? true,
+    // Exceção por seção nunca é MARCA (o servidor recusa) — filtra por garantia.
+    excecoes_granularidade: tipo.excecoes_granularidade
+      .filter((e) => e.granularidade !== 'MARCA')
+      .map((e) => ({ secao_uuid: e.secao_uuid, granularidade: e.granularidade as 'LINHA' | 'PRODUTO' })),
     eh_ruptura: tipo.eh_ruptura,
     eh_alerta: tipo.eh_alerta,
     usa_pontuacao: tipo.usa_pontuacao,
@@ -339,7 +361,11 @@ export function payloadDoForm(d: FormData): TipoRegistroPayload {
     acompanha_ao_continuar: d.acompanha_ao_continuar,
     acompanha_formulario_acabou_uuid: d.acompanha ? (d.acompanha_formulario_acabou?.id ?? null) : null,
     acompanha_prazo_dias: d.acompanha ? d.acompanha_prazo_dias : null,
-    produtos_uuids: d.granularidade_padrao === 'PRODUTO' ? d.produtos_predefinidos.map((p) => p.uuid) : [],
+    produtos_uuids: d.granularidade_padrao === 'PRODUTO' && d.lista_produtos_origem === 'FIXA' ? d.produtos_predefinidos.map((p) => p.uuid) : [],
+    lista_produtos_origem: d.granularidade_padrao === 'PRODUTO' ? d.lista_produtos_origem : 'FIXA',
+    marcas_uuids: d.granularidade_padrao === 'MARCA' ? d.marcas_predefinidas.map((m) => m.uuid) : [],
+    permite_marca_nova: d.permite_marca_nova,
+    varias_embalagens: d.varias_embalagens,
     excecoes_granularidade: d.excecoes_granularidade,
     eh_ruptura: d.eh_ruptura,
     eh_alerta: d.eh_alerta,
@@ -409,7 +435,7 @@ export function camposDoQuandoAparece(
 
 // ---- "Sobre o que o promotor responde?" (seção 3) ⇄ granularidade/vínculo ----
 
-export type SobreOQue = 'VISITA' | 'PRODUTO' | 'LINHA' | 'PROMOTOR_DECIDE' | 'PROMOTOR_ESCOLHE_RECORTE';
+export type SobreOQue = 'VISITA' | 'PRODUTO' | 'LINHA' | 'PROMOTOR_DECIDE' | 'PROMOTOR_ESCOLHE_RECORTE' | 'MARCA';
 
 type CamposSobreOQue = Pick<
   FormData,
@@ -419,6 +445,7 @@ type CamposSobreOQue = Pick<
 export function sobreOQue(d: CamposSobreOQue): SobreOQue {
   // Escolha de recorte (docs/79) sempre grava LINHA — por isso vem antes da checagem de LINHA.
   if (temEscolhaDeRecorte(d)) return 'PROMOTOR_ESCOLHE_RECORTE';
+  if (d.granularidade_padrao === 'MARCA') return 'MARCA';
   if (d.granularidade_padrao === 'PRODUTO') return 'PRODUTO';
   if (d.granularidade_padrao === 'LINHA') return 'LINHA';
   return d.permite_vincular_catalogo ? 'PROMOTOR_DECIDE' : 'VISITA';
@@ -436,6 +463,9 @@ export function camposDoSobreOQue(opcao: SobreOQue): CamposSobreOQue {
       return { granularidade_padrao: 'LINHA', permite_vincular_catalogo: true, ...SEM_ESCOLHA };
     case 'PRODUTO':
       return { granularidade_padrao: 'PRODUTO', permite_vincular_catalogo: true, ...SEM_ESCOLHA };
+    case 'MARCA':
+      // A marca e a embalagem já são o vínculo (docs/85) — sem "Vincular a" solto.
+      return { granularidade_padrao: 'MARCA', permite_vincular_catalogo: false, ...SEM_ESCOLHA };
     case 'PROMOTOR_ESCOLHE_RECORTE':
       // Começa com departamento e seção marcados — o caso do Ponto Extra (docs/79 §1).
       return {

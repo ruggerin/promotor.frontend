@@ -4,6 +4,9 @@
 # Uso:
 #   docker compose up -d --build
 #
+# Versão (aparece no menu do usuário) — carimbe data + commit no build:
+#   VITE_VERSAO=$(date +%Y.%m.%d)-$(git rev-parse --short HEAD) docker compose up -d --build
+#
 # Variáveis lidas de admin/.env (Compose carrega automaticamente o .env ao lado deste arquivo
 # pra resolver os ${...} abaixo). VITE_API_URL é embutida no bundle em TEMPO DE BUILD (ver
 # Dockerfile) — trocar essa URL exige rodar "docker compose up -d --build" de novo, um simples
@@ -18,6 +21,7 @@ services:
         VITE_API_URL: ${VITE_API_URL}
         VITE_URL_SUPORTE: ${VITE_URL_SUPORTE:-}
         VITE_EMAIL_SUPORTE: ${VITE_EMAIL_SUPORTE:-}
+        VITE_VERSAO: ${VITE_VERSAO:-dev}
     image: pdv-app-admin
     container_name: tradeteste_admin
     restart: unless-stopped

@@ -18,6 +18,7 @@ vi.mock('../../lib/api/marcas');
 vi.mock('../../lib/api/produtos');
 
 import * as campanhasApi from '../../lib/api/campanhas';
+import * as marcasApi from '../../lib/api/marcas';
 import * as redesApi from '../../lib/api/redesLojas';
 import * as tiposApi from '../../lib/api/tiposRegistro';
 
@@ -291,5 +292,60 @@ describe('TipoRegistroFormPage (editor de formulário)', () => {
         acompanha_prazo_dias: null,
       });
     });
+  });
+
+  // docs/85 — item 3: "Cada marca concorrente" e "Cada produto" pelo Mix da loja.
+  describe('concorrentes por marca e mix da loja', () => {
+    it('cria por marca concorrente com a lista e as opções', async () => {
+      vi.mocked(marcasApi.listarMarcas).mockResolvedValue({
+        marcas: [
+          { id: 'm-downy', descricao: 'Downy', propriedade: 'CONCORRENTE', ativo: true },
+          { id: 'm-brinorte', descricao: 'Brinorte', propriedade: 'CONCORRENTE', ativo: true },
+        ],
+        meta,
+      } as never);
+      const user = userEvent.setup();
+      renderizar('/tipos-registro/novo');
+
+      await user.type(screen.getByPlaceholderText('Ex.: Pesquisa de Preço'), 'Concorrentes Amaciante');
+      await user.click(screen.getByText('Cada marca concorrente'));
+      await user.click(screen.getByLabelText('Adicionar marca concorrente'));
+      await user.click(await screen.findByRole('option', { name: 'Brinorte' }));
+      await user.click(screen.getByLabelText('Adicionar marca concorrente'));
+      await user.click(await screen.findByRole('option', { name: 'Downy' }));
+      await user.click(screen.getByLabelText('Várias embalagens por marca'));
+      expect(screen.getByText('Embalagem: quantidade + unidade')).toBeInTheDocument();
+
+      await user.click(screen.getByRole('button', { name: 'Criar formulário' }));
+
+      await waitFor(() => expect(tiposApi.criarTipoRegistro).toHaveBeenCalledTimes(1));
+      expect(vi.mocked(tiposApi.criarTipoRegistro).mock.calls[0][0]).toMatchObject({
+        granularidade_padrao: 'MARCA',
+        marcas_uuids: ['m-brinorte', 'm-downy'],
+        permite_marca_nova: true,
+        varias_embalagens: false,
+        produtos_uuids: [],
+      });
+    }, 20_000);
+
+    it('cada produto pelo mix da loja não manda lista fixa', async () => {
+      const user = userEvent.setup();
+      renderizar('/tipos-registro/novo');
+
+      await user.type(screen.getByPlaceholderText('Ex.: Pesquisa de Preço'), 'Presença');
+      await user.click(screen.getByText('Cada produto'));
+      await user.click(screen.getByText('Mix da loja'));
+      expect(screen.queryByRole('button', { name: /Adicionar produtos/ })).not.toBeInTheDocument();
+
+      await user.click(screen.getByRole('button', { name: 'Criar formulário' }));
+
+      await waitFor(() => expect(tiposApi.criarTipoRegistro).toHaveBeenCalledTimes(1));
+      expect(vi.mocked(tiposApi.criarTipoRegistro).mock.calls[0][0]).toMatchObject({
+        granularidade_padrao: 'PRODUTO',
+        lista_produtos_origem: 'MIX_LOJA',
+        produtos_uuids: [],
+        marcas_uuids: [],
+      });
+    }, 20_000);
   });
 });
