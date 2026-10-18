@@ -1,8 +1,8 @@
 import type { PaginatedMeta, Supervisor, Vendedor, VendedorDaLoja } from '../../types/api';
 import { apiClient } from './client';
 
-// Vendedores e supervisores espelhados do ERP (docs/73). Leitura e edição pedem
-// `vendedores.gerenciar`; a edição só aceita contato e vínculo com usuário (o resto é do ERP).
+// Vendedores e supervisores espelhados do ERP (docs/73). Tudo pede `vendedores.gerenciar`. O cadastro
+// também é feito na mão pela tela (§11.2); a próxima carga do ERP sobrescreve o que vier nela.
 
 export interface FiltrosEquipe {
   page?: number;
@@ -15,10 +15,17 @@ export interface FiltrosVendedores extends FiltrosEquipe {
   sem_supervisor?: boolean;
 }
 
-export interface ContatoEquipe {
+export interface DadosSupervisor {
+  codigo_externo?: string;
+  nome?: string;
   telefone?: string | null;
   email?: string | null;
+  ativo?: boolean;
   usuario_uuid?: string | null;
+}
+
+export interface DadosVendedor extends DadosSupervisor {
+  supervisor_uuid?: string | null;
 }
 
 const parametros = (f: FiltrosEquipe) => ({
@@ -39,14 +46,34 @@ export async function listarVendedores(f: FiltrosVendedores = {}): Promise<{ ven
   return data;
 }
 
-export async function atualizarSupervisor(id: string, dados: ContatoEquipe): Promise<Supervisor> {
+export async function criarSupervisor(dados: DadosSupervisor): Promise<Supervisor> {
+  const { data } = await apiClient.post<{ supervisor: Supervisor }>('/supervisores', dados);
+  return data.supervisor;
+}
+
+export async function atualizarSupervisor(id: string, dados: DadosSupervisor): Promise<Supervisor> {
   const { data } = await apiClient.put<{ supervisor: Supervisor }>(`/supervisores/${id}`, dados);
   return data.supervisor;
 }
 
-export async function atualizarVendedor(id: string, dados: ContatoEquipe): Promise<Vendedor> {
+// Os vendedores dele ficam sem supervisor (guardam o código cru do ERP).
+export async function excluirSupervisor(id: string): Promise<void> {
+  await apiClient.delete(`/supervisores/${id}`);
+}
+
+export async function criarVendedor(dados: DadosVendedor): Promise<Vendedor> {
+  const { data } = await apiClient.post<{ vendedor: Vendedor }>('/vendedores', dados);
+  return data.vendedor;
+}
+
+export async function atualizarVendedor(id: string, dados: DadosVendedor): Promise<Vendedor> {
   const { data } = await apiClient.put<{ vendedor: Vendedor }>(`/vendedores/${id}`, dados);
   return data.vendedor;
+}
+
+// A carteira de lojas dele sai junto.
+export async function excluirVendedor(id: string): Promise<void> {
+  await apiClient.delete(`/vendedores/${id}`);
 }
 
 // Carteira (docs/73 §11.1): vínculo 1 a 1 pela tela da loja. Devolve a carteira atualizada.

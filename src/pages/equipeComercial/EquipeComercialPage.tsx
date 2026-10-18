@@ -1,3 +1,4 @@
+import AddIcon from '@mui/icons-material/Add';
 import UploadFileIcon from '@mui/icons-material/UploadFileOutlined';
 import {
   Alert,
@@ -29,9 +30,13 @@ import { TituloComAtualizar } from '../../components/RefreshButton';
 import {
   atualizarSupervisor,
   atualizarVendedor,
+  criarSupervisor,
+  criarVendedor,
+  excluirSupervisor,
+  excluirVendedor,
   listarSupervisores,
   listarVendedores,
-  type ContatoEquipe,
+  type DadosVendedor,
 } from '../../lib/api/equipeComercial';
 import { listarUsuarios } from '../../lib/api/usuarios';
 import type { PessoaVinculada, Supervisor, Vendedor } from '../../types/api';
@@ -39,12 +44,14 @@ import type { PessoaVinculada, Supervisor, Vendedor } from '../../types/api';
 type Aba = 'vendedores' | 'supervisores';
 type Status = '' | 'ativos' | 'inativos';
 
-// Vendedores e supervisores espelhados do ERP (docs/73 Fase 1). Tela de CONFERÊNCIA: o cadastro
-// chega pela Importação de dados ou pelo integrador; aqui só se ajusta contato e o vínculo com o
-// usuário do Horus. Código, nome e hierarquia são do ERP, por isso não editam.
+// Vendedores e supervisores espelhados do ERP (docs/73). O cadastro chega pela Importação de dados
+// ou pelo integrador, e também pode ser feito aqui na mão (§11.2) — a próxima carga do ERP
+// sobrescreve o que vier preenchido nela.
 export function EquipeComercialPage() {
   const [aba, setAba] = useState<Aba>('vendedores');
+  const [criando, setCriando] = useState(false);
   const cabecalho = usePageHeader(<TituloComAtualizar titulo="Vendedores e supervisores" />);
+  const fecharCriacao = () => setCriando(false);
 
   return (
     <Box>
@@ -54,17 +61,31 @@ export function EquipeComercialPage() {
           <Tab value="vendedores" label="Vendedores" />
           <Tab value="supervisores" label="Supervisores" />
         </Tabs>
-        <Button component={RouterLink} to="/importacao-dados" variant="outlined" startIcon={<UploadFileIcon />}>
-          Importar planilha
-        </Button>
+        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+          <Button component={RouterLink} to="/importacao-dados" variant="outlined" startIcon={<UploadFileIcon />}>
+            Importar planilha
+          </Button>
+          <Button variant="contained" startIcon={<AddIcon />} onClick={() => setCriando(true)}>
+            {aba === 'vendedores' ? 'Novo vendedor' : 'Novo supervisor'}
+          </Button>
+        </Box>
       </Box>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2, maxWidth: 760 }}>
         Cadastro vindo do ERP. Vendedores e supervisores não precisam ter login no Horus; quando têm, vincule o usuário para
         os relatórios ligarem as duas coisas.
       </Typography>
-      {aba === 'vendedores' ? <ListaVendedores /> : <ListaSupervisores />}
+      {aba === 'vendedores' ? (
+        <ListaVendedores criando={criando} onFecharCriacao={fecharCriacao} />
+      ) : (
+        <ListaSupervisores criando={criando} onFecharCriacao={fecharCriacao} />
+      )}
     </Box>
   );
+}
+
+interface PropsLista {
+  criando: boolean;
+  onFecharCriacao: () => void;
 }
 
 function useBuscaComAtraso(valor: string): string {
@@ -120,7 +141,7 @@ const colunaSituacao = <T extends { ativo: boolean }>(): ColumnDef<T, unknown> =
   cell: ({ row }) => <Chip size="small" label={row.original.ativo ? 'Ativo' : 'Inativo'} color={row.original.ativo ? 'success' : 'default'} variant="outlined" />,
 });
 
-function ListaVendedores() {
+function ListaVendedores({ criando, onFecharCriacao }: PropsLista) {
   const [page, setPage] = useState(0);
   const [busca, setBusca] = useState('');
   const [status, setStatus] = useState<Status>('ativos');
@@ -224,7 +245,7 @@ function ListaVendedores() {
         emptyMessage={
           busca || supervisor || semSupervisor || status !== 'ativos'
             ? 'Nenhum vendedor com esses filtros.'
-            : 'Nenhum vendedor cadastrado ainda. Importe a planilha do ERP ou configure o integrador.'
+            : 'Nenhum vendedor cadastrado ainda. Cadastre aqui, importe a planilha do ERP ou configure o integrador.'
         }
         onRowClick={setEmEdicao}
         page={page}
@@ -233,20 +254,22 @@ function ListaVendedores() {
         totalRows={query.data?.meta.total ?? 0}
       />
 
-      {emEdicao && (
-        <EditarContatoDialog
-          titulo={`Vendedor ${emEdicao.codigo_externo} · ${emEdicao.nome}`}
+      {(emEdicao || criando) && (
+        <PessoaFormDialog
+          tipo="vendedor"
           pessoa={emEdicao}
-          salvar={(dados) => atualizarVendedor(emEdicao.id, dados)}
-          invalidar="vendedores"
-          onFechar={() => setEmEdicao(null)}
+          supervisores={supervisoresQuery.data?.supervisores ?? []}
+          onFechar={() => {
+            setEmEdicao(null);
+            onFecharCriacao();
+          }}
         />
       )}
     </>
   );
 }
 
-function ListaSupervisores() {
+function ListaSupervisores({ criando, onFecharCriacao }: PropsLista) {
   const [page, setPage] = useState(0);
   const [busca, setBusca] = useState('');
   const [status, setStatus] = useState<Status>('ativos');
@@ -302,7 +325,7 @@ function ListaSupervisores() {
         emptyMessage={
           busca || status !== 'ativos'
             ? 'Nenhum supervisor com esses filtros.'
-            : 'Nenhum supervisor cadastrado ainda. Importe a planilha do ERP ou configure o integrador.'
+            : 'Nenhum supervisor cadastrado ainda. Cadastre aqui, importe a planilha do ERP ou configure o integrador.'
         }
         onRowClick={setEmEdicao}
         page={page}
@@ -311,36 +334,55 @@ function ListaSupervisores() {
         totalRows={query.data?.meta.total ?? 0}
       />
 
-      {emEdicao && (
-        <EditarContatoDialog
-          titulo={`Supervisor ${emEdicao.codigo_externo} · ${emEdicao.nome}`}
+      {(emEdicao || criando) && (
+        <PessoaFormDialog
+          tipo="supervisor"
           pessoa={emEdicao}
-          salvar={(dados) => atualizarSupervisor(emEdicao.id, dados)}
-          invalidar="supervisores"
-          onFechar={() => setEmEdicao(null)}
+          onFechar={() => {
+            setEmEdicao(null);
+            onFecharCriacao();
+          }}
         />
       )}
     </>
   );
 }
 
-function EditarContatoDialog({
-  titulo,
+type Pessoa = Vendedor | Supervisor;
+
+const ehVendedor = (p: Pessoa): p is Vendedor => 'codigo_supervisor' in p;
+
+const mensagemDeErro = (erro: unknown, padrao: string) =>
+  axios.isAxiosError<{ message?: string; errors?: Record<string, string[]> }>(erro)
+    ? (Object.values(erro.response?.data.errors ?? {})[0]?.[0] ?? erro.response?.data.message ?? padrao)
+    : padrao;
+
+// Criar (pessoa null) e editar no mesmo formulário; excluir fica dentro da edição.
+function PessoaFormDialog({
+  tipo,
   pessoa,
-  salvar,
-  invalidar,
+  supervisores = [],
   onFechar,
 }: {
-  titulo: string;
-  pessoa: { telefone: string | null; email: string | null; usuario: PessoaVinculada | null };
-  salvar: (dados: ContatoEquipe) => Promise<unknown>;
-  invalidar: 'vendedores' | 'supervisores';
+  tipo: 'vendedor' | 'supervisor';
+  pessoa: Pessoa | null;
+  /** Só pro vendedor: opções do campo Supervisor (os ativos). */
+  supervisores?: Supervisor[];
   onFechar: () => void;
 }) {
   const queryClient = useQueryClient();
-  const [telefone, setTelefone] = useState(pessoa.telefone ?? '');
-  const [email, setEmail] = useState(pessoa.email ?? '');
-  const [usuario, setUsuario] = useState<PessoaVinculada | null>(pessoa.usuario);
+  const vendedor = pessoa && ehVendedor(pessoa) ? pessoa : null;
+  const [codigo, setCodigo] = useState(pessoa?.codigo_externo ?? '');
+  const [nome, setNome] = useState(pessoa?.nome ?? '');
+  const [telefone, setTelefone] = useState(pessoa?.telefone ?? '');
+  const [email, setEmail] = useState(pessoa?.email ?? '');
+  const [ativo, setAtivo] = useState(pessoa?.ativo ?? true);
+  const [usuario, setUsuario] = useState<PessoaVinculada | null>(pessoa?.usuario ?? null);
+  const [supervisor, setSupervisor] = useState<PessoaVinculada | null>(vendedor?.supervisor ?? null);
+  // Só manda o supervisor se mudou: um vendedor com código de supervisor que ainda não casou não
+  // pode perder esse código só porque o telefone foi editado.
+  const [supervisorAlterado, setSupervisorAlterado] = useState(false);
+  const [tentouSalvar, setTentouSalvar] = useState(false);
   const [buscaUsuario, setBuscaUsuario] = useState('');
   const buscaUsuarioAtrasada = useBuscaComAtraso(buscaUsuario);
 
@@ -348,36 +390,134 @@ function EditarContatoDialog({
     queryKey: ['usuarios', 'vinculo-equipe', buscaUsuarioAtrasada],
     queryFn: () => listarUsuarios({ busca: buscaUsuarioAtrasada, ativo: true, por_pagina: 20 }),
   });
-  const opcoes: PessoaVinculada[] = (usuariosQuery.data?.usuarios ?? []).map((u) => ({ id: u.id, nome: u.nome }));
+  const opcoesUsuario: PessoaVinculada[] = (usuariosQuery.data?.usuarios ?? []).map((u) => ({ id: u.id, nome: u.nome }));
+  const opcoesSupervisor: PessoaVinculada[] = supervisores.map((s) => ({ id: s.id, nome: `${s.nome} (${s.codigo_externo})` }));
 
-  const mutation = useMutation({
-    mutationFn: () => salvar({ telefone: telefone.trim() || null, email: email.trim() || null, usuario_uuid: usuario?.id ?? null }),
+  const invalidar = () => {
+    void queryClient.invalidateQueries({ queryKey: ['vendedores'] });
+    void queryClient.invalidateQueries({ queryKey: ['supervisores'] });
+  };
+
+  const salvar = useMutation({
+    mutationFn: (): Promise<Pessoa> => {
+      const dados: DadosVendedor = {
+        codigo_externo: codigo.trim(),
+        nome: nome.trim(),
+        telefone: telefone.trim() || null,
+        email: email.trim() || null,
+        ativo,
+        usuario_uuid: usuario?.id ?? null,
+      };
+      if (tipo === 'supervisor') {
+        return pessoa ? atualizarSupervisor(pessoa.id, dados) : criarSupervisor(dados);
+      }
+      if (!pessoa || supervisorAlterado) {
+        dados.supervisor_uuid = supervisor?.id ?? null;
+      }
+      return pessoa ? atualizarVendedor(pessoa.id, dados) : criarVendedor(dados);
+    },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: [invalidar] });
+      invalidar();
       onFechar();
     },
   });
-  const erro = mutation.error
-    ? axios.isAxiosError<{ message?: string; errors?: Record<string, string[]> }>(mutation.error)
-      ? (Object.values(mutation.error.response?.data.errors ?? {})[0]?.[0] ?? mutation.error.response?.data.message ?? 'Não foi possível salvar.')
-      : 'Não foi possível salvar.'
-    : null;
+
+  const excluir = useMutation({
+    mutationFn: (id: string) => (tipo === 'vendedor' ? excluirVendedor(id) : excluirSupervisor(id)),
+    onSuccess: () => {
+      invalidar();
+      onFechar();
+    },
+  });
+
+  const confirmarExclusao = () => {
+    if (!pessoa) return;
+    const consequencia = vendedor
+      ? vendedor.lojas_count
+        ? ` Ele sai da carteira de ${vendedor.lojas_count} loja(s).`
+        : ''
+      : ' Os vendedores dele ficam sem supervisor.';
+    const texto =
+      `Excluir ${pessoa.nome} (${pessoa.codigo_externo})?${consequencia}\n\n` +
+      'Se a pessoa só saiu da empresa, prefira desmarcar "Ativo". Se ela ainda estiver no ERP, a próxima importação cria o cadastro de novo.';
+    if (window.confirm(texto)) excluir.mutate(pessoa.id);
+  };
+
+  const faltaCodigo = tentouSalvar && !codigo.trim();
+  const faltaNome = tentouSalvar && !nome.trim();
+  const erro = salvar.error
+    ? mensagemDeErro(salvar.error, 'Não foi possível salvar.')
+    : excluir.error
+      ? mensagemDeErro(excluir.error, 'Não foi possível excluir.')
+      : null;
+  const ocupado = salvar.isPending || excluir.isPending;
 
   return (
     <Dialog open onClose={onFechar} fullWidth maxWidth="sm">
-      <DialogTitle>{titulo}</DialogTitle>
+      <DialogTitle>{pessoa ? `Editar ${tipo} · ${pessoa.nome}` : `Novo ${tipo}`}</DialogTitle>
       <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '8px !important' }}>
         <Typography variant="body2" color="text.secondary">
-          Código, nome e supervisor vêm do ERP e são atualizados pela importação. Aqui você ajusta o contato e o vínculo com
-          o login.
+          Use o mesmo código do ERP. Se o cadastro também vier da importação ou do integrador, a próxima carga sobrescreve o que
+          vier preenchido nela.
         </Typography>
         {erro && <Alert severity="error">{erro}</Alert>}
-        <TextField id="equipe-telefone" label="Telefone" size="small" value={telefone} onChange={(e) => setTelefone(e.target.value)} />
-        <TextField id="equipe-email" label="E-mail" size="small" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          <TextField
+            id="equipe-codigo"
+            label="Código no ERP"
+            size="small"
+            required
+            sx={{ width: 180, flexShrink: 0 }}
+            value={codigo}
+            onChange={(e) => setCodigo(e.target.value)}
+            error={faltaCodigo}
+            helperText={faltaCodigo ? 'Obrigatório' : undefined}
+          />
+          <TextField
+            id="equipe-nome"
+            label="Nome"
+            size="small"
+            required
+            fullWidth
+            value={nome}
+            onChange={(e) => setNome(e.target.value)}
+            error={faltaNome}
+            helperText={faltaNome ? 'Obrigatório' : undefined}
+          />
+        </Box>
+        {tipo === 'vendedor' && (
+          <Autocomplete
+            id="equipe-supervisor"
+            size="small"
+            options={supervisor && !opcoesSupervisor.some((o) => o.id === supervisor.id) ? [supervisor, ...opcoesSupervisor] : opcoesSupervisor}
+            getOptionLabel={(o) => opcoesSupervisor.find((s) => s.id === o.id)?.nome ?? o.nome}
+            isOptionEqualToValue={(a, b) => a.id === b.id}
+            value={supervisor}
+            onChange={(_, v) => {
+              setSupervisor(v);
+              setSupervisorAlterado(true);
+            }}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Supervisor (opcional)"
+                helperText={
+                  !supervisorAlterado && !vendedor?.supervisor && vendedor?.codigo_supervisor
+                    ? `O ERP aponta o supervisor ${vendedor.codigo_supervisor}, que ainda não está cadastrado.`
+                    : undefined
+                }
+              />
+            )}
+          />
+        )}
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          <TextField id="equipe-telefone" label="Telefone" size="small" fullWidth value={telefone} onChange={(e) => setTelefone(e.target.value)} />
+          <TextField id="equipe-email" label="E-mail" size="small" type="email" fullWidth value={email} onChange={(e) => setEmail(e.target.value)} />
+        </Box>
         <Autocomplete
           id="equipe-usuario"
           size="small"
-          options={usuario && !opcoes.some((o) => o.id === usuario.id) ? [usuario, ...opcoes] : opcoes}
+          options={usuario && !opcoesUsuario.some((o) => o.id === usuario.id) ? [usuario, ...opcoesUsuario] : opcoesUsuario}
           getOptionLabel={(o) => o.nome}
           isOptionEqualToValue={(a, b) => a.id === b.id}
           filterOptions={(x) => x}
@@ -389,11 +529,24 @@ function EditarContatoDialog({
             <TextField {...params} label="Usuário no Horus (opcional)" helperText="Só quando a pessoa também tem login no Horus." />
           )}
         />
+        <FormControlLabel control={<Switch checked={ativo} onChange={(e) => setAtivo(e.target.checked)} />} label="Ativo" />
       </DialogContent>
       <DialogActions>
+        {pessoa && (
+          <Button color="error" onClick={confirmarExclusao} disabled={ocupado} sx={{ mr: 'auto' }}>
+            Excluir
+          </Button>
+        )}
         <Button onClick={onFechar}>Cancelar</Button>
-        <Button variant="contained" onClick={() => mutation.mutate()} disabled={mutation.isPending}>
-          Salvar
+        <Button
+          variant="contained"
+          onClick={() => {
+            setTentouSalvar(true);
+            if (codigo.trim() && nome.trim()) salvar.mutate();
+          }}
+          disabled={ocupado}
+        >
+          {pessoa ? 'Salvar' : 'Cadastrar'}
         </Button>
       </DialogActions>
     </Dialog>
