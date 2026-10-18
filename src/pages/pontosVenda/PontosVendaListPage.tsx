@@ -7,6 +7,8 @@ import BlockIcon from '@mui/icons-material/Block';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import EditIcon from '@mui/icons-material/Edit';
 import FilterAltOffIcon from '@mui/icons-material/FilterAltOff';
+import AccountTreeIcon from '@mui/icons-material/AccountTree';
+import CategoryIcon from '@mui/icons-material/Category';
 import GroupIcon from '@mui/icons-material/Group';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import {
@@ -27,6 +29,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { createColumnHelper } from '@tanstack/react-table';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { BarraAcoesEmMassa } from '../../components/BarraAcoesEmMassa';
 import { DataTable } from '../../components/DataTable';
 import {
   adicionarPromotorPontoVenda,
@@ -35,9 +38,11 @@ import {
   listarPontosVenda,
   removerPromotorPontoVenda,
 } from '../../lib/api/pontosVenda';
+import { listarRamosAtividade } from '../../lib/api/ramosAtividade';
 import { listarRedesLojas } from '../../lib/api/redesLojas';
 import { listarUsuarios } from '../../lib/api/usuarios';
 import type { PontoVenda } from '../../types/api';
+import { AlterarCampoEmMassaDialog } from './AlterarCampoEmMassaDialog';
 import { AtribuirPromotorDialog } from './AtribuirPromotorDialog';
 import { PontoVendaFormDialog } from './PontoVendaFormDialog';
 
@@ -83,6 +88,8 @@ export function PontosVendaListPage() {
   // selecionado numa página anterior não fica mais disponível em `pdvs` depois de paginar.
   const [selecionados, setSelecionados] = useState<Map<string, PontoVenda>>(new Map());
   const [dialogPromotorAberto, setDialogPromotorAberto] = useState(false);
+  // Qual campo de cadastro o diálogo de alteração em massa está trocando agora (null = fechado).
+  const [campoEmMassa, setCampoEmMassa] = useState<'rede' | 'ramo' | null>(null);
   const [erro, setErro] = useState<string | null>(null);
 
   // Lista de promotores da empresa — reusada no filtro e no diálogo de atribuição em massa.
@@ -99,6 +106,14 @@ export function PontosVendaListPage() {
     queryFn: () => listarRedesLojas({ ativo: true, por_pagina: 200 }),
   });
   const redes = redesQuery.data?.redes_lojas ?? [];
+
+  // Só carrega quando alguém abre o diálogo de ramo em massa — não é filtro da tela.
+  const ramosQuery = useQuery({
+    queryKey: ['ramos-atividade', { ativo: true }],
+    queryFn: () => listarRamosAtividade({ ativo: true }),
+    enabled: campoEmMassa === 'ramo',
+  });
+  const ramos = ramosQuery.data?.ramos_atividade ?? [];
 
   const filtros = {
     ativo: filtroAtivo === 'todos' ? undefined : filtroAtivo === 'ativos',
@@ -175,6 +190,22 @@ export function PontosVendaListPage() {
       void queryClient.invalidateQueries({ queryKey: ['pontos-venda'] });
     },
     onError: () => setErro('Não foi possível atribuir o promotor a uma ou mais lojas selecionadas.'),
+  });
+
+  // Rede/ramo é substituição (um valor por loja) — PUT parcial por PDV, mesmo padrão do promotor.
+  const alterarCampoMutation = useMutation({
+    mutationFn: async ({ pdvsAlvo, campo, uuid }: { pdvsAlvo: PontoVenda[]; campo: 'rede' | 'ramo'; uuid: string | null }) => {
+      const payload = campo === 'rede' ? { rede_loja_uuid: uuid } : { ramo_atividade_uuid: uuid };
+      await Promise.all(pdvsAlvo.map((pdv) => atualizarPontoVenda(pdv.id, payload)));
+    },
+    onSuccess: () => {
+      setErro(null);
+      setSelecionados(new Map());
+      setCampoEmMassa(null);
+      void queryClient.invalidateQueries({ queryKey: ['pontos-venda'] });
+    },
+    onError: (_, { campo }) =>
+      setErro(`Não foi possível alterar ${campo === 'rede' ? 'a rede' : 'o ramo de atividade'} de uma ou mais lojas selecionadas.`),
   });
 
   // Remove só aquele promotor daquela loja (clique no "x" do chip) — mantém os demais.
@@ -470,16 +501,6 @@ export function PontosVendaListPage() {
           <Typography variant="caption" color="text.secondary" sx={{ ml: 'auto' }}>
             {pdvQuery.data ? `${pdvQuery.data.meta.total} loja(s)` : ''}
           </Typography>
-        {selecionados.size > 0 && (
-          <Button
-            variant="outlined"
-            startIcon={<GroupIcon />}
-            sx={{ ml: 'auto' }}
-            onClick={() => setDialogPromotorAberto(true)}
-          >
-            Atribuir promotor ({selecionados.size})
-          </Button>
-        )}
         </Box>
       </Paper>
 
@@ -512,6 +533,33 @@ export function PontosVendaListPage() {
         open={dialogAberto}
         pontoVenda={pdvEmEdicao}
         onClose={() => setDialogAberto(false)}
+      />
+
+      <BarraAcoesEmMassa
+        quantidade={selecionados.size}
+        onLimpar={() => setSelecionados(new Map())}
+        acoes={[
+          { rotulo: 'Atribuir promotor', icone: <GroupIcon fontSize="small" />, onClick: () => setDialogPromotorAberto(true) },
+          { rotulo: 'Alterar rede', icone: <AccountTreeIcon fontSize="small" />, onClick: () => setCampoEmMassa('rede') },
+          { rotulo: 'Alterar ramo de atividade', icone: <CategoryIcon fontSize="small" />, onClick: () => setCampoEmMassa('ramo') },
+        ]}
+      />
+
+      <AlterarCampoEmMassaDialog
+        open={campoEmMassa !== null}
+        titulo={campoEmMassa === 'ramo' ? 'Alterar ramo de atividade' : 'Alterar rede'}
+        rotuloCampo={campoEmMassa === 'ramo' ? 'Ramo de atividade' : 'Rede'}
+        rotuloLimpar={campoEmMassa === 'ramo' ? 'Sem ramo de atividade' : 'Sem rede'}
+        opcoes={campoEmMassa === 'ramo' ? ramos : redes}
+        loadingOpcoes={campoEmMassa === 'ramo' ? ramosQuery.isLoading : redesQuery.isLoading}
+        quantidadeSelecionada={selecionados.size}
+        salvando={alterarCampoMutation.isPending}
+        onClose={() => setCampoEmMassa(null)}
+        onConfirmar={(uuid) => {
+          if (campoEmMassa) {
+            alterarCampoMutation.mutate({ pdvsAlvo: Array.from(selecionados.values()), campo: campoEmMassa, uuid });
+          }
+        }}
       />
 
       <AtribuirPromotorDialog
