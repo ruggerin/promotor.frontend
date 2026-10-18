@@ -10,8 +10,11 @@ import {
   Dialog,
   DialogActions,
   DialogContent,
+  DialogContentText,
   DialogTitle,
+  FormControlLabel,
   Paper,
+  Switch,
   Table,
   TableBody,
   TableCell,
@@ -58,6 +61,9 @@ export function ImportarDadosDialog({ tipo, onClose }: Props) {
   const [erro, setErro] = useState<string | null>(null);
   // Rota de visitas (docs/78 §2.2): promotor das linhas que vierem sem a coluna `promotor`.
   const [promotorDaRota, setPromotorDaRota] = useState<Usuario | null>(null);
+  // "Substituir dados existentes" (docs/42 §4.3.1, docs/78 §4.1) — só nos tipos com `substituir`.
+  const [substituir, setSubstituir] = useState(false);
+  const [confirmando, setConfirmando] = useState(false);
 
   const promotoresQuery = useQuery({
     queryKey: ['usuarios', { user_type: 'PROMOTOR', ativo: true, por_pagina: 200 }],
@@ -67,9 +73,14 @@ export function ImportarDadosDialog({ tipo, onClose }: Props) {
 
   const mutation = useMutation({
     // Arquivo vai nas variáveis (não lido do state) — a validação dispara no mesmo clique em que o
-    // arquivo é escolhido, antes do setArquivo ter efeito.
-    mutationFn: ({ file, simular, promotor }: { file: File; simular: boolean; promotor?: Usuario | null }) =>
-      tipo!.importar(file, simular, promotor ? { promotor_padrao: promotor.email } : undefined),
+    // arquivo é escolhido, antes do setArquivo ter efeito. Promotor e substituir idem (trocar
+    // qualquer um revalida no mesmo clique).
+    mutationFn: ({ file, simular, promotor, substituir }: { file: File; simular: boolean; promotor: Usuario | null; substituir: boolean }) => {
+      const extras: Record<string, string> = {};
+      if (promotor) extras.promotor_padrao = promotor.email;
+      if (substituir) extras.substituir = '1';
+      return tipo!.importar(file, simular, extras);
+    },
     onSuccess: (dados) => {
       setRelatorio(dados);
       setErro(null);
@@ -87,14 +98,26 @@ export function ImportarDadosDialog({ tipo, onClose }: Props) {
     setArquivo(file);
     setRelatorio(null);
     setErro(null);
-    if (file) mutation.mutate({ file, simular: true, promotor: promotorDaRota });
+    if (file) mutation.mutate({ file, simular: true, promotor: promotorDaRota, substituir });
   }
 
   // Trocar o promotor da rota muda o resultado: valida de novo o arquivo já escolhido.
   function escolherPromotor(promotor: Usuario | null) {
     setPromotorDaRota(promotor);
     setRelatorio(null);
-    if (arquivo) mutation.mutate({ file: arquivo, simular: true, promotor });
+    if (arquivo) mutation.mutate({ file: arquivo, simular: true, promotor, substituir });
+  }
+
+  // Idem pro substituir: a prévia passa a contar (ou deixa de contar) o que sai.
+  function alternarSubstituir(valor: boolean) {
+    setSubstituir(valor);
+    setRelatorio(null);
+    if (arquivo) mutation.mutate({ file: arquivo, simular: true, promotor: promotorDaRota, substituir: valor });
+  }
+
+  function importar() {
+    setConfirmando(false);
+    if (arquivo) mutation.mutate({ file: arquivo, simular: false, promotor: promotorDaRota, substituir });
   }
 
   function fechar() {
@@ -102,6 +125,8 @@ export function ImportarDadosDialog({ tipo, onClose }: Props) {
     setRelatorio(null);
     setErro(null);
     setPromotorDaRota(null);
+    setSubstituir(false);
+    setConfirmando(false);
     if (inputRef.current) inputRef.current.value = '';
     onClose();
   }
@@ -110,15 +135,26 @@ export function ImportarDadosDialog({ tipo, onClose }: Props) {
 
   const validadoSemErro = relatorio && !relatorio.aplicado && relatorio.erros.length === 0;
   const item = tipo.itemSingularPlural;
-  // Loja/Produto: criadas + atualizadas. Vínculo: criadas + já existentes (nada a atualizar).
+  // Loja/Produto: criadas + atualizadas. Vínculo: criadas + já existentes (nada a atualizar), mais
+  // os removidos quando substitui. Carteira: removidos por loja.
   const segundaContagem =
     relatorio?.agendas_desativadas !== undefined
       ? `${relatorio.agendas_desativadas} dia(s) saindo da rota, em ${relatorio.lojas ?? 0} loja(s)`
+      : relatorio?.ja_existentes !== undefined && relatorio.removidas !== undefined
+      ? `${relatorio.ja_existentes} já existia(m) e ${relatorio.removidas} removido(s), em ${relatorio.lojas ?? 0} loja(s)`
       : relatorio?.removidas !== undefined
       ? `${relatorio.removidas} removido(s), em ${relatorio.lojas ?? 0} loja(s)`
       : relatorio?.ja_existentes !== undefined
       ? `${relatorio.ja_existentes} já existia(m) e fica(m) como está(ão)`
       : `${relatorio?.atualizadas ?? 0} atualização(ões)`;
+  // Rota com substituir: o que mais acontece além dos dias (lojas que saem, visita de hoje, app).
+  const efeitosRota =
+    relatorio?.lojas_saindo !== undefined
+      ? `${relatorio.lojas_saindo} loja(s) saindo da rota dos promotores do arquivo · ${relatorio.os_canceladas ?? 0} visita(s) de hoje cancelada(s) · ${relatorio.promotores_desatribuidos ?? 0} loja(s) saindo do app do promotor`
+      : null;
+  // Pede confirmação só quando a substituição vai de fato apagar/desativar algo.
+  const vaiRemover =
+    substituir && !!relatorio && ((relatorio.removidas ?? 0) > 0 || (relatorio.agendas_desativadas ?? 0) > 0 || (relatorio.promotores_desatribuidos ?? 0) > 0);
 
   return (
     <Dialog open={!!tipo} onClose={fechar} maxWidth="md" fullWidth>
@@ -159,6 +195,26 @@ export function ImportarDadosDialog({ tipo, onClose }: Props) {
               <TextField {...params} label="Promotor da rota" helperText="Vale pras linhas sem a coluna promotor. Opcional." />
             )}
           />
+        )}
+        {tipo.substituir && (
+          <Box sx={{ mb: 2 }}>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={substituir}
+                  onChange={(e) => alternarSubstituir(e.target.checked)}
+                  disabled={mutation.isPending || !!relatorio?.aplicado}
+                  color="warning"
+                />
+              }
+              label="Substituir dados existentes (apagar os antigos e subir os novos)"
+            />
+            {substituir && (
+              <Alert severity="warning" sx={{ mt: 0.5 }}>
+                {tipo.substituir.ajuda} Tudo numa operação só: se der qualquer erro, nada é apagado.
+              </Alert>
+            )}
+          </Box>
         )}
         <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
           <Button
@@ -214,11 +270,13 @@ export function ImportarDadosDialog({ tipo, onClose }: Props) {
             {relatorio.aplicado ? (
               <Alert severity="success" icon={<CheckCircleOutlineIcon />}>
                 Importação concluída: {relatorio.criadas} {item} criado(s) e {segundaContagem}.
+                {efeitosRota && <Box sx={{ mt: 0.5 }}>{efeitosRota}.</Box>}
               </Alert>
             ) : relatorio.erros.length === 0 ? (
-              <Alert severity="info">
+              <Alert severity={vaiRemover ? 'warning' : 'info'}>
                 Arquivo válido — {relatorio.total} linha(s): <strong>{relatorio.criadas} {item} novo(s)</strong> e{' '}
                 <strong>{segundaContagem}</strong>. Nada foi gravado ainda.
+                {efeitosRota && <Box sx={{ mt: 0.5 }}>{efeitosRota}.</Box>}
               </Alert>
             ) : (
               <>
@@ -255,14 +313,49 @@ export function ImportarDadosDialog({ tipo, onClose }: Props) {
         {validadoSemErro && (
           <Button
             variant="contained"
+            color={vaiRemover ? 'warning' : 'primary'}
             disabled={mutation.isPending}
-            onClick={() => arquivo && mutation.mutate({ file: arquivo, simular: false })}
+            onClick={() => (vaiRemover ? setConfirmando(true) : importar())}
           >
             {/* Vínculo só com pares já existentes ainda vale importar: aprova os pendentes. */}
-            Importar {relatorio.total} linha(s)
+            {vaiRemover ? 'Substituir e importar' : `Importar ${relatorio.total} linha(s)`}
           </Button>
         )}
       </DialogActions>
+
+      <Dialog open={confirmando && !!relatorio} onClose={() => setConfirmando(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Substituir dados existentes?</DialogTitle>
+        <DialogContent>
+          {relatorio?.lojas_saindo !== undefined ? (
+            <DialogContentText>
+              <strong>{relatorio.agendas_desativadas} dia(s) de visita</strong> vão sair da rota
+              {relatorio.lojas_saindo > 0 && (
+                <>
+                  , e <strong>{relatorio.lojas_saindo} loja(s)</strong> deixam de ser atendidas pelos promotores do arquivo
+                </>
+              )}
+              . {relatorio.os_canceladas ?? 0} visita(s) de hoje ainda não iniciada(s) serão canceladas e{' '}
+              {relatorio.promotores_desatribuidos ?? 0} loja(s) saem do app do promotor. Visitas já realizadas ficam no
+              histórico.
+            </DialogContentText>
+          ) : (
+            <DialogContentText>
+              Vão ser removidos <strong>{relatorio?.removidas ?? 0} vínculo(s) de produto</strong> de{' '}
+              <strong>{relatorio?.lojas ?? 0} loja(s)</strong> que não estão no arquivo, e criados {relatorio?.criadas ?? 0}{' '}
+              novo(s).
+            </DialogContentText>
+          )}
+          <DialogContentText sx={{ mt: 1.5 }}>
+            A importação não desfaz isso depois. Se qualquer coisa der errado durante a gravação, nada é alterado.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmando(false)}>Cancelar</Button>
+          <Button variant="contained" color="warning" onClick={importar}>
+            {relatorio?.lojas_saindo !== undefined ? 'Substituir a rota' : `Remover ${relatorio?.removidas ?? 0} e importar`}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Dialog>
   );
 }

@@ -29,6 +29,9 @@ export interface TipoImportacao {
   importar: (arquivo: File, simular: boolean, extras?: Record<string, string>) => Promise<RelatorioImportacao>;
   // Rota de visitas: campo "Promotor da rota", que vale pras linhas sem a coluna `promotor` (docs/78 §2.2).
   promotorDaRota?: boolean;
+  // Switch "Substituir dados existentes" (docs/42 §4.3.1, docs/78 §4.1): manda `substituir=1`, e o
+  // backend apaga/desativa o que não veio no arquivo, dentro do escopo descrito em `ajuda`.
+  substituir?: { ajuda: string };
   // Texto do topo do diálogo, quando o padrão ("o código externo é a chave...") não serve.
   introducao?: ReactNode;
   // Chaves do React Query a invalidar depois de importar de verdade.
@@ -102,11 +105,15 @@ export const TIPOS_IMPORTACAO: TipoImportacao[] = [
     arquivoModelo: 'modelo-importacao-vinculo-loja-produto.csv',
     ajuda: (
       <>
-        <strong>Só adiciona</strong>: vínculo que já existe fica como está, e vínculo que não está no arquivo{' '}
-        <strong>não é removido</strong> (desvincular continua sendo pela tela da loja). Vínculo pendente, criado por
-        promotor, é aprovado. Até 50.000 linhas por arquivo.
+        Por padrão <strong>só adiciona</strong>: vínculo que já existe fica como está, e vínculo que não está no
+        arquivo <strong>não é removido</strong>. Vínculo pendente, criado por promotor, é aprovado. Até 50.000 linhas
+        por arquivo; se dividir em partes, mantenha cada loja inteira num arquivo só.
       </>
     ),
+    substituir: {
+      ajuda:
+        'Cada loja do arquivo fica só com os produtos listados: os outros vínculos de produto dela são removidos (inclusive os pendentes). Lojas que não estão no arquivo e vínculos por departamento, seção ou marca não mudam.',
+    },
     itemSingularPlural: 'vínculo(s)',
     importar: importarSortimento,
     invalidar: ['sortimento', 'pontos-venda'],
@@ -201,6 +208,10 @@ export const TIPOS_IMPORTACAO: TipoImportacao[] = [
         promotor passa a ver a loja no app.
       </>
     ),
+    substituir: {
+      ajuda:
+        'Cada promotor do arquivo fica só com as lojas listadas pra ele: as outras lojas saem da rota dele, a visita de hoje ainda não iniciada nelas é cancelada e a loja some do app dele. Outros promotores e visitas já feitas não mudam.',
+    },
     itemSingularPlural: 'dia(s) de visita',
     importar: importarRotaVisitas,
     invalidar: ['agendas-visita', 'ordens-servico', 'pontos-venda'],

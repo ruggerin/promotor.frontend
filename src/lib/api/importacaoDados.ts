@@ -19,6 +19,11 @@ export interface RelatorioImportacao {
   vendedores_vinculados?: number;
   // Rota de visitas (docs/78 §4): dias que saíram da rota.
   agendas_desativadas?: number;
+  // Rota com `substituir` (docs/78 §4.1): lojas que saem da rota dos promotores do arquivo, visitas de
+  // hoje canceladas e lojas que somem do app do promotor. Só vêm nesse modo.
+  lojas_saindo?: number;
+  os_canceladas?: number;
+  promotores_desatribuidos?: number;
   aplicado: boolean;
 }
 
@@ -38,4 +43,5 @@ export const importarVendedores = (arquivo: File, simular: boolean) => enviar('/
 export const importarRotaVisitas = (arquivo: File, simular: boolean, extras?: Record<string, string>) =>
   enviar('/agendas-visita/importar', arquivo, simular, extras);
 export const importarCarteira = (arquivo: File, simular: boolean) => enviar('/carteira-vendedores/importar', arquivo, simular);
-export const importarSortimento = (arquivo: File, simular: boolean) => enviar('/sortimentos/importar', arquivo, simular);
+export const importarSortimento = (arquivo: File, simular: boolean, extras?: Record<string, string>) =>
+  enviar('/sortimentos/importar', arquivo, simular, extras);
