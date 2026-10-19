@@ -393,10 +393,14 @@ export function PlanogramaEditorPage() {
           const original = img.src;
           if (!original) return;
           try {
-            const { data } = await apiClient.get<Blob>('/planogramas/proxy-imagem', {
-              params: { url: original },
-              responseType: 'blob',
-            });
+            // Foto enviada pelo cadastro de produto já vem da nossa API (rota pública, com CORS) —
+            // busca direto; o proxy recusaria em dev (só https, sem IP privado).
+            const { data } = original.includes('/api/produtos-auditoria/imagens/')
+              ? await apiClient.get<Blob>(original, { responseType: 'blob' })
+              : await apiClient.get<Blob>('/planogramas/proxy-imagem', {
+                  params: { url: original },
+                  responseType: 'blob',
+                });
             const blobUrl = URL.createObjectURL(data);
             blobUrlsCriadas.push(blobUrl);
             img.src = blobUrl;

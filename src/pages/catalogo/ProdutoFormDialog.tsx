@@ -1,3 +1,6 @@
+import CloseIcon from '@mui/icons-material/Close';
+import ImageOutlinedIcon from '@mui/icons-material/ImageOutlined';
+import UploadIcon from '@mui/icons-material/FileUploadOutlined';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
   Alert,
@@ -10,19 +13,21 @@ import {
   DialogContent,
   DialogTitle,
   FormControlLabel,
+  IconButton,
   MenuItem,
   Switch,
   TextField,
+  Tooltip,
 } from '@mui/material';
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import axios from 'axios';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState, type ChangeEvent } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import { listarDepartamentos } from '../../lib/api/departamentos';
 import { listarMarcas } from '../../lib/api/marcas';
 import { listarNiveisExibicao } from '../../lib/api/niveisExibicao';
-import { atualizarProduto, criarProduto } from '../../lib/api/produtos';
+import { atualizarProduto, criarProduto, enviarImagemProduto } from '../../lib/api/produtos';
 import { listarSecoes } from '../../lib/api/secoes';
 import type { ProdutoAuditoria } from '../../types/api';
 
@@ -59,6 +64,14 @@ function numeroBr(v: string): number {
   return Number(t.includes(',') ? t.replace(/\./g, '').replace(',', '.') : t);
 }
 
+// Mesmo limite/tipos de ProdutoAuditoriaController::uploadImagem — checado aqui também pra não
+// salvar o produto e só depois descobrir que a foto foi recusada.
+const TIPOS_IMAGEM = ['image/jpeg', 'image/png', 'image/webp'];
+const TAMANHO_MAXIMO_IMAGEM = 5 * 1024 * 1024;
+
+// Upload falhou depois do produto já salvo — diferencia do erro do próprio salvamento.
+class FalhaEnvioImagem extends Error {}
+
 const DEFAULT_VALUES: FormData = {
   descricao: '',
   codigo_barras: '',
@@ -88,6 +101,15 @@ export function ProdutoFormDialog({ open, produto, onClose }: ProdutoFormDialogP
   const modoEdicao = produto !== null;
   const queryClient = useQueryClient();
   const [erroGeral, setErroGeral] = useState<string | null>(null);
+  // Foto escolhida no computador — só sobe no "Salvar" (no cadastro novo o produto ainda não
+  // existe pra receber o upload).
+  const [arquivoImagem, setArquivoImagem] = useState<File | null>(null);
+  const [erroArquivo, setErroArquivo] = useState<string | null>(null);
+  const [urlQueFalhou, setUrlQueFalhou] = useState<string | null>(null);
+  // Produto criado neste diálogo cujo upload da foto falhou — o próximo "Salvar" atualiza ele em
+  // vez de criar outro igual.
+  const [produtoCriado, setProdutoCriado] = useState<ProdutoAuditoria | null>(null);
+  const uuidExistente = produto?.id ?? produtoCriado?.id ?? null;
 
   const departamentosQuery = useQuery({ queryKey: ['departamentos'], queryFn: () => listarDepartamentos(), enabled: open });
   const marcasQuery = useQuery({ queryKey: ['marcas'], queryFn: () => listarMarcas(), enabled: open });
@@ -102,6 +124,33 @@ export function ProdutoFormDialog({ open, produto, onClose }: ProdutoFormDialogP
   } = useForm<FormData>({ resolver: zodResolver(schema), defaultValues: DEFAULT_VALUES });
 
   const departamentoUuidAtual = useWatch({ control, name: 'departamento_uuid' });
+  const imagemUrlAtual = useWatch({ control, name: 'imagem_url' });
+
+  const urlArquivo = useMemo(() => (arquivoImagem ? URL.createObjectURL(arquivoImagem) : null), [arquivoImagem]);
+  useEffect(
+    () => () => {
+      if (urlArquivo) URL.revokeObjectURL(urlArquivo);
+    },
+    [urlArquivo],
+  );
+  const urlPreview = urlArquivo ?? (imagemUrlAtual.trim() || null);
+  const previewFalhou = urlPreview !== null && urlPreview === urlQueFalhou;
+
+  function escolherArquivo(evento: ChangeEvent<HTMLInputElement>) {
+    const arquivo = evento.target.files?.[0];
+    evento.target.value = ''; // permite escolher o mesmo arquivo de novo depois
+    if (!arquivo) return;
+    if (!TIPOS_IMAGEM.includes(arquivo.type)) {
+      setErroArquivo('Use uma imagem JPG, PNG ou WEBP.');
+      return;
+    }
+    if (arquivo.size > TAMANHO_MAXIMO_IMAGEM) {
+      setErroArquivo('A imagem passa de 5 MB.');
+      return;
+    }
+    setErroArquivo(null);
+    setArquivoImagem(arquivo);
+  }
 
   // Seções filtradas pelo departamento escolhido — se nenhum departamento, lista todas (produto
   // pode ficar solto direto numa seção sem departamento definido, mesmo padrão do backend).
@@ -114,6 +163,9 @@ export function ProdutoFormDialog({ open, produto, onClose }: ProdutoFormDialogP
   useEffect(() => {
     if (open) {
       setErroGeral(null);
+      setArquivoImagem(null);
+      setErroArquivo(null);
+      setProdutoCriado(null);
       reset(
         produto
           ? {
@@ -160,17 +212,35 @@ export function ProdutoFormDialog({ open, produto, onClose }: ProdutoFormDialogP
         propriedade: data.propriedade,
       };
 
-      if (modoEdicao) {
-        return atualizarProduto(produto!.id, { ...payload, ativo: data.ativo });
-      }
+      // Com foto escolhida, imagem_url fica de fora do salvamento — o upload logo abaixo é quem
+      // troca (e apaga o arquivo anterior, se era uma foto enviada).
+      const { imagem_url, ...semImagem } = payload;
+      const dados = arquivoImagem ? semImagem : { ...semImagem, imagem_url };
 
-      return criarProduto(payload);
+      const { produto: salvo } = uuidExistente
+        ? await atualizarProduto(uuidExistente, modoEdicao ? { ...dados, ativo: data.ativo } : dados)
+        : await criarProduto(dados);
+
+      if (arquivoImagem) {
+        try {
+          await enviarImagemProduto(salvo.id, arquivoImagem);
+        } catch (err) {
+          if (!modoEdicao) setProdutoCriado(salvo);
+          const motivo = axios.isAxiosError<{ message?: string }>(err) ? err.response?.data?.message : undefined;
+          throw new FalhaEnvioImagem(motivo ?? 'Não foi possível enviar a imagem.');
+        }
+      }
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['produtos'] });
       onClose();
     },
     onError: (err) => {
+      if (err instanceof FalhaEnvioImagem) {
+        void queryClient.invalidateQueries({ queryKey: ['produtos'] });
+        setErroGeral(`O produto foi salvo, mas a imagem não foi enviada: ${err.message} Tente salvar de novo.`);
+        return;
+      }
       if (axios.isAxiosError<{ message?: string; errors?: Record<string, string[]> }>(err) && err.response?.status === 422) {
         const errors = err.response.data.errors;
         if (errors) {
@@ -396,20 +466,87 @@ export function ProdutoFormDialog({ open, produto, onClose }: ProdutoFormDialogP
               )}
             />
           </Box>
-          <Controller
-            name="imagem_url"
-            control={control}
-            render={({ field, fieldState }) => (
-              <TextField
-                {...field}
-                label="URL da imagem"
-                fullWidth
-                margin="normal"
-                error={!!fieldState.error}
-                helperText={fieldState.error?.message}
-              />
-            )}
-          />
+          {/* Imagem: URL externa colada ou foto enviada do computador (vira uma URL nossa,
+              ver ProdutoAuditoriaController::uploadImagem) — o resto do sistema só enxerga a URL. */}
+          <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start', mt: 2, mb: 1 }}>
+            <Box
+              sx={{
+                width: 88,
+                height: 88,
+                flexShrink: 0,
+                borderRadius: 1,
+                border: 1,
+                borderColor: 'divider',
+                bgcolor: 'action.hover',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                overflow: 'hidden',
+              }}
+            >
+              {urlPreview && !previewFalhou ? (
+                <Box
+                  component="img"
+                  src={urlPreview}
+                  alt="Prévia da imagem do produto"
+                  onError={() => setUrlQueFalhou(urlPreview)}
+                  sx={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                />
+              ) : (
+                <ImageOutlinedIcon color="disabled" />
+              )}
+            </Box>
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              {arquivoImagem ? (
+                <TextField
+                  label="Imagem"
+                  fullWidth
+                  value={arquivoImagem.name}
+                  helperText="Será enviada ao salvar"
+                  slotProps={{
+                    input: {
+                      readOnly: true,
+                      endAdornment: (
+                        <Tooltip title="Descartar arquivo">
+                          <IconButton edge="end" onClick={() => setArquivoImagem(null)} aria-label="Descartar arquivo">
+                            <CloseIcon />
+                          </IconButton>
+                        </Tooltip>
+                      ),
+                    },
+                  }}
+                />
+              ) : (
+                <Controller
+                  name="imagem_url"
+                  control={control}
+                  render={({ field, fieldState }) => (
+                    <TextField
+                      {...field}
+                      label="URL da imagem"
+                      fullWidth
+                      error={!!fieldState.error || (!!urlPreview && previewFalhou)}
+                      helperText={
+                        fieldState.error?.message ??
+                        (urlPreview && previewFalhou
+                          ? 'Não foi possível carregar a imagem desta URL'
+                          : 'Cole o endereço de uma imagem ou envie uma foto do computador')
+                      }
+                    />
+                  )}
+                />
+              )}
+              {erroArquivo && (
+                <Alert severity="warning" sx={{ mt: 1 }} onClose={() => setErroArquivo(null)}>
+                  {erroArquivo}
+                </Alert>
+              )}
+            </Box>
+            <Button component="label" variant="outlined" startIcon={<UploadIcon />} sx={{ mt: 1, flexShrink: 0 }}>
+              Enviar foto
+              <input hidden type="file" accept={TIPOS_IMAGEM.join(',')} onChange={escolherArquivo} />
+            </Button>
+          </Box>
           <Controller
             name="produto_final"
             control={control}

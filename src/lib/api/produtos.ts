@@ -68,6 +68,17 @@ export async function atualizarProduto(uuid: string, payload: Partial<ProdutoPay
   return data;
 }
 
+// Upload da foto (alternativa a colar URL) — o backend grava no storage e devolve o produto com
+// imagem_url já apontando pra foto enviada. Ver ProdutoAuditoriaController::uploadImagem.
+export async function enviarImagemProduto(uuid: string, imagem: File): Promise<{ produto: ProdutoAuditoria }> {
+  const formData = new FormData();
+  formData.append('imagem', imagem);
+  const { data } = await apiClient.post<{ produto: ProdutoAuditoria }>(`/produtos-auditoria/${uuid}/imagem`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return data;
+}
+
 export async function desativarProduto(uuid: string): Promise<void> {
   await apiClient.delete(`/produtos-auditoria/${uuid}`);
 }
