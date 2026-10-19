@@ -32,6 +32,7 @@ import { aprovarMarca, atualizarMarca, desativarMarca, listarMarcas } from '../.
 import { JuntarMarcaDialog } from './JuntarMarcaDialog';
 import type { MarcaAuditoria, Propriedade } from '../../types/api';
 import { MarcaFormDialog } from './MarcaFormDialog';
+import { PaginacaoCatalogo, usePaginacaoCatalogo } from './PaginacaoCatalogo';
 
 interface MarcasTabProps {
   empresaUuid: string | null;
@@ -45,18 +46,20 @@ export function MarcasTab({ empresaUuid, isSuperadmin }: MarcasTabProps) {
   const [dialogAberto, setDialogAberto] = useState(false);
   const [emEdicao, setEmEdicao] = useState<MarcaAuditoria | null>(null);
   const [erro, setErro] = useState<string | null>(null);
+  const paginacao = usePaginacaoCatalogo();
   // Fila de aprovação (docs/85 §4.3): marcas que o promotor cadastrou pela visita.
   const [soAAprovar, setSoAAprovar] = useState(false);
   const [juntando, setJuntando] = useState<MarcaAuditoria | null>(null);
 
   const query = useQuery({
-    queryKey: ['marcas', { empresaUuid, busca, filtroPropriedade, soAAprovar }],
+    queryKey: ['marcas', { empresaUuid, busca, filtroPropriedade, soAAprovar, ...paginacao.params }],
     queryFn: () =>
       listarMarcas({
         empresa_uuid: empresaUuid ?? undefined,
         busca: busca || undefined,
         propriedade: filtroPropriedade || undefined,
         a_aprovar: soAAprovar || undefined,
+        ...paginacao.params,
       }),
     placeholderData: keepPreviousData,
   });
@@ -121,7 +124,7 @@ export function MarcasTab({ empresaUuid, isSuperadmin }: MarcasTabProps) {
             size="small"
             sx={{ width: 240 }}
             value={busca}
-            onChange={(e) => setBusca(e.target.value)}
+            onChange={(e) => paginacao.filtrar(setBusca)(e.target.value)}
             placeholder="Descrição da marca"
             slotProps={{
               input: {
@@ -139,14 +142,14 @@ export function MarcasTab({ empresaUuid, isSuperadmin }: MarcasTabProps) {
             size="small"
             sx={{ width: 160 }}
             value={filtroPropriedade}
-            onChange={(e) => setFiltroPropriedade(e.target.value as Propriedade | '')}
+            onChange={(e) => paginacao.filtrar(setFiltroPropriedade)(e.target.value as Propriedade | '')}
           >
             <MenuItem value="">Todas</MenuItem>
             <MenuItem value="PROPRIA">Própria</MenuItem>
             <MenuItem value="CONCORRENTE">Concorrente</MenuItem>
           </TextField>
           <FormControlLabel
-            control={<Switch size="small" checked={soAAprovar} onChange={(e) => setSoAAprovar(e.target.checked)} />}
+            control={<Switch size="small" checked={soAAprovar} onChange={(e) => paginacao.filtrar(setSoAAprovar)(e.target.checked)} />}
             label="Só a aprovar"
           />
         </Box>
@@ -258,6 +261,7 @@ export function MarcasTab({ empresaUuid, isSuperadmin }: MarcasTabProps) {
             ))}
           </TableBody>
         </Table>
+        <PaginacaoCatalogo total={query.data?.meta.total ?? 0} paginacao={paginacao} />
       </TableContainer>
 
       {!isSuperadmin && <MarcaFormDialog open={dialogAberto} marca={emEdicao} onClose={() => setDialogAberto(false)} />}

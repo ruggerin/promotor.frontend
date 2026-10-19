@@ -8,7 +8,8 @@ export interface SecoesListResponse {
 
 export async function listarSecoes(
   // empresa_uuid só tem efeito pra quem chama como SUPERADMIN — ver docs/02-API-BACKEND.md.
-  params: { ativo?: boolean; departamento_uuid?: string; empresa_uuid?: string; busca?: string } = {},
+  // Sem `por_pagina` vem a lista inteira (até 1000, teto da API) — é o que os selects usam.
+  params: { ativo?: boolean; departamento_uuid?: string; empresa_uuid?: string; busca?: string; page?: number; por_pagina?: number } = {},
 ): Promise<SecoesListResponse> {
   const { data } = await apiClient.get<SecoesListResponse>('/secoes-auditoria', {
     params: {
@@ -16,6 +17,8 @@ export async function listarSecoes(
       departamento_uuid: params.departamento_uuid,
       empresa_uuid: params.empresa_uuid,
       busca: params.busca || undefined,
+      page: params.page,
+      por_pagina: params.por_pagina ?? 1000,
     },
   });
   return data;

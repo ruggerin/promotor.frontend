@@ -26,6 +26,7 @@ import { useState } from 'react';
 import { atualizarDepartamento, desativarDepartamento, listarDepartamentos } from '../../lib/api/departamentos';
 import type { DepartamentoAuditoria } from '../../types/api';
 import { DepartamentoFormDialog } from './DepartamentoFormDialog';
+import { PaginacaoCatalogo, usePaginacaoCatalogo } from './PaginacaoCatalogo';
 
 interface DepartamentosTabProps {
   empresaUuid: string | null;
@@ -38,10 +39,11 @@ export function DepartamentosTab({ empresaUuid, isSuperadmin }: DepartamentosTab
   const [dialogAberto, setDialogAberto] = useState(false);
   const [emEdicao, setEmEdicao] = useState<DepartamentoAuditoria | null>(null);
   const [erro, setErro] = useState<string | null>(null);
+  const paginacao = usePaginacaoCatalogo();
 
   const query = useQuery({
-    queryKey: ['departamentos', { empresaUuid, busca }],
-    queryFn: () => listarDepartamentos({ empresa_uuid: empresaUuid ?? undefined, busca: busca || undefined }),
+    queryKey: ['departamentos', { empresaUuid, busca, ...paginacao.params }],
+    queryFn: () => listarDepartamentos({ empresa_uuid: empresaUuid ?? undefined, busca: busca || undefined, ...paginacao.params }),
     placeholderData: keepPreviousData,
   });
 
@@ -95,7 +97,7 @@ export function DepartamentosTab({ empresaUuid, isSuperadmin }: DepartamentosTab
           size="small"
           sx={{ width: 280 }}
           value={busca}
-          onChange={(e) => setBusca(e.target.value)}
+          onChange={(e) => paginacao.filtrar(setBusca)(e.target.value)}
           placeholder="Descrição do departamento"
           slotProps={{
             input: {
@@ -187,6 +189,7 @@ export function DepartamentosTab({ empresaUuid, isSuperadmin }: DepartamentosTab
             ))}
           </TableBody>
         </Table>
+        <PaginacaoCatalogo total={query.data?.meta.total ?? 0} paginacao={paginacao} />
       </TableContainer>
 
       {!isSuperadmin && (

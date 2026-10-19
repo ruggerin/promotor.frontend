@@ -9,6 +9,10 @@ export interface NiveisExibicaoListResponse {
 export interface NiveisExibicaoListParams {
   ativo?: boolean;
   busca?: string;
+  // Sem `por_pagina` vem a lista inteira (até 1000, teto da API) — é o que os selects usam;
+  // as abas do Catálogo passam `page`/`por_pagina` e paginam.
+  page?: number;
+  por_pagina?: number;
   // Só tem efeito pra quem chama como SUPERADMIN — ver docs/02-API-BACKEND.md.
   empresa_uuid?: string;
 }
@@ -19,6 +23,8 @@ export async function listarNiveisExibicao(params: NiveisExibicaoListParams = {}
       ativo: params.ativo === undefined ? undefined : params.ativo ? 1 : 0,
       busca: params.busca || undefined,
       empresa_uuid: params.empresa_uuid,
+      page: params.page,
+      por_pagina: params.por_pagina ?? 1000,
     },
   });
   return data;

@@ -27,6 +27,7 @@ import { useState } from 'react';
 import { atualizarNivelExibicao, desativarNivelExibicao, listarNiveisExibicao } from '../../lib/api/niveisExibicao';
 import type { NivelExibicao } from '../../types/api';
 import { NivelExibicaoFormDialog } from './NivelExibicaoFormDialog';
+import { PaginacaoCatalogo, usePaginacaoCatalogo } from './PaginacaoCatalogo';
 
 interface NiveisExibicaoTabProps {
   empresaUuid: string | null;
@@ -39,10 +40,11 @@ export function NiveisExibicaoTab({ empresaUuid, isSuperadmin }: NiveisExibicaoT
   const [dialogAberto, setDialogAberto] = useState(false);
   const [emEdicao, setEmEdicao] = useState<NivelExibicao | null>(null);
   const [erro, setErro] = useState<string | null>(null);
+  const paginacao = usePaginacaoCatalogo();
 
   const query = useQuery({
-    queryKey: ['niveis-exibicao', { empresaUuid, busca }],
-    queryFn: () => listarNiveisExibicao({ empresa_uuid: empresaUuid ?? undefined, busca: busca || undefined }),
+    queryKey: ['niveis-exibicao', { empresaUuid, busca, ...paginacao.params }],
+    queryFn: () => listarNiveisExibicao({ empresa_uuid: empresaUuid ?? undefined, busca: busca || undefined, ...paginacao.params }),
     placeholderData: keepPreviousData,
   });
 
@@ -100,7 +102,7 @@ export function NiveisExibicaoTab({ empresaUuid, isSuperadmin }: NiveisExibicaoT
           size="small"
           sx={{ width: 280 }}
           value={busca}
-          onChange={(e) => setBusca(e.target.value)}
+          onChange={(e) => paginacao.filtrar(setBusca)(e.target.value)}
           placeholder="Descrição do nível"
           slotProps={{
             input: {
@@ -192,6 +194,7 @@ export function NiveisExibicaoTab({ empresaUuid, isSuperadmin }: NiveisExibicaoT
             ))}
           </TableBody>
         </Table>
+        <PaginacaoCatalogo total={query.data?.meta.total ?? 0} paginacao={paginacao} />
       </TableContainer>
 
       {!isSuperadmin && (

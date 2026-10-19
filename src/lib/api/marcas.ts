@@ -12,6 +12,9 @@ export interface MarcasListParams {
   propriedade?: Propriedade;
   // Só as cadastradas pelo promotor ainda "a aprovar" (docs/85 §4.3).
   a_aprovar?: boolean;
+  // Sem `por_pagina` vem a lista inteira (até 1000, teto da API) — é o que os selects usam;
+  // as abas do Catálogo passam `page`/`por_pagina` e paginam.
+  page?: number;
   por_pagina?: number;
   // Só tem efeito pra quem chama como SUPERADMIN — ver docs/02-API-BACKEND.md.
   empresa_uuid?: string;
@@ -24,7 +27,8 @@ export async function listarMarcas(params: MarcasListParams = {}): Promise<Marca
       busca: params.busca || undefined,
       propriedade: params.propriedade,
       a_aprovar: params.a_aprovar ? 1 : undefined,
-      por_pagina: params.por_pagina,
+      page: params.page,
+      por_pagina: params.por_pagina ?? 1000,
       empresa_uuid: params.empresa_uuid,
     },
   });

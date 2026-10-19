@@ -31,6 +31,7 @@ import { listarMarcas } from '../../lib/api/marcas';
 import { aprovarProduto, atualizarProduto, desativarProduto, listarProdutos, rejeitarProduto } from '../../lib/api/produtos';
 import { listarSecoes } from '../../lib/api/secoes';
 import type { ProdutoAuditoria, Propriedade } from '../../types/api';
+import { PaginacaoCatalogo, usePaginacaoCatalogo } from './PaginacaoCatalogo';
 import { ProdutoFormDialog } from './ProdutoFormDialog';
 
 interface ProdutosTabProps {
@@ -48,6 +49,8 @@ export function ProdutosTab({ empresaUuid, isSuperadmin }: ProdutosTabProps) {
   const [dialogAberto, setDialogAberto] = useState(false);
   const [emEdicao, setEmEdicao] = useState<ProdutoAuditoria | null>(null);
   const [erro, setErro] = useState<string | null>(null);
+  const paginacao = usePaginacaoCatalogo();
+  const { filtrar } = paginacao;
 
   const departamentosQuery = useQuery({
     queryKey: ['departamentos', { empresaUuid }],
@@ -66,7 +69,7 @@ export function ProdutosTab({ empresaUuid, isSuperadmin }: ProdutosTabProps) {
   });
 
   const query = useQuery({
-    queryKey: ['produtos', { busca, filtroDepartamentoUuid, filtroSecaoUuid, filtroMarcaUuid, filtroPropriedade, empresaUuid }],
+    queryKey: ['produtos', { busca, filtroDepartamentoUuid, filtroSecaoUuid, filtroMarcaUuid, filtroPropriedade, empresaUuid, ...paginacao.params }],
     queryFn: () =>
       listarProdutos({
         busca: busca || undefined,
@@ -75,6 +78,7 @@ export function ProdutosTab({ empresaUuid, isSuperadmin }: ProdutosTabProps) {
         marca_uuid: filtroMarcaUuid ?? undefined,
         propriedade: filtroPropriedade || undefined,
         empresa_uuid: empresaUuid ?? undefined,
+        ...paginacao.params,
       }),
     placeholderData: keepPreviousData,
   });
@@ -150,7 +154,7 @@ export function ProdutosTab({ empresaUuid, isSuperadmin }: ProdutosTabProps) {
             size="small"
             sx={{ width: 220 }}
             value={busca}
-            onChange={(e) => setBusca(e.target.value)}
+            onChange={(e) => filtrar(setBusca)(e.target.value)}
             placeholder="Descrição ou código de barras"
             slotProps={{
               input: {
@@ -168,6 +172,7 @@ export function ProdutosTab({ empresaUuid, isSuperadmin }: ProdutosTabProps) {
             options={departamentosQuery.data?.departamentos ?? []}
             getOptionLabel={(option) => option.descricao}
             onChange={(_, value) => {
+              paginacao.setPage(0);
               setFiltroDepartamentoUuid(value?.id ?? null);
               setFiltroSecaoUuid(null);
             }}
@@ -179,7 +184,7 @@ export function ProdutosTab({ empresaUuid, isSuperadmin }: ProdutosTabProps) {
             options={secoesQuery.data?.secoes ?? []}
             getOptionLabel={(option) => option.descricao}
             value={secoesQuery.data?.secoes.find((s) => s.id === filtroSecaoUuid) ?? null}
-            onChange={(_, value) => setFiltroSecaoUuid(value?.id ?? null)}
+            onChange={(_, value) => filtrar(setFiltroSecaoUuid)(value?.id ?? null)}
             renderInput={(params) => <TextField {...params} label="Seção" />}
           />
           <Autocomplete
@@ -187,7 +192,7 @@ export function ProdutosTab({ empresaUuid, isSuperadmin }: ProdutosTabProps) {
             sx={{ width: 180 }}
             options={marcasQuery.data?.marcas ?? []}
             getOptionLabel={(option) => option.descricao}
-            onChange={(_, value) => setFiltroMarcaUuid(value?.id ?? null)}
+            onChange={(_, value) => filtrar(setFiltroMarcaUuid)(value?.id ?? null)}
             renderInput={(params) => <TextField {...params} label="Marca" />}
           />
           <TextField
@@ -196,7 +201,7 @@ export function ProdutosTab({ empresaUuid, isSuperadmin }: ProdutosTabProps) {
             size="small"
             sx={{ width: 150 }}
             value={filtroPropriedade}
-            onChange={(e) => setFiltroPropriedade(e.target.value as Propriedade | '')}
+            onChange={(e) => filtrar(setFiltroPropriedade)(e.target.value as Propriedade | '')}
           >
             <MenuItem value="">Todas</MenuItem>
             <MenuItem value="PROPRIA">Própria</MenuItem>
@@ -324,6 +329,7 @@ export function ProdutosTab({ empresaUuid, isSuperadmin }: ProdutosTabProps) {
             ))}
           </TableBody>
         </Table>
+        <PaginacaoCatalogo total={query.data?.meta.total ?? 0} paginacao={paginacao} />
       </TableContainer>
 
       {!isSuperadmin && (

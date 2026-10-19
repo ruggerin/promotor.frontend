@@ -28,6 +28,7 @@ import { listarDepartamentos } from '../../lib/api/departamentos';
 import { atualizarSecao, desativarSecao, listarSecoes } from '../../lib/api/secoes';
 import type { SecaoAuditoria } from '../../types/api';
 import { SecaoFormDialog } from './SecaoFormDialog';
+import { PaginacaoCatalogo, usePaginacaoCatalogo } from './PaginacaoCatalogo';
 
 interface SecoesTabProps {
   empresaUuid: string | null;
@@ -41,6 +42,7 @@ export function SecoesTab({ empresaUuid, isSuperadmin }: SecoesTabProps) {
   const [dialogAberto, setDialogAberto] = useState(false);
   const [emEdicao, setEmEdicao] = useState<SecaoAuditoria | null>(null);
   const [erro, setErro] = useState<string | null>(null);
+  const paginacao = usePaginacaoCatalogo();
 
   const departamentosQuery = useQuery({
     queryKey: ['departamentos', { empresaUuid }],
@@ -48,12 +50,13 @@ export function SecoesTab({ empresaUuid, isSuperadmin }: SecoesTabProps) {
   });
 
   const query = useQuery({
-    queryKey: ['secoes', { filtroDepartamentoUuid, empresaUuid, busca }],
+    queryKey: ['secoes', { filtroDepartamentoUuid, empresaUuid, busca, ...paginacao.params }],
     queryFn: () =>
       listarSecoes({
         departamento_uuid: filtroDepartamentoUuid ?? undefined,
         empresa_uuid: empresaUuid ?? undefined,
         busca: busca || undefined,
+        ...paginacao.params,
       }),
     placeholderData: keepPreviousData,
   });
@@ -109,7 +112,7 @@ export function SecoesTab({ empresaUuid, isSuperadmin }: SecoesTabProps) {
             size="small"
             sx={{ width: 240 }}
             value={busca}
-            onChange={(e) => setBusca(e.target.value)}
+            onChange={(e) => paginacao.filtrar(setBusca)(e.target.value)}
             placeholder="Descrição da seção"
             slotProps={{
               input: {
@@ -126,7 +129,7 @@ export function SecoesTab({ empresaUuid, isSuperadmin }: SecoesTabProps) {
             sx={{ width: 220 }}
             options={departamentosQuery.data?.departamentos ?? []}
             getOptionLabel={(option) => option.descricao}
-            onChange={(_, value) => setFiltroDepartamentoUuid(value?.id ?? null)}
+            onChange={(_, value) => paginacao.filtrar(setFiltroDepartamentoUuid)(value?.id ?? null)}
             renderInput={(params) => <TextField {...params} label="Departamento" />}
           />
         </Box>
@@ -212,6 +215,7 @@ export function SecoesTab({ empresaUuid, isSuperadmin }: SecoesTabProps) {
             ))}
           </TableBody>
         </Table>
+        <PaginacaoCatalogo total={query.data?.meta.total ?? 0} paginacao={paginacao} />
       </TableContainer>
 
       {!isSuperadmin && <SecaoFormDialog open={dialogAberto} secao={emEdicao} onClose={() => setDialogAberto(false)} />}
