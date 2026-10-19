@@ -6,7 +6,7 @@ import { useState } from 'react';
 
 export function usePaginacaoCatalogo() {
   const [page, setPage] = useState(0);
-  const [porPagina, setPorPagina] = useState(50);
+  const [porPagina, setPorPagina] = useState(25);
 
   return {
     page,
