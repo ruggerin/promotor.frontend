@@ -29,6 +29,7 @@ import { listarMarcas } from '../../lib/api/marcas';
 import { listarNiveisExibicao } from '../../lib/api/niveisExibicao';
 import { atualizarProduto, criarProduto, enviarImagemProduto } from '../../lib/api/produtos';
 import { listarSecoes } from '../../lib/api/secoes';
+import { reduzirImagem } from '../../lib/reduzirImagem';
 import type { ProdutoAuditoria } from '../../types/api';
 
 const schema = z.object({
@@ -136,14 +137,16 @@ export function ProdutoFormDialog({ open, produto, onClose }: ProdutoFormDialogP
   const urlPreview = urlArquivo ?? (imagemUrlAtual.trim() || null);
   const previewFalhou = urlPreview !== null && urlPreview === urlQueFalhou;
 
-  function escolherArquivo(evento: ChangeEvent<HTMLInputElement>) {
-    const arquivo = evento.target.files?.[0];
+  async function escolherArquivo(evento: ChangeEvent<HTMLInputElement>) {
+    const original = evento.target.files?.[0];
     evento.target.value = ''; // permite escolher o mesmo arquivo de novo depois
-    if (!arquivo) return;
-    if (!TIPOS_IMAGEM.includes(arquivo.type)) {
+    if (!original) return;
+    if (!TIPOS_IMAGEM.includes(original.type)) {
       setErroArquivo('Use uma imagem JPG, PNG ou WEBP.');
       return;
     }
+    // Reduzida no navegador (até 1200 px, ver lib/reduzirImagem) — foto de celular grande passa.
+    const arquivo = await reduzirImagem(original);
     if (arquivo.size > TAMANHO_MAXIMO_IMAGEM) {
       setErroArquivo('A imagem passa de 5 MB.');
       return;
@@ -544,7 +547,7 @@ export function ProdutoFormDialog({ open, produto, onClose }: ProdutoFormDialogP
             </Box>
             <Button component="label" variant="outlined" startIcon={<UploadIcon />} sx={{ mt: 1, flexShrink: 0 }}>
               Enviar foto
-              <input hidden type="file" accept={TIPOS_IMAGEM.join(',')} onChange={escolherArquivo} />
+              <input hidden type="file" accept={TIPOS_IMAGEM.join(',')} onChange={(e) => void escolherArquivo(e)} />
             </Button>
           </Box>
           <Controller

@@ -46,6 +46,8 @@ export function ProdutosTab({ empresaUuid, isSuperadmin }: ProdutosTabProps) {
   const [filtroSecaoUuid, setFiltroSecaoUuid] = useState<string | null>(null);
   const [filtroMarcaUuid, setFiltroMarcaUuid] = useState<string | null>(null);
   const [filtroPropriedade, setFiltroPropriedade] = useState<Propriedade | ''>('');
+  // "Sem foto" — achar o que faltou depois da importação de imagens (docs/89).
+  const [filtroFoto, setFiltroFoto] = useState<'' | 'sem'>('');
   const [dialogAberto, setDialogAberto] = useState(false);
   const [emEdicao, setEmEdicao] = useState<ProdutoAuditoria | null>(null);
   const [erro, setErro] = useState<string | null>(null);
@@ -69,7 +71,7 @@ export function ProdutosTab({ empresaUuid, isSuperadmin }: ProdutosTabProps) {
   });
 
   const query = useQuery({
-    queryKey: ['produtos', { busca, filtroDepartamentoUuid, filtroSecaoUuid, filtroMarcaUuid, filtroPropriedade, empresaUuid, ...paginacao.params }],
+    queryKey: ['produtos', { busca, filtroDepartamentoUuid, filtroSecaoUuid, filtroMarcaUuid, filtroPropriedade, filtroFoto, empresaUuid, ...paginacao.params }],
     queryFn: () =>
       listarProdutos({
         busca: busca || undefined,
@@ -77,6 +79,7 @@ export function ProdutosTab({ empresaUuid, isSuperadmin }: ProdutosTabProps) {
         secao_uuid: filtroSecaoUuid ?? undefined,
         marca_uuid: filtroMarcaUuid ?? undefined,
         propriedade: filtroPropriedade || undefined,
+        sem_imagem: filtroFoto === 'sem' || undefined,
         empresa_uuid: empresaUuid ?? undefined,
         ...paginacao.params,
       }),
@@ -206,6 +209,17 @@ export function ProdutosTab({ empresaUuid, isSuperadmin }: ProdutosTabProps) {
             <MenuItem value="">Todas</MenuItem>
             <MenuItem value="PROPRIA">Própria</MenuItem>
             <MenuItem value="CONCORRENTE">Concorrente</MenuItem>
+          </TextField>
+          <TextField
+            select
+            label="Foto"
+            size="small"
+            sx={{ width: 130 }}
+            value={filtroFoto}
+            onChange={(e) => filtrar(setFiltroFoto)(e.target.value as '' | 'sem')}
+          >
+            <MenuItem value="">Todas</MenuItem>
+            <MenuItem value="sem">Sem foto</MenuItem>
           </TextField>
         </Box>
         {!isSuperadmin && (

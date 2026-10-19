@@ -1,6 +1,7 @@
 import CategoryIcon from '@mui/icons-material/Category';
 import BadgeIcon from '@mui/icons-material/Badge';
 import EventRepeatIcon from '@mui/icons-material/EventRepeat';
+import ImageIcon from '@mui/icons-material/Image';
 import LinkIcon from '@mui/icons-material/Link';
 import SupervisorAccountIcon from '@mui/icons-material/SupervisorAccount';
 import StoreIcon from '@mui/icons-material/Store';
@@ -11,6 +12,7 @@ import { usePageHeader } from '../../components/layout/PageHeaderSlot';
 import { useAuth } from '../../lib/auth/AuthContext';
 import type { Permissao, Usuario } from '../../types/api';
 import { ImportarDadosDialog } from './ImportarDadosDialog';
+import { ImportarImagensDialog } from './ImportarImagensDialog';
 import { TIPOS_IMPORTACAO, type TipoImportacao } from './tiposImportacao';
 
 const ICONES: Record<TipoImportacao['chave'], ReactNode> = {
@@ -39,6 +41,9 @@ function podeImportar(usuario: Usuario | null, permissao: Permissao): boolean {
 export function ImportacaoDadosPage() {
   const { usuario } = useAuth();
   const [aberto, setAberto] = useState<TipoImportacao | null>(null);
+  // Imagens de produtos (docs/89) não é CSV — diálogo próprio, mesma permissão do catálogo.
+  const [imagensAberto, setImagensAberto] = useState(false);
+  const podeImportarImagens = podeImportar(usuario, 'catalogo.gerenciar');
   const tipos = TIPOS_IMPORTACAO.filter((t) => podeImportar(usuario, t.permissao));
 
   const cabecalho = usePageHeader(
@@ -56,7 +61,7 @@ export function ImportacaoDadosPage() {
         o vínculo loja × produto por último.
       </Typography>
 
-      {tipos.length === 0 && (
+      {tipos.length === 0 && !podeImportarImagens && (
         <Alert severity="info">Seu perfil não tem permissão pra importar lojas, produtos nem vínculos.</Alert>
       )}
 
@@ -77,9 +82,26 @@ export function ImportacaoDadosPage() {
             </Button>
           </Paper>
         ))}
+        {podeImportarImagens && (
+          <Paper variant="outlined" sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <ImageIcon color="primary" />
+              <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                Imagens de produtos
+              </Typography>
+            </Box>
+            <Typography variant="body2" color="text.secondary" sx={{ flex: 1 }}>
+              Fotos do catálogo de uma vez: o nome de cada arquivo é o código de barras ou o código externo do produto.
+            </Typography>
+            <Button variant="contained" startIcon={<UploadFileIcon />} onClick={() => setImagensAberto(true)} sx={{ alignSelf: 'flex-start' }}>
+              Importar
+            </Button>
+          </Paper>
+        )}
       </Box>
 
       <ImportarDadosDialog tipo={aberto} onClose={() => setAberto(null)} />
+      <ImportarImagensDialog open={imagensAberto} onClose={() => setImagensAberto(false)} />
     </Box>
   );
 }
