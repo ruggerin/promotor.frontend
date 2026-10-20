@@ -82,6 +82,35 @@ function eventosDaRota(rota: RotaDoDia): Evento[] {
   return eventos.sort((a, b) => new Date(a.em).getTime() - new Date(b.em).getTime());
 }
 
+// Onde abrir o item no Google Maps (clique duplo na linha do tempo): a loja da visita, o ponto
+// mais longe a que o promotor chegou na saída, onde ficou parado e onde o sinal caiu.
+function coordenadaDoEvento(evento: Evento): [number, number] | null {
+  switch (evento.tipo) {
+    case 'inicio':
+      return [evento.lat, evento.lng];
+    case 'visita':
+      return [evento.v.latitude, evento.v.longitude];
+    case 'afastamento': {
+      const { latitude, longitude } = evento.v;
+      const longe = evento.a.pontos.reduce<[number, number] | null>((melhor, ponto) => {
+        const d = (ponto[0] - latitude) ** 2 + (ponto[1] - longitude) ** 2;
+        return !melhor || d > (melhor[0] - latitude) ** 2 + (melhor[1] - longitude) ** 2 ? ponto : melhor;
+      }, null);
+      return longe ?? [latitude, longitude];
+    }
+    case 'parada':
+      return [evento.p.latitude, evento.p.longitude];
+    case 'gap':
+      return [evento.g.de.latitude, evento.g.de.longitude];
+  }
+}
+
+function abrirNoGoogleMaps(evento: Evento) {
+  const coordenada = coordenadaDoEvento(evento);
+  if (!coordenada) return;
+  window.open(`https://www.google.com/maps/search/?api=1&query=${coordenada[0]},${coordenada[1]}`, '_blank', 'noopener,noreferrer');
+}
+
 // Enquadra a rota ao carregar e leva o mapa até o item escolhido na linha do tempo.
 function ControleMapa({
   rota,
@@ -392,6 +421,7 @@ export function RotaDoDiaPage() {
                           ultimo={i === eventos.length - 1}
                           selecionado={selecionado === ev.chave}
                           onClick={() => setSelecionado(ev.chave)}
+                          onDoubleClick={() => abrirNoGoogleMaps(ev)}
                         />
                       ))}
                       {rota.resumo.ultima_posicao_em && (
@@ -429,11 +459,13 @@ function ItemLinhaDoTempo({
   ultimo,
   selecionado,
   onClick,
+  onDoubleClick,
 }: {
   evento: Evento;
   ultimo: boolean;
   selecionado: boolean;
   onClick: () => void;
+  onDoubleClick: () => void;
 }) {
   const bola = (() => {
     switch (evento.tipo) {
@@ -478,7 +510,10 @@ function ItemLinhaDoTempo({
     <Box
       component="li"
       onClick={onClick}
+      onDoubleClick={onDoubleClick}
+      title="Clique duplo para abrir no Google Maps"
       sx={{
+        userSelect: 'none',
         display: 'grid',
         gridTemplateColumns: '48px 22px minmax(0, 1fr)',
         columnGap: 0.75,
