@@ -1,13 +1,13 @@
 import { Avatar, type SxProps, type Theme } from '@mui/material';
 import { useEffect, useState } from 'react';
-import { apiClient } from '../lib/api/client';
+import { avatarEmCache, carregarAvatar } from '../lib/avatarCache';
 
 /**
  * Foto de perfil do usuário (`Usuario.foto_url`) — self-service, hoje enviada só pelo app
  * mobile (ver docs/05-APP-MOBILE-UX.md), mas qualquer autenticado da mesma empresa pode ver a
  * de qualquer colega (`GET /api/usuarios/{uuid}/foto`). A rota exige `Authorization: Bearer`,
- * que um `<img src>` comum não manda — mesma técnica de `VisitaDetailPage::RegistroImagem`:
- * baixa via Axios (token já injetado pelo interceptor) e vira uma blob URL. Sem foto (ou
+ * que um `<img src>` comum não manda — baixa via Axios (token já injetado pelo interceptor) e
+ * vira uma blob URL, guardada em lib/avatarCache.ts (memória + Cache Storage). Sem foto (ou
  * enquanto carrega), cai pras iniciais do nome — nunca um ícone genérico, ajuda a identificar
  * o usuário na lista mesmo sem foto cadastrada.
  */
@@ -23,34 +23,26 @@ export function UsuarioAvatar({
   /** Cor fixa da pessoa (Painel de Atividades, docs/43) — com ela, as iniciais viram 2 letras. */
   cor?: { bg: string; fg: string };
 }) {
-  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  // Começa com a foto do cache (sem pisca ao remontar); só busca se ainda não tiver.
+  const [blobUrl, setBlobUrl] = useState<string | null>(() => avatarEmCache(fotoUrl) ?? null);
 
   useEffect(() => {
-    setBlobUrl(null);
-
     if (!fotoUrl) {
+      setBlobUrl(null);
       return;
     }
-
-    let objectUrl: string | null = null;
+    const pronta = avatarEmCache(fotoUrl);
+    if (pronta) {
+      setBlobUrl(pronta);
+      return;
+    }
     let cancelado = false;
-
-    apiClient
-      .get<Blob>(fotoUrl, { responseType: 'blob' })
-      .then((response) => {
-        if (cancelado) return;
-        objectUrl = URL.createObjectURL(response.data);
-        setBlobUrl(objectUrl);
-      })
-      .catch(() => {
-        // Falha silenciosa — cai pras iniciais, mesmo espírito de RegistroImagem.
-      });
-
+    // A blob URL é do cache (lib/avatarCache.ts), compartilhada — não revoga ao desmontar.
+    void carregarAvatar(fotoUrl).then((url) => {
+      if (!cancelado) setBlobUrl(url);
+    });
     return () => {
       cancelado = true;
-      if (objectUrl) {
-        URL.revokeObjectURL(objectUrl);
-      }
     };
   }, [fotoUrl]);
 

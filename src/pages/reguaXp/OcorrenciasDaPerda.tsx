@@ -23,6 +23,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
+import { UsuarioAvatar } from '../../components/UsuarioAvatar';
 import { listarMotivosNaoExecucao } from '../../lib/api/motivosNaoExecucao';
 import { classificarOcorrencia, listarOcorrencias, type FiltrosRegua } from '../../lib/api/xp';
 import type { OcorrenciaXp } from '../../types/api';
@@ -78,7 +79,16 @@ export function OcorrenciasDaPerda({ filtros, categoria, podeClassificar }: { fi
                   <ClasseLojaChip classe={o.classe} />
                 </Box>
               </TableCell>
-              <TableCell>{o.promotor?.nome ?? '—'}</TableCell>
+              <TableCell>
+                {o.promotor ? (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <UsuarioAvatar nome={o.promotor.nome} fotoUrl={o.promotor.foto_url} size={24} />
+                    {o.promotor.nome}
+                  </Box>
+                ) : (
+                  '—'
+                )}
+              </TableCell>
               <TableCell align="right">{o.xp.toLocaleString('pt-BR')}</TableCell>
               <TableCell>
                 {o.motivo_nao_execucao ?? (o.responsavel_nao_execucao ? '' : '—')}

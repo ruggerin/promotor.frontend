@@ -1,14 +1,11 @@
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import AssignmentTurnedInOutlinedIcon from '@mui/icons-material/AssignmentTurnedInOutlined';
 import CampaignOutlinedIcon from '@mui/icons-material/CampaignOutlined';
 import ChatBubbleOutlinedIcon from '@mui/icons-material/ChatBubbleOutlined';
 import EventNoteOutlinedIcon from '@mui/icons-material/EventNoteOutlined';
 import ImageOutlinedIcon from '@mui/icons-material/ImageOutlined';
-import InsightsOutlinedIcon from '@mui/icons-material/InsightsOutlined';
 import FactCheckOutlinedIcon from '@mui/icons-material/FactCheckOutlined';
 import MapOutlinedIcon from '@mui/icons-material/MapOutlined';
 import PlaceOutlinedIcon from '@mui/icons-material/PlaceOutlined';
-import RemoveShoppingCartOutlinedIcon from '@mui/icons-material/RemoveShoppingCartOutlined';
 import StorefrontOutlinedIcon from '@mui/icons-material/StorefrontOutlined';
 import { usePageHeader } from '../../components/layout/PageHeaderSlot';
 import {
@@ -46,6 +43,8 @@ import { apiClient } from '../../lib/api/client';
 import { atrasoEnvioMinutos, textoAtrasoEnvio } from '../../lib/atrasoEnvio';
 import { useAuth } from '../../lib/auth/AuthContext';
 import { PontuacaoVisitaCard } from '../reguaXp/PontuacaoVisitaCard';
+import { buscarPontuacaoVisita } from '../../lib/api/xp';
+import { BarraMix, ReguaMixCard } from './ReguaMixCard';
 import {
   buscarVisita,
   cancelarVisita,
@@ -154,7 +153,8 @@ function RegistroCard({ registro, onAbrir }: { registro: VisitaRegistro; onAbrir
         gap: 1.5,
         cursor: 'pointer',
         transition: 'border-color .15s, background-color .15s',
-        borderColor: registro.ruptura ? (t) => alpha(t.palette.error.main, 0.35) : undefined,
+        borderLeft: registro.ruptura ? 3 : undefined,
+        borderLeftColor: registro.ruptura ? 'error.main' : undefined,
         '&:hover': { borderColor: 'primary.light', bgcolor: (t) => alpha(t.palette.primary.main, 0.03) },
       }}
     >
@@ -225,6 +225,9 @@ function RegistroCard({ registro, onAbrir }: { registro: VisitaRegistro; onAbrir
               color={(registro.comentarios_novos ?? 0) > 0 ? 'primary' : 'default'}
             />
           )}
+          <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace', alignSelf: 'center' }}>
+            {formatarHora(registro.created_at)}
+          </Typography>
         </Box>
       </Box>
     </Paper>
@@ -300,154 +303,98 @@ function SeloDistancia({ metros, raio }: { metros: number; raio: number | null |
   );
 }
 
-// Jornada — linha do tempo vertical check-in → permanência → checkout.
+// Jornada horizontal (docs/90 §2): check-in → permanência → check-out, logo abaixo do mapa.
 function Jornada({ visita, raio }: { visita: Visita; raio: number | null | undefined }) {
   const finalizada = !!visita.fim_data;
   const cancelada = visita.status === 'CANCELADA';
-
-  const etapa = (cor: string, ativo: boolean, conteudo: ReactNode, ultimo = false) => (
-    <Box sx={{ display: 'grid', gridTemplateColumns: '20px 1fr', columnGap: 1.5 }}>
-      <Box sx={{ position: 'relative', display: 'flex', justifyContent: 'center' }}>
-        {!ultimo && <Box sx={{ position: 'absolute', top: 18, bottom: -6, width: '2px', bgcolor: 'divider' }} />}
-        <Box
-          sx={{
-            mt: 0.5,
-            width: 14,
-            height: 14,
-            borderRadius: '50%',
-            bgcolor: ativo ? cor : 'background.paper',
-            border: '3px solid',
-            borderColor: ativo ? alpha(cor, 0.3) : 'divider',
-            boxSizing: 'content-box',
-            zIndex: 1,
-          }}
-        />
-      </Box>
-      <Box sx={{ pb: ultimo ? 0 : 2 }}>{conteudo}</Box>
-    </Box>
+  const rotulo = (texto: string, cor: string, direita = false) => (
+    <Typography
+      variant="caption"
+      color="text.secondary"
+      sx={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.6, display: 'flex', alignItems: 'center', gap: 0.75, justifyContent: direita ? 'flex-end' : 'flex-start' }}
+    >
+      {!direita && <Box component="span" sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: cor }} />}
+      {texto}
+      {direita && <Box component="span" sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: cor }} />}
+    </Typography>
   );
 
   return (
-    <Box sx={{ px: 2, pb: 2 }}>
-      {etapa(
-        CORES_MAPA_VISITA.checkin,
-        true,
-        <>
-          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.4 }}>
-            Check-in
+    <Box sx={{ px: 2, py: 1.5, display: 'flex', flexDirection: 'column', gap: 1 }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 1, alignItems: 'center' }}>
+        <Box>
+          {rotulo('Check-in', CORES_MAPA_VISITA.checkin)}
+          <Typography variant="h6" sx={{ fontWeight: 700, fontFamily: 'monospace', lineHeight: 1.3 }} title={formatarDataLonga(visita.inicio_data)}>
+            {formatarHora(visita.inicio_data)}
           </Typography>
-          <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, flexWrap: 'wrap' }}>
-            <Typography variant="h5" sx={{ fontWeight: 800, lineHeight: 1.2 }}>
-              {formatarHora(visita.inicio_data)}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {formatarDataLonga(visita.inicio_data)}
-            </Typography>
-          </Box>
-          <Box sx={{ mt: 0.5 }}>
-            <SeloDistancia metros={visita.inicio_distancia_metros} raio={raio} />
-            <SeloAtrasoEnvio feitoEm={visita.inicio_data} recebidoEm={visita.checkin_recebido_em} />
-          </Box>
-        </>,
-      )}
-      {etapa(
-        '#94a3b8',
-        false,
+          <SeloDistancia metros={visita.inicio_distancia_metros} raio={raio} />
+        </Box>
         <Box
           sx={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 0.75,
-            px: 1.25,
-            py: 0.5,
-            borderRadius: 5,
-            bgcolor: (t) => alpha(t.palette.primary.main, 0.08),
-            color: 'primary.dark',
+            px: 1,
+            py: 0.375,
+            borderRadius: 0.75,
+            bgcolor: (t) => alpha(t.palette.primary.main, 0.1),
+            color: 'primary.main',
+            textAlign: 'center',
+            whiteSpace: 'nowrap',
           }}
         >
-          <Typography variant="body2" sx={{ fontWeight: 700 }}>
-            {cancelada && !finalizada ? '—' : formatarDuracao(visita.inicio_data, visita.fim_data)}
+          <Typography variant="caption" sx={{ fontWeight: 600 }}>
+            {cancelada && !finalizada ? 'cancelada' : formatarDuracao(visita.inicio_data, visita.fim_data)}
+            {!finalizada && !cancelada ? ' · em andamento' : ''}
           </Typography>
-          <Typography variant="caption">
-            {finalizada ? 'de permanência' : cancelada ? 'visita cancelada' : 'em andamento'}
-          </Typography>
-        </Box>,
-      )}
-      {etapa(
-        CORES_MAPA_VISITA.checkout,
-        finalizada,
-        <>
-          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.4 }}>
-            Check-out
-          </Typography>
+        </Box>
+        <Box sx={{ textAlign: 'right' }}>
+          {rotulo('Check-out', CORES_MAPA_VISITA.checkout, true)}
           {visita.fim_data ? (
             <>
-              <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, flexWrap: 'wrap' }}>
-                <Typography variant="h5" sx={{ fontWeight: 800, lineHeight: 1.2 }}>
-                  {formatarHora(visita.fim_data)}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {formatarDataLonga(visita.fim_data)}
-                </Typography>
-              </Box>
-              <Box sx={{ mt: 0.5 }}>
-                {visita.checkout_tipo === 'ADMIN' ? (
-                  <Chip size="small" color="info" variant="outlined" label="Forçado pelo admin (sem GPS)" sx={{ height: 22 }} />
-                ) : visita.fim_distancia_metros != null ? (
-                  <SeloDistancia metros={visita.fim_distancia_metros} raio={raio} />
-                ) : null}
-                <SeloAtrasoEnvio feitoEm={visita.fim_data} recebidoEm={visita.checkout_recebido_em} />
-              </Box>
+              <Typography variant="h6" sx={{ fontWeight: 700, fontFamily: 'monospace', lineHeight: 1.3 }} title={formatarDataLonga(visita.fim_data)}>
+                {formatarHora(visita.fim_data)}
+              </Typography>
+              {visita.checkout_tipo === 'ADMIN' ? (
+                <Chip size="small" color="info" variant="outlined" label="Forçado (sem GPS)" sx={{ height: 22 }} />
+              ) : visita.fim_distancia_metros != null ? (
+                <SeloDistancia metros={visita.fim_distancia_metros} raio={raio} />
+              ) : null}
             </>
           ) : (
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
-              {cancelada ? 'Sem checkout' : 'Ainda não finalizada'}
+            <Typography variant="body2" color="text.secondary">
+              {cancelada ? 'Sem check-out' : 'Ainda não'}
             </Typography>
           )}
-        </>,
-        true,
-      )}
+        </Box>
+      </Box>
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 0.5 }}>
+        <Typography variant="caption" color="text.secondary">
+          {formatarDataLonga(visita.inicio_data)}
+          {raio != null ? ` · raio de check-in da empresa: ${Math.round(raio)} m` : ''}
+          {visita.checkout_recebido_em ? ` · enviado às ${formatarHora(visita.checkout_recebido_em)}` : ''}
+        </Typography>
+        <SeloAtrasoEnvio feitoEm={visita.inicio_data} recebidoEm={visita.checkin_recebido_em} />
+        <SeloAtrasoEnvio feitoEm={visita.fim_data} recebidoEm={visita.checkout_recebido_em} />
+      </Box>
     </Box>
   );
 }
 
-function Indicador({
-  icone,
-  valor,
-  rotulo,
-  cor,
-}: {
-  icone: ReactNode;
-  valor: string | number;
-  rotulo: string;
-  cor?: 'error' | 'warning' | 'primary';
-}) {
+// Um número da faixa de resumo, logo abaixo da identificação da visita (docs/90 §2).
+function Numero({ rotulo, valor, detalhe, cor, extra }: { rotulo: string; valor: ReactNode; detalhe?: ReactNode; cor?: string; extra?: ReactNode }) {
   return (
-    <Paper variant="outlined" sx={{ ...CARD_SX, p: 1.5, display: 'flex', alignItems: 'center', gap: 1.25 }}>
-      <Box
-        sx={{
-          width: 36,
-          height: 36,
-          borderRadius: 1,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexShrink: 0,
-          color: cor ? `${cor}.main` : 'text.secondary',
-          bgcolor: (t) => (cor ? alpha(t.palette[cor].main, 0.1) : t.palette.action.hover),
-        }}
-      >
-        {icone}
-      </Box>
-      <Box sx={{ minWidth: 0 }}>
-        <Typography variant="h6" sx={{ fontWeight: 800, lineHeight: 1.1, color: cor ? `${cor}.main` : undefined }}>
-          {valor}
-        </Typography>
+    <Box sx={{ px: 2, py: 1.5, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+      <Typography variant="caption" color="text.secondary">
+        {rotulo}
+      </Typography>
+      <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1.2, color: cor }}>
+        {valor}
+      </Typography>
+      {detalhe && (
         <Typography variant="caption" color="text.secondary" noWrap>
-          {rotulo}
+          {detalhe}
         </Typography>
-      </Box>
-    </Paper>
+      )}
+      {extra && <Box sx={{ mt: 0.5 }}>{extra}</Box>}
+    </Box>
   );
 }
 
@@ -475,11 +422,11 @@ function FormulariosRespondidos({
   if (grupos.length === 0) return null;
 
   return (
-    <Box sx={{ mb: 3 }}>
+    <Box>
       <Typography variant="h6" sx={{ fontWeight: 700, mb: 1.5 }}>
         Respostas dos formulários
       </Typography>
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: 'repeat(2, minmax(0, 1fr))' }, gap: 2, alignItems: 'start' }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', xl: 'repeat(2, minmax(0, 1fr))' }, gap: 2, alignItems: 'start' }}>
         {grupos.map(([id, grupo]) => {
           const pontuados = grupo.registros.filter((r) => r.pontuacao !== null);
           const media = pontuados.length
@@ -575,24 +522,57 @@ export function VisitaDetailPage() {
 
   const visita = visitaQuery.data?.visita;
   const raio = visitaQuery.data?.raio_checkin_metros;
+  const reguaMix = visitaQuery.data?.regua_mix ?? null;
+  // Gating só por user_type (mesmo padrão do AppLayout) — o backend é a trava real da permissão
+  // visitas.intervir; um GESTOR sem ela no perfil vê os botões mas recebe 403 no diálogo.
+  const podeIntervir = usuario?.user_type === 'ADMIN' || usuario?.user_type === 'GESTOR';
+  // Régua de XP (docs/88) — só com o recurso de plano e visita finalizada de OS.
+  const mostraXp = !!(usuario?.empresa?.controle_xp_habilitado && visita?.ordem_servico && visita.status === 'FINALIZADA');
+  const pontuacaoQuery = useQuery({
+    queryKey: ['xp', 'visita', visita?.id],
+    queryFn: () => buscarPontuacaoVisita(visita!.id),
+    enabled: mostraXp,
+  });
+  const pontuacao = pontuacaoQuery.data && !pontuacaoQuery.data.fora_da_agenda && pontuacaoQuery.data.possivel > 0 ? pontuacaoQuery.data : null;
   // Saídas da loja durante a visita (docs/49) — null pra quem não tem rastreamento.trajeto.
   const afastamento = visitaQuery.data?.afastamento;
 
   // Hook sempre chamado, mesmo antes de saber se a visita carregou — Rules of Hooks não
   // permite pular a chamada num render e chamar no outro.
   const cabecalho = usePageHeader(
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0, width: '100%' }}>
       <IconButton size="small" onClick={() => navigate('/visitas')} title="Voltar para Visitas" aria-label="Voltar para Visitas">
         <ArrowBackIcon fontSize="small" />
       </IconButton>
-      <Typography variant="h6" noWrap sx={{ fontWeight: 700 }}>
+      <Typography variant="h6" noWrap sx={{ fontWeight: 700, flexGrow: 1 }}>
         Detalhe da visita
       </Typography>
+      {podeIntervir && visita && visita.status !== 'CANCELADA' && (
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          {visita.status === 'ABERTA' && (
+            <Button size="small" variant="outlined" onClick={() => abrirDialog('forcar')}>
+              Forçar checkout
+            </Button>
+          )}
+          {visita.status === 'FINALIZADA' && (
+            <Button size="small" variant="outlined" onClick={() => abrirDialog('corrigir')}>
+              Corrigir horários
+            </Button>
+          )}
+          <Button size="small" color="error" onClick={() => abrirDialog('cancelar')}>
+            Cancelar visita
+          </Button>
+        </Box>
+      )}
     </Box>,
   );
 
   const registrosValidos = useMemo(() => (visita?.registros ?? []).filter((r) => !r.cancelado_em), [visita?.registros]);
   const nRupturas = useMemo(() => registrosValidos.filter((r) => r.ruptura).length, [registrosValidos]);
+  const nomesRupturas = useMemo(
+    () => registrosValidos.filter((r) => r.ruptura).map((r) => tituloRegistro(r)).join(', '),
+    [registrosValidos],
+  );
   const nComComentarios = useMemo(() => registrosValidos.filter((r) => (r.comentarios_count ?? 0) > 0).length, [registrosValidos]);
   const nFotos = useMemo(() => registrosValidos.reduce((soma, r) => soma + r.imagens.length, 0), [registrosValidos]);
   const compliance = useMemo(() => {
@@ -677,9 +657,6 @@ export function VisitaDetailPage() {
     );
   }
 
-  // Gating só por user_type (mesmo padrão do AppLayout) — o backend é a trava real da permissão
-  // visitas.intervir; um GESTOR sem ela no perfil vê os botões mas recebe 403 no diálogo.
-  const podeIntervir = usuario?.user_type === 'ADMIN' || usuario?.user_type === 'GESTOR';
   const intervencoes = visita.intervencoes ?? [];
   const pdv = visita.ponto_venda;
 
@@ -708,114 +685,144 @@ export function VisitaDetailPage() {
     <Box sx={{ maxWidth: 1400, mx: 'auto' }}>
       {cabecalho}
 
-      {/* Cabeçalho da visita — loja, promotor, status e ações. */}
-      <Paper variant="outlined" sx={{ ...CARD_SX, p: 2.5, mb: 2, display: 'flex', alignItems: 'center', gap: 2.5, flexWrap: 'wrap' }}>
+      {/* Identificação + faixa de resumo (docs/90 §2). As ações ficam no cabeçalho da página. */}
+      <Paper variant="outlined" sx={{ ...CARD_SX, mb: 2, overflow: 'hidden' }}>
+        <Box sx={{ p: 2, display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+          <Box
+            sx={{
+              width: 56,
+              height: 56,
+              borderRadius: 1.25,
+              overflow: 'hidden',
+              flexShrink: 0,
+              bgcolor: (t) => alpha(t.palette.primary.main, 0.08),
+              color: 'primary.main',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            {pdv?.fachada_url ? (
+              <AutenticatedImage url={pdv.fachada_url} alt={pdv.fantasia} sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            ) : (
+              <StorefrontOutlinedIcon sx={{ fontSize: 28 }} />
+            )}
+          </Box>
+
+          <Box sx={{ flex: '1 1 320px', minWidth: 0 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+              {pdv ? (
+                <MuiLink component={RouterLink} to={`/pontos-venda/${pdv.id}`} underline="hover" color="inherit" variant="h6" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
+                  {pdv.fantasia}
+                </MuiLink>
+              ) : (
+                <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                  —
+                </Typography>
+              )}
+              <Chip label={STATUS_LABELS[visita.status]} color={STATUS_COLORS[visita.status]} size="small" />
+              {visita.ordem_servico && <Chip size="small" variant="outlined" icon={<EventNoteOutlinedIcon />} label="Veio de uma Ordem de Serviço" />}
+              {visita.campanha && <Chip size="small" variant="outlined" icon={<CampaignOutlinedIcon />} label={visita.campanha.descricao} />}
+              {visita.checkout_tipo === 'ADMIN' && <Chip size="small" variant="outlined" color="info" label="Checkout feito pelo admin" />}
+            </Box>
+            {/* Endereço inteiro, quebrando linha se precisar — nunca cortado com reticências. */}
+            <Typography variant="body2" color="text.secondary" sx={{ display: 'flex', flexWrap: 'wrap', columnGap: 1.5, mt: 0.25 }}>
+              {pdv?.razao_social && <span>{pdv.razao_social}</span>}
+              {pdv?.endereco && (
+                <Box component="span" sx={{ display: 'inline-flex', alignItems: 'flex-start', gap: 0.25 }}>
+                  <PlaceOutlinedIcon sx={{ fontSize: 16, mt: '2px' }} />
+                  {pdv.endereco}
+                </Box>
+              )}
+              <span>{formatarDataLonga(visita.inicio_data)}</span>
+            </Typography>
+          </Box>
+
+          {visita.usuario && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, pl: { md: 2 }, borderLeft: { md: 1 }, borderColor: { md: 'divider' } }}>
+              <UsuarioAvatar nome={visita.usuario.nome} fotoUrl={visita.usuario.foto_url} size={36} />
+              <Box>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1.2 }}>
+                  Promotor
+                </Typography>
+                <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                  {visita.usuario.nome}
+                </Typography>
+                {/* Por onde ele passou nesse dia (docs/48) — a tela trata quem não tem a permissão. */}
+                <MuiLink
+                  component={RouterLink}
+                  to={`/rota-do-dia?usuario=${visita.usuario.id}&data=${new Date(visita.inicio_data).toLocaleDateString('en-CA')}`}
+                  variant="caption"
+                  underline="hover"
+                >
+                  Ver rota do dia
+                </MuiLink>
+              </Box>
+            </Box>
+          )}
+        </Box>
+
         <Box
           sx={{
-            width: 72,
-            height: 72,
-            borderRadius: 1.25,
-            overflow: 'hidden',
-            flexShrink: 0,
-            bgcolor: (t) => alpha(t.palette.primary.main, 0.08),
-            color: 'primary.main',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
+            display: 'grid',
+            gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', md: 'repeat(3, minmax(0, 1fr))', lg: 'repeat(6, minmax(0, 1fr))' },
+            borderTop: 1,
+            borderColor: 'divider',
+            '& > *': { borderRight: 1, borderBottom: 1, borderColor: 'divider' },
+            mb: '-1px',
+            mr: '-1px',
           }}
         >
-          {pdv?.fachada_url ? (
-            <AutenticatedImage url={pdv.fachada_url} alt={pdv.fantasia} sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          ) : (
-            <StorefrontOutlinedIcon sx={{ fontSize: 34 }} />
-          )}
+          <Numero
+            rotulo="Permanência"
+            valor={visita.status === 'CANCELADA' && !visita.fim_data ? '—' : formatarDuracao(visita.inicio_data, visita.fim_data)}
+            detalhe={`${formatarHora(visita.inicio_data)} → ${visita.fim_data ? formatarHora(visita.fim_data) : 'em andamento'}`}
+          />
+          <Numero rotulo="Registros" valor={registrosValidos.length} detalhe={`${nFotos} ${nFotos === 1 ? 'foto' : 'fotos'}`} />
+          <Numero
+            rotulo="Compliance"
+            valor={compliance !== null ? `${compliance}%` : '—'}
+            cor={compliance === null ? undefined : compliance >= 80 ? 'success.main' : 'warning.main'}
+            detalhe={compliance !== null ? 'média dos formulários com nota' : 'sem formulário com nota'}
+          />
+          <Numero
+            rotulo="Rupturas"
+            valor={nRupturas}
+            cor={nRupturas > 0 ? 'error.main' : undefined}
+            detalhe={nomesRupturas || 'nenhuma'}
+          />
+          <Numero
+            rotulo="Mix com registro"
+            valor={reguaMix ? `${reguaMix.percentual}%` : '—'}
+            detalhe={reguaMix ? `${reguaMix.cobertos} de ${reguaMix.total} produtos` : 'sem mix gravado'}
+            extra={reguaMix ? <BarraMix itens={reguaMix.itens} altura={4} /> : undefined}
+          />
+          <Numero
+            rotulo="XP da visita"
+            valor={pontuacao ? pontuacao.total.toLocaleString('pt-BR') : '—'}
+            detalhe={
+              pontuacao ? (
+                <>
+                  de {pontuacao.possivel.toLocaleString('pt-BR')}
+                  {pontuacao.faltou > 0 && (
+                    <Box component="span" sx={{ color: 'error.main' }}>
+                      {' '}· −{pontuacao.faltou.toLocaleString('pt-BR')}
+                    </Box>
+                  )}
+                </>
+              ) : (
+                'fora da régua'
+              )
+            }
+            extra={
+              pontuacao ? (
+                <Box sx={{ height: 4, borderRadius: 2, bgcolor: 'action.hover', overflow: 'hidden' }}>
+                  <Box sx={{ height: '100%', width: `${(pontuacao.total / pontuacao.possivel) * 100}%`, bgcolor: 'primary.main' }} />
+                </Box>
+              ) : undefined
+            }
+          />
         </Box>
-
-        <Box sx={{ flex: '1 1 320px', minWidth: 0 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-            {pdv ? (
-              <MuiLink
-                component={RouterLink}
-                to={`/pontos-venda/${pdv.id}`}
-                underline="hover"
-                color="inherit"
-                variant="h5"
-                sx={{ fontWeight: 800, lineHeight: 1.2 }}
-              >
-                {pdv.fantasia}
-              </MuiLink>
-            ) : (
-              <Typography variant="h5" sx={{ fontWeight: 800 }}>—</Typography>
-            )}
-            <Chip label={STATUS_LABELS[visita.status]} color={STATUS_COLORS[visita.status]} size="small" />
-          </Box>
-          {pdv?.razao_social && (
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
-              {pdv.razao_social}
-            </Typography>
-          )}
-          {/* Endereço inteiro, quebrando linha se precisar — nunca cortado com reticências. */}
-          {pdv?.endereco && (
-            <Typography variant="body2" color="text.secondary" sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5 }}>
-              <PlaceOutlinedIcon sx={{ fontSize: 16, mt: '2px', flexShrink: 0 }} />
-              {pdv.endereco}
-            </Typography>
-          )}
-          {(visita.ordem_servico || visita.campanha || visita.checkout_tipo === 'ADMIN') && (
-            <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap', mt: 1 }}>
-              {visita.ordem_servico && (
-                <Chip size="small" variant="outlined" icon={<EventNoteOutlinedIcon />} label="Veio de uma Ordem de Serviço" />
-              )}
-              {visita.campanha && (
-                <Chip size="small" variant="outlined" icon={<CampaignOutlinedIcon />} label={visita.campanha.descricao} />
-              )}
-              {visita.checkout_tipo === 'ADMIN' && (
-                <Chip size="small" variant="outlined" color="info" label="Checkout feito pelo admin" />
-              )}
-            </Box>
-          )}
-        </Box>
-
-        {visita.usuario && (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, pr: 1 }}>
-            <UsuarioAvatar nome={visita.usuario.nome} fotoUrl={visita.usuario.foto_url} size={40} />
-            <Box>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1.2 }}>
-                Promotor
-              </Typography>
-              <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                {visita.usuario.nome}
-              </Typography>
-              {/* Por onde ele passou nesse dia (docs/48) — a tela trata quem não tem a permissão. */}
-              <MuiLink
-                component={RouterLink}
-                to={`/rota-do-dia?usuario=${visita.usuario.id}&data=${new Date(visita.inicio_data).toLocaleDateString('en-CA')}`}
-                variant="caption"
-                underline="hover"
-              >
-                Ver rota do dia
-              </MuiLink>
-            </Box>
-          </Box>
-        )}
-
-        {podeIntervir && visita.status !== 'CANCELADA' && (
-          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-            {visita.status === 'ABERTA' && (
-              <Button variant="outlined" onClick={() => abrirDialog('forcar')}>
-                Forçar checkout
-              </Button>
-            )}
-            {visita.status === 'FINALIZADA' && (
-              <Button variant="outlined" onClick={() => abrirDialog('corrigir')}>
-                Corrigir horários
-              </Button>
-            )}
-            <Button variant="text" color="error" onClick={() => abrirDialog('cancelar')}>
-              Cancelar visita
-            </Button>
-          </Box>
-        )}
       </Paper>
 
       {afastamento && afastamento.afastamentos.length > 0 && (
@@ -850,135 +857,124 @@ export function VisitaDetailPage() {
         </Alert>
       )}
 
-      {/* Mapa (esquerda) + jornada e indicadores (direita). */}
       <Box
         sx={{
           display: 'grid',
-          gridTemplateColumns: { xs: '1fr', lg: 'minmax(0, 1.6fr) minmax(320px, 1fr)' },
+          gridTemplateColumns: { xs: 'minmax(0, 1fr)', lg: 'minmax(0, 1fr) 360px' },
           gap: 2,
+          alignItems: 'start',
           mb: 3,
         }}
       >
-        <Paper variant="outlined" sx={{ ...CARD_SX, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-          <TituloCard
-            icone={<MapOutlinedIcon fontSize="small" />}
-            titulo="Localização"
-            acao={
-              <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
-                {pontoLoja && <Legenda cor={CORES_MAPA_VISITA.loja} rotulo="Loja" />}
-                <Legenda cor={CORES_MAPA_VISITA.checkin} rotulo="Check-in" />
-                {pontoCheckout && <Legenda cor={CORES_MAPA_VISITA.checkout} rotulo="Check-out" />}
-              </Box>
-            }
-          />
-          <Divider />
-          <Box sx={{ flexGrow: 1 }}>
-            <MapaVisita loja={pontoLoja} checkin={pontoCheckin} checkout={pontoCheckout} raioMetros={raio} altura={400} />
-          </Box>
-          {(raio != null || !pontoLoja) && (
-            <>
-              <Divider />
-              <Typography variant="caption" color="text.secondary" sx={{ px: 2, py: 1 }}>
-                {!pontoLoja
-                  ? 'A loja não tem localização cadastrada — só os pontos de check-in/checkout aparecem no mapa.'
-                  : `Círculo tracejado = raio de check-in atual da empresa (${Math.round(raio!)} m). Role com Ctrl para dar zoom.`}
-              </Typography>
-            </>
-          )}
-        </Paper>
+        {/* Coluna principal */}
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0, order: { xs: 2, lg: 1 } }}>
+          {reguaMix && <ReguaMixCard regua={reguaMix} cardSx={CARD_SX} />}
 
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <Paper variant="outlined" sx={CARD_SX}>
-            <TituloCard icone={<InsightsOutlinedIcon fontSize="small" />} titulo="Jornada" />
+          <FormulariosRespondidos registros={registrosValidos} onAbrir={setRegistroAberto} />
+
+          <Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5, flexWrap: 'wrap', gap: 1 }}>
+              <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                Registros
+              </Typography>
+              <ToggleButtonGroup
+                size="small"
+                exclusive
+                value={filtro}
+                onChange={(_, valor) => valor && setFiltro(valor)}
+                sx={{ '& .MuiToggleButton-root': { textTransform: 'none', px: 1.5 } }}
+              >
+                <ToggleButton value="todos">Todos ({registrosValidos.length})</ToggleButton>
+                <ToggleButton value="ruptura">Rupturas ({nRupturas})</ToggleButton>
+                <ToggleButton value="comentarios">Com comentários ({nComComentarios})</ToggleButton>
+              </ToggleButtonGroup>
+            </Box>
+
+            {registrosFiltrados.length === 0 ? (
+              <Paper variant="outlined" sx={{ ...CARD_SX, p: 4, textAlign: 'center', borderStyle: 'dashed' }}>
+                <Typography color="text.secondary">Nenhum registro nesse filtro.</Typography>
+              </Paper>
+            ) : (
+              <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 1.5 }}>
+                {registrosFiltrados.map((registro) => (
+                  <RegistroCard key={registro.id} registro={registro} onAbrir={() => setRegistroAberto(registro)} />
+                ))}
+              </Box>
+            )}
+          </Box>
+
+          {/* Intervenções administrativas — log de auditoria (docs/15). */}
+          {intervencoes.length > 0 && (
+            <Paper variant="outlined" sx={CARD_SX}>
+              <TituloCard
+                icone={<EventNoteOutlinedIcon fontSize="small" />}
+                titulo="Intervenções administrativas"
+                acao={<Chip size="small" label={intervencoes.length} sx={{ height: 20 }} />}
+              />
+              <Divider />
+              {intervencoes.map((i, idx) => (
+                <Box key={i.id}>
+                  {idx > 0 && <Divider />}
+                  <Box sx={{ px: 2, py: 1.5, display: 'grid', gridTemplateColumns: { xs: '1fr', md: '180px 1fr' }, gap: 1 }}>
+                    <Box>
+                      <Chip size="small" label={ACAO_LABELS[i.acao]} variant="outlined" sx={{ height: 22, mb: 0.5 }} />
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                        {new Date(i.created_at).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
+                        {' · '}
+                        {i.usuario?.nome ?? '—'}
+                      </Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="body2">{i.descricao}</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Motivo: {i.motivo}
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Box>
+              ))}
+            </Paper>
+          )}
+        </Box>
+
+        {/* Coluna lateral: fica parada enquanto a principal rola; abaixo de lg desce pro topo. */}
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: mostraXp ? 'repeat(2, minmax(0, 1fr))' : 'minmax(0, 1fr)', lg: 'minmax(0, 1fr)' },
+            gap: 2,
+            alignItems: 'start',
+            position: { lg: 'sticky' },
+            top: { lg: 72 },
+            order: { xs: 1, lg: 2 },
+            minWidth: 0,
+          }}
+        >
+          <Paper variant="outlined" sx={{ ...CARD_SX, overflow: 'hidden' }}>
+            <TituloCard
+              icone={<MapOutlinedIcon fontSize="small" />}
+              titulo="Localização"
+              acao={
+                <Box sx={{ display: 'flex', gap: 1.25, flexWrap: 'wrap' }}>
+                  {pontoLoja && <Legenda cor={CORES_MAPA_VISITA.loja} rotulo="Loja" />}
+                  <Legenda cor={CORES_MAPA_VISITA.checkin} rotulo="Check-in" />
+                  {pontoCheckout && <Legenda cor={CORES_MAPA_VISITA.checkout} rotulo="Check-out" />}
+                </Box>
+              }
+            />
+            <Divider />
+            <MapaVisita loja={pontoLoja} checkin={pontoCheckin} checkout={pontoCheckout} raioMetros={raio} altura={200} />
+            {!pontoLoja && (
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', px: 2, pt: 1 }}>
+                A loja não tem localização cadastrada — só os pontos de check-in/checkout aparecem no mapa.
+              </Typography>
+            )}
+            <Divider />
             <Jornada visita={visita} raio={raio} />
           </Paper>
-          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5 }}>
-            <Indicador icone={<AssignmentTurnedInOutlinedIcon fontSize="small" />} valor={registrosValidos.length} rotulo="Registros" cor="primary" />
-            <Indicador icone={<ImageOutlinedIcon fontSize="small" />} valor={nFotos} rotulo="Fotos" />
-            <Indicador
-              icone={<InsightsOutlinedIcon fontSize="small" />}
-              valor={compliance !== null ? `${compliance}%` : '—'}
-              rotulo="Compliance"
-              cor={compliance !== null ? 'warning' : undefined}
-            />
-            <Indicador
-              icone={<RemoveShoppingCartOutlinedIcon fontSize="small" />}
-              valor={nRupturas}
-              rotulo="Rupturas"
-              cor={nRupturas > 0 ? 'error' : undefined}
-            />
-          </Box>
-          {/* Régua de XP (docs/88) — só com o recurso de plano e visita finalizada de OS. */}
-          {usuario?.empresa?.controle_xp_habilitado && visita.ordem_servico && visita.status === 'FINALIZADA' && (
-            <PontuacaoVisitaCard visitaId={visita.id} cardSx={CARD_SX} />
-          )}
+          {mostraXp && <PontuacaoVisitaCard visitaId={visita.id} cardSx={CARD_SX} />}
         </Box>
       </Box>
-
-      <FormulariosRespondidos registros={registrosValidos} onAbrir={setRegistroAberto} />
-
-      {/* Registros */}
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5, flexWrap: 'wrap', gap: 1 }}>
-        <Typography variant="h6" sx={{ fontWeight: 700 }}>
-          Registros
-        </Typography>
-        <ToggleButtonGroup
-          size="small"
-          exclusive
-          value={filtro}
-          onChange={(_, valor) => valor && setFiltro(valor)}
-          sx={{ '& .MuiToggleButton-root': { textTransform: 'none', px: 1.5 } }}
-        >
-          <ToggleButton value="todos">Todos ({registrosValidos.length})</ToggleButton>
-          <ToggleButton value="ruptura">Rupturas ({nRupturas})</ToggleButton>
-          <ToggleButton value="comentarios">Com comentários ({nComComentarios})</ToggleButton>
-        </ToggleButtonGroup>
-      </Box>
-
-      {registrosFiltrados.length === 0 ? (
-        <Paper variant="outlined" sx={{ ...CARD_SX, p: 4, mb: 3, textAlign: 'center', borderStyle: 'dashed' }}>
-          <Typography color="text.secondary">Nenhum registro nesse filtro.</Typography>
-        </Paper>
-      ) : (
-        <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 1.5, mb: 3 }}>
-          {registrosFiltrados.map((registro) => (
-            <RegistroCard key={registro.id} registro={registro} onAbrir={() => setRegistroAberto(registro)} />
-          ))}
-        </Box>
-      )}
-
-      {/* Intervenções administrativas — log de auditoria (docs/15). */}
-      {intervencoes.length > 0 && (
-        <Paper variant="outlined" sx={{ ...CARD_SX, mb: 3 }}>
-          <TituloCard
-            icone={<EventNoteOutlinedIcon fontSize="small" />}
-            titulo="Intervenções administrativas"
-            acao={<Chip size="small" label={intervencoes.length} sx={{ height: 20 }} />}
-          />
-          <Divider />
-          {intervencoes.map((i, idx) => (
-            <Box key={i.id}>
-              {idx > 0 && <Divider />}
-              <Box sx={{ px: 2, py: 1.5, display: 'grid', gridTemplateColumns: { xs: '1fr', md: '180px 1fr' }, gap: 1 }}>
-                <Box>
-                  <Chip size="small" label={ACAO_LABELS[i.acao]} variant="outlined" sx={{ height: 22, mb: 0.5 }} />
-                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                    {new Date(i.created_at).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
-                    {' · '}
-                    {i.usuario?.nome ?? '—'}
-                  </Typography>
-                </Box>
-                <Box>
-                  <Typography variant="body2">{i.descricao}</Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Motivo: {i.motivo}
-                  </Typography>
-                </Box>
-              </Box>
-            </Box>
-          ))}
-        </Paper>
-      )}
 
       <RegistroDetalheDialog registro={registroAberto} visitaUuid={visita.id} onClose={() => setRegistroAberto(null)} />
 

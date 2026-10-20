@@ -42,6 +42,33 @@ export interface VisitaDetalheResponse {
   // Raio ATUAL da empresa (não gravado por visita); null = sem limite.
   raio_checkin_metros?: number | null;
   afastamento?: AfastamentoDetalhe | null;
+  // Régua do mix (docs/90): null = visita sem cópia do mix (anterior à régua ou loja sem mix).
+  regua_mix?: ReguaMix | null;
+}
+
+export type SituacaoMix = 'registrado' | 'recorte' | 'ruptura' | 'sem_registro';
+
+export interface ItemReguaMix {
+  produto_id: string | null;
+  descricao: string;
+  marca: string | null;
+  secao: string | null;
+  departamento: string | null;
+  produto_chave: boolean;
+  adicionado_na_visita: boolean;
+  origem_tipo: 'PRODUTO' | 'SECAO' | 'DEPARTAMENTO' | 'MARCA';
+  situacao: SituacaoMix;
+  // Onde a evidência apareceu: "Auditoria · Mix (presente)", "Ponto extra (seção Amaciante)".
+  onde: string[];
+}
+
+export interface ReguaMix {
+  gravado_em: string | null;
+  total: number;
+  cobertos: number;
+  percentual: number;
+  contagem: Record<SituacaoMix, number>;
+  itens: ItemReguaMix[];
 }
 
 export async function buscarVisita(uuid: string): Promise<VisitaDetalheResponse> {

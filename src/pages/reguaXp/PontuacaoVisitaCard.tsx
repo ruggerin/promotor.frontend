@@ -1,5 +1,5 @@
 import EmojiEventsIcon from '@mui/icons-material/EmojiEventsOutlined';
-import { Box, LinearProgress, Paper, Typography } from '@mui/material';
+import { Box, Chip, LinearProgress, Paper, Typography } from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 import { buscarPontuacaoVisita } from '../../lib/api/xp';
 import { ClasseLojaChip } from './ClasseLojaChip';
@@ -23,33 +23,42 @@ export function PontuacaoVisitaCard({ visitaId, cardSx }: { visitaId: string; ca
         <ClasseLojaChip classe={p.classe} />
       </Box>
       <Box sx={{ px: 2, pb: 2 }}>
-        <Typography variant="h6" sx={{ fontWeight: 800 }}>
-          {p.total.toLocaleString('pt-BR')} de {p.possivel.toLocaleString('pt-BR')} XP
-        </Typography>
-        <Typography variant="caption" color="text.secondary">
-          {p.faltou > 0 ? `${p.faltou} XP ficaram pra trás.` : 'Visita perfeita.'}
-        </Typography>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 1.5 }}>
-          {p.partes.map((parte) => (
-            <Box key={parte.parte}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Typography variant="body2">{parte.rotulo}</Typography>
-                <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                  {parte.ganho}/{parte.maximo}
-                  {parte.pendente > 0 ? ` (+${parte.pendente} em avaliação)` : ''}
+        <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
+          <Typography variant="h5" sx={{ fontWeight: 800 }}>
+            {p.total.toLocaleString('pt-BR')}
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ flexGrow: 1 }}>
+            de {p.possivel.toLocaleString('pt-BR')} XP
+          </Typography>
+          {p.faltou > 0 ? (
+            <Chip size="small" color="error" variant="outlined" label={`−${p.faltou.toLocaleString('pt-BR')} XP`} sx={{ height: 22, fontWeight: 700 }} />
+          ) : (
+            <Chip size="small" color="success" variant="outlined" label="Visita perfeita" sx={{ height: 22 }} />
+          )}
+        </Box>
+        <LinearProgress variant="determinate" value={p.possivel ? (p.total / p.possivel) * 100 : 0} sx={{ height: 8, borderRadius: 4, mt: 1 }} />
+        <Box sx={{ mt: 1 }}>
+          {p.partes.map((parte, idx) => {
+            const fracao = parte.maximo ? parte.ganho / parte.maximo : 0;
+            const cor = fracao >= 1 ? 'success' : fracao > 0 ? 'warning' : 'error';
+            return (
+              <Box key={parte.parte} sx={{ py: 1, borderTop: idx > 0 ? 1 : 0, borderColor: 'divider' }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 1 }}>
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                    {parte.rotulo}
+                  </Typography>
+                  <Typography variant="body2" sx={{ fontFamily: 'monospace', fontWeight: 600, color: fracao >= 1 ? 'text.primary' : `${cor}.main` }}>
+                    {parte.ganho}/{parte.maximo}
+                    {parte.pendente > 0 ? ` (+${parte.pendente} em avaliação)` : ''}
+                  </Typography>
+                </Box>
+                <LinearProgress variant="determinate" value={Math.max(fracao * 100, 0)} color={cor} sx={{ height: 4, borderRadius: 2, my: 0.5 }} />
+                <Typography variant="caption" color="text.secondary">
+                  {parte.explicacao}
                 </Typography>
               </Box>
-              <LinearProgress
-                variant="determinate"
-                value={parte.maximo ? (parte.ganho / parte.maximo) * 100 : 0}
-                color={parte.ganho === parte.maximo ? 'success' : 'warning'}
-                sx={{ height: 4, borderRadius: 2, my: 0.25 }}
-              />
-              <Typography variant="caption" color="text.secondary">
-                {parte.explicacao}
-              </Typography>
-            </Box>
-          ))}
+            );
+          })}
         </Box>
         {p.iniciativas.length > 0 && (
           <Box sx={{ mt: 1.5 }}>

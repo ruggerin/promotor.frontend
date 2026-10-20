@@ -149,7 +149,7 @@ export function montarMenu(
       rotulo: 'Relatórios',
       itens: [
         item('relatorios', { rotulo: 'Relatórios', caminho: '/relatorios-personalizados', icone: <QueryStatsIcon /> }), // docs/60
-        item('regua_xp', { rotulo: 'Régua de XP', caminho: '/regua-xp', icone: <EmojiEventsIcon /> }), // docs/88
+        item('regua_xp', { rotulo: 'Régua de produtividade', caminho: '/regua-xp', icone: <EmojiEventsIcon /> }), // docs/88
         item('relatorios', { rotulo: 'Cumprimento de visitas', caminho: '/relatorios/visitas-planejadas', icone: <AssessmentIcon /> }), // docs/28
         item('relatorios', { rotulo: 'Tempo na loja', caminho: '/relatorios/tempo-na-loja', icone: <TimerOutlinedIcon /> }), // docs/59
         item('relatorios', { rotulo: 'Coleta por formulário', caminho: '/relatorios/respostas-formulario', icone: <FactCheckIcon /> }),

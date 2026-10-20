@@ -10,7 +10,6 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  Link,
   Paper,
   Tab,
   Table,
@@ -26,9 +25,11 @@ import {
 } from '@mui/material';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Link as RouterLink } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
+import { RegistroDetalheDialog } from '../../components/registros/RegistroDetalheDialog';
 import { usePageHeader } from '../../components/layout/PageHeaderSlot';
 import { TituloComAtualizar } from '../../components/RefreshButton';
+import { buscarVisita } from '../../lib/api/visitas';
 import { avaliarRegistro, listarAvaliacoes } from '../../lib/api/xp';
 import type { RegistroParaAvaliar, StatusAvaliacao } from '../../types/api';
 
@@ -38,12 +39,14 @@ const idade = (dias: number | null) => (dias === null ? '—' : dias === 0 ? 'ho
  * Avaliação de formulário pelo gestor (doc 33, mínimo da régua de XP — docs/88 §10). O gestor
  * olha a evidência (fotos e valores, na visita) e aprova ou reprova. Com a régua ligada, o XP de
  * iniciativa e a parte de qualidade daquele formulário só contam depois de aprovados.
+ * Clicar na linha abre só o registro (como no painel Registros); a visita inteira é atalho.
  */
 export function AvaliacoesFormularioPage() {
   const queryClient = useQueryClient();
   const [status, setStatus] = useState<StatusAvaliacao>('PENDENTE');
   const [page, setPage] = useState(0);
   const [reprovando, setReprovando] = useState<RegistroParaAvaliar | null>(null);
+  const [aberto, setAberto] = useState<RegistroParaAvaliar | null>(null);
   const cabecalho = usePageHeader(<TituloComAtualizar titulo="Avaliação de formulários" />);
 
   const query = useQuery({
@@ -54,7 +57,10 @@ export function AvaliacoesFormularioPage() {
 
   const aprovar = useMutation({
     mutationFn: (r: RegistroParaAvaliar) => avaliarRegistro(r.visita_id!, r.id, 'APROVADO'),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['avaliacoes-formulario'] }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['avaliacoes-formulario'] });
+      setAberto(null);
+    },
   });
 
   const registros = query.data?.registros ?? [];
@@ -63,7 +69,7 @@ export function AvaliacoesFormularioPage() {
     <Box>
       {cabecalho}
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2, maxWidth: 760 }}>
-        Formulários marcados com "Exige avaliação". Abra a visita para conferir fotos e respostas. Reprovado não gera XP e o promotor
+        Formulários marcados com "Exige avaliação". Clique na linha para conferir fotos e respostas. Reprovado não gera XP e o promotor
         vê o motivo; dá para rever a decisão depois.
       </Typography>
       <Tabs
@@ -108,7 +114,7 @@ export function AvaliacoesFormularioPage() {
               </TableRow>
             )}
             {registros.map((r) => (
-              <TableRow key={r.id} hover>
+              <TableRow key={r.id} hover sx={{ cursor: r.visita_id ? 'pointer' : undefined }} onClick={() => r.visita_id && setAberto(r)}>
                 <TableCell>
                   <Typography variant="body2" sx={{ fontWeight: 600 }}>
                     {r.formulario?.descricao ?? '—'}
@@ -137,11 +143,11 @@ export function AvaliacoesFormularioPage() {
                 </TableCell>
                 <TableCell align="right">{r.xp > 0 ? `+${r.xp}` : '—'}</TableCell>
                 <TableCell align="right">{r.fotos}</TableCell>
-                <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
+                <TableCell align="right" sx={{ whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
                   {r.visita_id && (
-                    <Link component={RouterLink} to={`/visitas/${r.visita_id}`} sx={{ mr: 1 }} variant="body2">
-                      Ver visita
-                    </Link>
+                    <Button size="small" onClick={() => setAberto(r)} sx={{ textTransform: 'none' }}>
+                      Ver registro
+                    </Button>
                   )}
                   {status !== 'APROVADO' && (
                     <Button size="small" color="success" startIcon={<CheckIcon />} disabled={aprovar.isPending} onClick={() => aprovar.mutate(r)}>
@@ -168,8 +174,94 @@ export function AvaliacoesFormularioPage() {
           labelDisplayedRows={({ from, to, count }) => `${from}–${to} de ${count}`}
         />
       </TableContainer>
+      {aberto && (
+        <RegistroParaAvaliarDialog
+          item={aberto}
+          status={status}
+          aprovando={aprovar.isPending}
+          onFechar={() => setAberto(null)}
+          onAprovar={() => aprovar.mutate(aberto)}
+          onReprovar={() => {
+            setReprovando(aberto);
+            setAberto(null);
+          }}
+        />
+      )}
       {reprovando && <ReprovarDialog registro={reprovando} onFechar={() => setReprovando(null)} />}
     </Box>
+  );
+}
+
+// Carrega o registro completo (fotos, respostas, conversa) pela visita de origem e mostra só ele,
+// com a decisão no rodapé — mesmo diálogo do painel Registros.
+function RegistroParaAvaliarDialog({
+  item,
+  status,
+  aprovando,
+  onFechar,
+  onAprovar,
+  onReprovar,
+}: {
+  item: RegistroParaAvaliar;
+  status: StatusAvaliacao;
+  aprovando: boolean;
+  onFechar: () => void;
+  onAprovar: () => void;
+  onReprovar: () => void;
+}) {
+  const navigate = useNavigate();
+  const visitaQuery = useQuery({ queryKey: ['visita', item.visita_id], queryFn: () => buscarVisita(item.visita_id!) });
+  const registro = (visitaQuery.data?.visita.registros ?? []).find((r) => r.id === item.id) ?? null;
+  const verVisita = () => navigate(`/visitas/${item.visita_id}`);
+
+  if (registro) {
+    return (
+      <RegistroDetalheDialog
+        registro={registro}
+        visitaUuid={item.visita_id!}
+        onClose={onFechar}
+        acoes={
+          <>
+            <Button onClick={verVisita} sx={{ textTransform: 'none', mr: 'auto' }}>
+              Ver visita completa
+            </Button>
+            {status !== 'REPROVADO' && (
+              <Button variant="outlined" color="error" startIcon={<CloseIcon />} onClick={onReprovar} sx={{ textTransform: 'none' }}>
+                Reprovar
+              </Button>
+            )}
+            {status !== 'APROVADO' && (
+              <Button variant="contained" color="success" startIcon={<CheckIcon />} disabled={aprovando} onClick={onAprovar} sx={{ textTransform: 'none' }}>
+                Aprovar{item.xp > 0 ? ` (+${item.xp} XP)` : ''}
+              </Button>
+            )}
+          </>
+        }
+      />
+    );
+  }
+
+  // Carregando, ou o registro não veio na visita (cancelado/removido): nunca fica preso.
+  return (
+    <Dialog open onClose={onFechar} maxWidth="xs" fullWidth>
+      <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'center', py: 4 }}>
+        {visitaQuery.isLoading ? (
+          <CircularProgress size={28} />
+        ) : (
+          <>
+            <Alert severity="warning" sx={{ width: '100%' }}>
+              Não foi possível abrir o detalhe deste registro.
+            </Alert>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <Button onClick={onFechar}>Fechar</Button>
+              <Button variant="contained" onClick={verVisita}>
+                Ver visita
+              </Button>
+            </Box>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 

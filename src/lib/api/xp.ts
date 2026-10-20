@@ -1,5 +1,7 @@
 import type {
   ClasseLoja,
+  ComparativoXp,
+  GranularidadeComparativo,
   OcorrenciaXp,
   PaginatedMeta,
   PlanejamentoXp,
@@ -19,7 +21,7 @@ import { apiClient } from './client';
 
 export interface FiltrosRegua {
   dia?: string;
-  periodo?: 'dia' | 'semana';
+  periodo?: 'dia' | 'semana' | 'mes';
   supervisor_uuid?: string;
 }
 
@@ -61,7 +63,15 @@ export async function buscarValorGerado(mes: string): Promise<ValorGeradoXp> {
   return data.valor_gerado;
 }
 
-export async function buscarRankingEquipe(semana: 'atual' | 'passada', supervisorUuid?: string): Promise<RankingXp> {
+export type PeriodoRanking = 'atual' | 'passada' | 'mes' | 'mes_passado';
+
+// Comparativo período a período (6 meses, 8 semanas ou 14 dias), da equipe ou de um promotor.
+export async function buscarComparativo(granularidade: GranularidadeComparativo, f: FiltrosRegua & { usuario_uuid?: string }): Promise<ComparativoXp> {
+  const { data } = await apiClient.get<{ comparativo: ComparativoXp }>('/xp/evolucao', { params: { ...f, granularidade } });
+  return data.comparativo;
+}
+
+export async function buscarRankingEquipe(semana: PeriodoRanking, supervisorUuid?: string): Promise<RankingXp> {
   const { data } = await apiClient.get<{ ranking: RankingXp }>('/xp/ranking-equipe', { params: { semana, supervisor_uuid: supervisorUuid } });
   return data.ranking;
 }

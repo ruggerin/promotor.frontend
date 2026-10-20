@@ -445,7 +445,7 @@ export function EmpresaFormDialog({ open, empresa, onClose }: EmpresaFormDialogP
               <FormControlLabel
                 sx={{ mt: 1, display: 'flex' }}
                 control={<Switch checked={field.value} onChange={(e) => field.onChange(e.target.checked)} />}
-                label="Régua de XP habilitada (recurso do plano — começa em modo prévia, só o gestor vê)"
+                label="Régua de produtividade habilitada (recurso do plano — começa em modo prévia, só o gestor vê)"
               />
             )}
           />

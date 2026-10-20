@@ -1453,7 +1453,7 @@ export interface PerdaXp {
 }
 
 export interface PromotorXp {
-  usuario: { id: string; nome: string };
+  usuario: { id: string; nome: string; foto_url?: string | null };
   possivel: number;
   realizado: number;
   aproveitamento: number | null;
@@ -1475,7 +1475,7 @@ export interface ItemFilaAvaliacao {
 }
 
 export interface ReguaXp {
-  periodo: { tipo: 'dia' | 'semana'; inicio: string; fim: string };
+  periodo: { tipo: 'dia' | 'semana' | 'mes'; inicio: string; fim: string };
   congelado_em: string;
   modo_previa: boolean;
   promotores_no_escopo: number;
@@ -1509,7 +1509,7 @@ export interface OcorrenciaXp {
   rotulo: string;
   xp: number;
   dia: string;
-  promotor: { id: string; nome: string } | null;
+  promotor: { id: string; nome: string; foto_url?: string | null } | null;
   loja: { id: string; fantasia: string } | null;
   classe: ClasseLojaResumo | null;
   ordem_servico_id: string | null;
@@ -1546,6 +1546,7 @@ export interface ValorGeradoXp {
 export interface LinhaRanking {
   posicao: number;
   nome: string;
+  foto_url?: string | null;
   xp: number;
   eu: boolean;
   plano?: number;
@@ -1555,6 +1556,7 @@ export interface LinhaRanking {
 }
 
 export interface RankingXp {
+  periodo?: 'semana' | 'mes';
   semana_inicio: string;
   fechada: boolean;
   fecha_em: string | null;
@@ -1602,4 +1604,29 @@ export interface RegistroParaAvaliar {
   xp: number;
   fotos: number;
   avaliacao: { status: StatusAvaliacao; motivo: string | null; por: string | null; em: string | null };
+}
+
+export type GranularidadeComparativo = 'mes' | 'semana' | 'dia';
+
+export interface PeriodoComparativo {
+  inicio: string;
+  possivel: number;
+  realizado: number;
+  aproveitamento: number | null;
+  iniciativa: number;
+  perdas: number;
+  visitas_previstas: number;
+  visitas_feitas: number;
+  em_andamento: boolean;
+  variacao_aproveitamento: number | null;
+  variacao_iniciativa: number | null;
+}
+
+export interface ComparativoXp {
+  granularidade: GranularidadeComparativo;
+  periodos: PeriodoComparativo[];
+  promotores: {
+    usuario: { id: string; nome: string; foto_url?: string | null };
+    periodos: { inicio: string; aproveitamento: number | null; xp: number }[];
+  }[];
 }

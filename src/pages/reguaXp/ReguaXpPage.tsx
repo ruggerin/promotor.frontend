@@ -33,29 +33,33 @@ import { Fragment, useState } from 'react';
 import { Link as RouterLink } from 'react-router-dom';
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip as RTooltip, XAxis, YAxis } from 'recharts';
 import { usePageHeader } from '../../components/layout/PageHeaderSlot';
+import { UsuarioAvatar } from '../../components/UsuarioAvatar';
 import { TituloComAtualizar } from '../../components/RefreshButton';
 import { temAcao } from '../../lib/acesso/telas';
 import { listarSupervisores } from '../../lib/api/equipeComercial';
-import { buscarEvolucao, buscarPlanejamento, buscarRankingEquipe, buscarRegua, buscarValorGerado, type FiltrosRegua } from '../../lib/api/xp';
+import { buscarEvolucao, buscarPlanejamento, buscarRankingEquipe, buscarRegua, buscarValorGerado, type FiltrosRegua, type PeriodoRanking } from '../../lib/api/xp';
 import { useAuth } from '../../lib/auth/AuthContext';
 import type { ReguaXp } from '../../types/api';
+import { ComparativoMensal } from './ComparativoMensal';
 import { OcorrenciasDaPerda } from './OcorrenciasDaPerda';
 
 const fmt = (n: number) => n.toLocaleString('pt-BR');
 const hojeLocal = () => new Date().toLocaleDateString('sv-SE');
 const dataBr = (dia: string) => dia.split('-').reverse().join('/');
+const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+const mesTexto = (dia: string) => `${MESES[Number(dia.slice(5, 7)) - 1]} de ${dia.slice(0, 4)}`;
 
 /**
  * Régua da operação (docs/88 §11): quanto dava pra fazer, quanto foi feito e onde ficou a perda.
  * Os mesmos números que o promotor vê no app, com a linguagem de gestor.
  */
 export function ReguaXpPage() {
-  const [aba, setAba] = useState<'regua' | 'ranking' | 'valor'>('regua');
+  const [aba, setAba] = useState<'regua' | 'comparativo' | 'ranking' | 'valor'>('regua');
   const [dia, setDia] = useState(hojeLocal());
-  const [periodo, setPeriodo] = useState<'dia' | 'semana'>('dia');
+  const [periodo, setPeriodo] = useState<'dia' | 'semana' | 'mes'>('dia');
   const [supervisor, setSupervisor] = useState('');
   const filtros: FiltrosRegua = { dia, periodo, supervisor_uuid: supervisor || undefined };
-  const cabecalho = usePageHeader(<TituloComAtualizar titulo="Régua da operação" />);
+  const cabecalho = usePageHeader(<TituloComAtualizar titulo="Régua de produtividade" />);
   const supervisoresQuery = useQuery({ queryKey: ['supervisores', 'opcoes'], queryFn: () => listarSupervisores({ ativo: true }) });
 
   return (
@@ -64,6 +68,7 @@ export function ReguaXpPage() {
       <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap', mb: 2 }}>
         <Tabs value={aba} onChange={(_, v) => setAba(v)} sx={{ mr: 'auto' }}>
           <Tab value="regua" label="Régua" />
+          <Tab value="comparativo" label="Comparativo" />
           <Tab value="ranking" label="Ranking da equipe" />
           <Tab value="valor" label="Valor gerado" />
         </Tabs>
@@ -73,6 +78,7 @@ export function ReguaXpPage() {
             <ToggleButtonGroup exclusive size="small" value={periodo} onChange={(_, v) => v && setPeriodo(v)}>
               <ToggleButton value="dia">Dia</ToggleButton>
               <ToggleButton value="semana">Semana</ToggleButton>
+              <ToggleButton value="mes">Mês</ToggleButton>
             </ToggleButtonGroup>
           </>
         )}
@@ -88,6 +94,7 @@ export function ReguaXpPage() {
         )}
       </Box>
       {aba === 'regua' && <Regua filtros={filtros} />}
+      {aba === 'comparativo' && <ComparativoMensal supervisor={supervisor || undefined} />}
       {aba === 'ranking' && <Ranking supervisor={supervisor || undefined} />}
       {aba === 'valor' && <ValorGerado />}
     </Box>
@@ -106,7 +113,12 @@ function Regua({ filtros }: { filtros: FiltrosRegua }) {
   if (query.isError || !query.data) return <Alert severity="error">Não foi possível carregar a régua.</Alert>;
   const r = query.data;
   const totalPerdas = r.perdas.reduce((s, p) => s + p.xp, 0);
-  const periodoTexto = r.periodo.tipo === 'dia' ? dataBr(r.periodo.inicio) : `semana de ${dataBr(r.periodo.inicio)} a ${dataBr(r.periodo.fim)}`;
+  const periodoTexto =
+    r.periodo.tipo === 'dia'
+      ? dataBr(r.periodo.inicio)
+      : r.periodo.tipo === 'mes'
+        ? mesTexto(r.periodo.inicio)
+        : `semana de ${dataBr(r.periodo.inicio)} a ${dataBr(r.periodo.fim)}`;
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -203,9 +215,12 @@ function Regua({ filtros }: { filtros: FiltrosRegua }) {
             {r.promotores.map((p) => (
               <TableRow key={p.usuario.id} hover>
                 <TableCell>
-                  <RouterLink to={`/usuarios/${p.usuario.id}`} style={{ color: 'inherit' }}>
-                    {p.usuario.nome}
-                  </RouterLink>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+                    <UsuarioAvatar nome={p.usuario.nome} fotoUrl={p.usuario.foto_url} size={32} />
+                    <RouterLink to={`/usuarios/${p.usuario.id}`} style={{ color: 'inherit', fontWeight: 600 }}>
+                      {p.usuario.nome}
+                    </RouterLink>
+                  </Box>
                 </TableCell>
                 <TableCell align="right">{fmt(p.possivel)}</TableCell>
                 <TableCell align="right">{fmt(p.realizado)}</TableCell>
@@ -373,7 +388,7 @@ function LinhaMetrica({ rotulo, valor, ajuda }: { rotulo: string; valor: number 
 }
 
 function Ranking({ supervisor }: { supervisor?: string }) {
-  const [semana, setSemana] = useState<'atual' | 'passada'>('atual');
+  const [semana, setSemana] = useState<PeriodoRanking>('atual');
   const query = useQuery({ queryKey: ['xp', 'ranking', semana, supervisor], queryFn: () => buscarRankingEquipe(semana, supervisor) });
   const r = query.data;
 
@@ -382,14 +397,16 @@ function Ranking({ supervisor }: { supervisor?: string }) {
       <ToggleButtonGroup exclusive size="small" value={semana} onChange={(_, v) => v && setSemana(v)}>
         <ToggleButton value="atual">Esta semana</ToggleButton>
         <ToggleButton value="passada">Semana passada</ToggleButton>
+        <ToggleButton value="mes">Este mês</ToggleButton>
+        <ToggleButton value="mes_passado">Mês passado</ToggleButton>
       </ToggleButtonGroup>
       {query.isLoading && <CircularProgress />}
       {query.isError && <Alert severity="warning">A liga semanal está desligada nas Configurações ou não pôde ser carregada.</Alert>}
       {r && (
         <>
           <Typography variant="body2" color="text.secondary">
-            {r.grupo} · semana de {dataBr(r.semana_inicio)} · {r.fechada ? 'fechada' : 'em andamento'} · mínimo de {r.minimo_visitas} visitas agendadas
-            pra entrar. O promotor vê só o pódio, a própria posição e quem está logo acima.
+            {r.grupo} · {r.periodo === 'mes' ? mesTexto(r.semana_inicio) : `semana de ${dataBr(r.semana_inicio)}`} · {r.fechada ? 'fechado' : 'em andamento'} ·
+            mínimo de {r.minimo_visitas} visitas agendadas pra entrar. O promotor vê só o pódio, a própria posição e quem está logo acima.
           </Typography>
           <TableContainer component={Paper}>
             <Table size="small">
@@ -415,7 +432,12 @@ function Ranking({ supervisor }: { supervisor?: string }) {
                 {r.linhas.map((l) => (
                   <TableRow key={`${l.posicao}-${l.nome}`}>
                     <TableCell>{l.posicao}º</TableCell>
-                    <TableCell>{l.nome}</TableCell>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+                        <UsuarioAvatar nome={l.nome} fotoUrl={l.foto_url} size={30} />
+                        {l.nome}
+                      </Box>
+                    </TableCell>
                     <TableCell align="right">{fmt(l.xp)}</TableCell>
                     <TableCell align="right">{fmt(l.plano ?? 0)}</TableCell>
                     <TableCell align="right">{fmt(l.iniciativa ?? 0)}</TableCell>

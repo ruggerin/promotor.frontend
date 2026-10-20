@@ -125,7 +125,7 @@ export const TELAS: DefTela[] = [
   {
     // docs/88 — recurso de plano: só aparece com `controle_xp_habilitado` na empresa.
     chave: 'regua_xp',
-    rotulo: 'Régua de XP',
+    rotulo: 'Régua de produtividade',
     grupo: 'Relatórios',
     libera: ['xp.visualizar'],
     ajuda: 'Possível × realizado, perdas, ranking e valor gerado (recurso do plano)',

@@ -78,6 +78,11 @@ function Configuracoes() {
   const pendentes = itens.filter(pendente);
   const invalidos = pendentes.filter((i) => erroDaEdicao(i, edicaoDe(i)) !== null);
 
+  // Pesos do XP da visita (docs/88 §5.1): os 6 somam 100, contando os que não mudaram.
+  const pesosXp = itens.filter((i) => i.grupo === 'composicao_xp');
+  const somaPesosXp = pesosXp.reduce((t, i) => t + (Number(edicaoDe(i).valor) || 0), 0);
+  const pesosXpErrados = pesosXp.some(pendente) && somaPesosXp !== 100;
+
   const salvar = useMutation({
     mutationFn: () => salvarConfiguracoesLote(pendentes.map((i) => paraAlteracao(i, edicaoDe(i)))),
     onSuccess: (resposta) => {
@@ -203,7 +208,9 @@ function Configuracoes() {
                   Number(raioEdicao.valor) > 0 &&
                   Number(edicao.valor) <= Number(raioEdicao.valor)
                     ? `Igual ou abaixo do raio do check-in (${raioEdicao.valor} m): quem entra na borda do raio já aparece como "saiu da loja".`
-                    : null;
+                    : item.grupo === 'composicao_xp' && pesosXpErrados
+                      ? `Os pesos somam ${somaPesosXp}%; precisam dar 100%.`
+                      : null;
 
                 return (
                   <LinhaConfiguracao
@@ -238,11 +245,12 @@ function Configuracoes() {
             <strong>{pendentes.length}</strong> {pendentes.length === 1 ? 'configuração alterada' : 'configurações alteradas'}, ainda não{' '}
             {pendentes.length === 1 ? 'salva' : 'salvas'}.
             {invalidos.length > 0 && ' Corrija os campos em vermelho para salvar.'}
+            {pesosXpErrados && ` Os pesos do XP da visita somam ${somaPesosXp}%; ajuste para 100%.`}
           </Typography>
           <Button onClick={() => setEdicoes({})} disabled={salvar.isPending}>
             Descartar
           </Button>
-          <Button variant="contained" disabled={salvar.isPending || invalidos.length > 0} onClick={() => salvar.mutate()}>
+          <Button variant="contained" disabled={salvar.isPending || invalidos.length > 0 || pesosXpErrados} onClick={() => salvar.mutate()}>
             {salvar.isPending ? 'Salvando…' : 'Salvar alterações'}
           </Button>
         </Paper>
