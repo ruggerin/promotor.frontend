@@ -6,18 +6,20 @@ import {
   Box,
   Button,
   Checkbox,
+  CircularProgress,
   Drawer,
   FormControlLabel,
   IconButton,
   Paper,
   Typography,
 } from '@mui/material';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { LogoHorus } from '../components/LogoHorus';
-import { aceitarDocumentos, TITULO_DOCUMENTO, urlDocumento, versaoLegivel } from '../lib/api/documentosLegais';
+import { aceitarDocumentos, buscarTextoDocumento, TITULO_DOCUMENTO, urlDocumento, versaoLegivel } from '../lib/api/documentosLegais';
+import { TextoMarkdown } from '../components/TextoMarkdown';
 import { useAuth } from '../lib/auth/AuthContext';
 import type { DocumentoPendente, TipoDocumentoLegal } from '../types/api';
 
@@ -136,6 +138,11 @@ export function AceiteTermosPage() {
 
 function LeituraDocumento({ documento, onFechar }: { documento: DocumentoPendente; onFechar: () => void }) {
   const url = urlDocumento(documento.tipo as TipoDocumentoLegal, documento.versao);
+  const texto = useQuery({
+    queryKey: ['documentos-legais', documento.tipo, documento.versao],
+    queryFn: () => buscarTextoDocumento(documento.tipo as TipoDocumentoLegal, documento.versao),
+    staleTime: Infinity,
+  });
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -148,7 +155,16 @@ function LeituraDocumento({ documento, onFechar }: { documento: DocumentoPendent
           <CloseIcon />
         </IconButton>
       </Box>
-      <Box component="iframe" title={TITULO_DOCUMENTO[documento.tipo]} src={url} sx={{ flex: 1, border: 0, width: '100%' }} />
+      {/* Texto renderizado aqui mesmo: a página pública não abre em iframe em produção. */}
+      <Box sx={{ flex: 1, overflowY: 'auto', px: { xs: 2, md: 4 }, py: 3 }}>
+        {texto.isLoading && <CircularProgress size={28} />}
+        {texto.isError && (
+          <Alert severity="warning">
+            Não foi possível carregar o texto aqui. Use “Abrir em nova aba” para ler.
+          </Alert>
+        )}
+        {texto.data && <TextoMarkdown conteudo={texto.data.conteudo} />}
+      </Box>
     </Box>
   );
 }
