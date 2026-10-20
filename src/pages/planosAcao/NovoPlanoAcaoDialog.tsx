@@ -44,36 +44,60 @@ const ETAPAS_SUGERIDAS = ['Comunicar o responsável', 'Visita/ação na loja', '
 
 type Vinculo = 'nenhum' | 'loja' | 'rede';
 
+// Plano livre já pré-preenchido por quem abriu (ex.: ocorrência da régua de XP, docs/88 §8).
+export interface SugestaoPlano {
+  titulo: string;
+  descricao?: string | null;
+  pontoVendaUuid?: string | null;
+}
+
 // Abre um Plano de Ação — a partir de um alerta do Painel de Atividades (`alerta` preenchido,
 // loja herdada dele) ou livre, pela tela de Planos de Ação, opcionalmente ligado a uma loja OU
 // uma rede (docs/37-PLANOS-DE-ACAO.md §4.2). Ao criar, leva direto pro detalhe do plano.
 export function NovoPlanoAcaoDialog({
   open,
   alerta = null,
+  sugestao = null,
+  onCriado,
   onClose,
 }: {
   open: boolean;
   alerta?: AlertaOrigem | null;
+  sugestao?: SugestaoPlano | null;
+  /** Com ele, fica na tela de quem abriu em vez de ir pro detalhe do plano. */
+  onCriado?: (planoId: string) => void;
   onClose: () => void;
 }) {
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       {/* Só monta aberto: cada abertura começa com o formulário limpo/pré-preenchido de novo. */}
-      {open && <FormularioPlano key={alerta?.registroUuid ?? 'livre'} alerta={alerta} onClose={onClose} />}
+      {open && (
+        <FormularioPlano key={alerta?.registroUuid ?? sugestao?.titulo ?? 'livre'} alerta={alerta} sugestao={sugestao} onCriado={onCriado} onClose={onClose} />
+      )}
     </Dialog>
   );
 }
 
-function FormularioPlano({ alerta, onClose }: { alerta: AlertaOrigem | null; onClose: () => void }) {
+function FormularioPlano({
+  alerta,
+  sugestao,
+  onCriado,
+  onClose,
+}: {
+  alerta: AlertaOrigem | null;
+  sugestao: SugestaoPlano | null;
+  onCriado?: (planoId: string) => void;
+  onClose: () => void;
+}) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [titulo, setTitulo] = useState(() =>
-    alerta ? [alerta.tipo, alerta.produto, alerta.pontoVenda].filter(Boolean).join(' — ') : '',
+    alerta ? [alerta.tipo, alerta.produto, alerta.pontoVenda].filter(Boolean).join(' — ') : (sugestao?.titulo ?? ''),
   );
-  const [descricao, setDescricao] = useState(alerta?.observacao ?? '');
+  const [descricao, setDescricao] = useState(alerta?.observacao ?? sugestao?.descricao ?? '');
   const [prazo, setPrazo] = useState('');
-  const [vinculo, setVinculo] = useState<Vinculo>('nenhum');
-  const [pontoVendaUuid, setPontoVendaUuid] = useState<string | null>(null);
+  const [vinculo, setVinculo] = useState<Vinculo>(sugestao?.pontoVendaUuid ? 'loja' : 'nenhum');
+  const [pontoVendaUuid, setPontoVendaUuid] = useState<string | null>(sugestao?.pontoVendaUuid ?? null);
   const [redeLojaUuid, setRedeLojaUuid] = useState<string | null>(null);
   // Plano de alerta já sugere o fluxo de ruptura; plano livre começa com uma etapa em branco.
   const [etapas, setEtapas] = useState<EtapaForm[]>(() =>
@@ -114,7 +138,8 @@ function FormularioPlano({ alerta, onClose }: { alerta: AlertaOrigem | null; onC
       void queryClient.invalidateQueries({ queryKey: ['atividades'] });
       void queryClient.invalidateQueries({ queryKey: ['planos-acao'] });
       onClose();
-      navigate(`/planos-acao/${data.plano_acao.id}`);
+      if (onCriado) onCriado(data.plano_acao.id);
+      else navigate(`/planos-acao/${data.plano_acao.id}`);
     },
     onError: (err) => {
       // Só um plano ativo por alerta (§5) — a API devolve o existente pra levar o usuário até ele.

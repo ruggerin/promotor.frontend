@@ -92,6 +92,12 @@ export const schema = z
     eh_ruptura: z.boolean(),
     eh_alerta: z.boolean(),
     usa_pontuacao: z.boolean(),
+    // Régua de XP (docs/88 §9.1) e avaliação do gestor (doc 33).
+    xp_iniciativa: z.number().int().min(0, 'Use 0 ou mais.').max(10000),
+    xp_bonus_acao: z.number().int().min(0, 'Use 0 ou mais.').max(10000),
+    xp_teto_por_visita: z.number().int().min(1, 'Use 1 ou mais (vazio = sem teto).').max(1000).nullable(),
+    xp_intervalo_dias: z.number().int().min(0, 'Use 0 ou mais dias.').max(365),
+    exige_avaliacao: z.boolean(),
     disponivel_registro_livre: z.boolean(),
     campos: z.array(campoSchema),
   })
@@ -211,6 +217,11 @@ export const DEFAULT_VALUES: FormData = {
   eh_ruptura: false,
   eh_alerta: false,
   usa_pontuacao: false,
+  xp_iniciativa: 0,
+  xp_bonus_acao: 0,
+  xp_teto_por_visita: null,
+  xp_intervalo_dias: 0,
+  exige_avaliacao: false,
   disponivel_registro_livre: true,
   campos: [],
 };
@@ -322,6 +333,11 @@ export function formDoTipo(tipo: TipoRegistro): FormData {
     eh_ruptura: tipo.eh_ruptura,
     eh_alerta: tipo.eh_alerta,
     usa_pontuacao: tipo.usa_pontuacao,
+    xp_iniciativa: tipo.xp_iniciativa ?? 0,
+    xp_bonus_acao: tipo.xp_bonus_acao ?? 0,
+    xp_teto_por_visita: tipo.xp_teto_por_visita ?? null,
+    xp_intervalo_dias: tipo.xp_intervalo_dias ?? 0,
+    exige_avaliacao: tipo.exige_avaliacao ?? false,
     disponivel_registro_livre: tipo.disponivel_registro_livre,
     campos: tipo.campos.map((c) => campoDaApi(c, true)),
   };
@@ -370,6 +386,11 @@ export function payloadDoForm(d: FormData): TipoRegistroPayload {
     eh_ruptura: d.eh_ruptura,
     eh_alerta: d.eh_alerta,
     usa_pontuacao: d.usa_pontuacao,
+    xp_iniciativa: d.xp_iniciativa,
+    xp_bonus_acao: d.xp_bonus_acao,
+    xp_teto_por_visita: d.xp_teto_por_visita,
+    xp_intervalo_dias: d.xp_intervalo_dias,
+    exige_avaliacao: d.exige_avaliacao,
     disponivel_registro_livre: d.disponivel_registro_livre,
     campos: d.campos.map((c) => ({
       chave: c.chave,

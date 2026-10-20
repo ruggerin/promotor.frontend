@@ -25,6 +25,8 @@ export interface CriarEmpresaPayload {
   limite_pontos_venda?: number | null;
   limite_licencas?: number | null;
   pedidos_venda_habilitado?: boolean;
+  // Régua de XP (docs/88 §2.1) — recurso de plano.
+  controle_xp_habilitado?: boolean;
   // IANA — ausente = America/Sao_Paulo (docs/50 §4.3).
   fuso?: string;
   admin_nome: string;
@@ -48,6 +50,8 @@ export interface AtualizarEmpresaPayload {
   limite_pontos_venda?: number | null;
   limite_licencas?: number | null;
   pedidos_venda_habilitado?: boolean;
+  // Régua de XP (docs/88 §2.1) — recurso de plano.
+  controle_xp_habilitado?: boolean;
   fuso?: string;
   ativo?: boolean;
 }

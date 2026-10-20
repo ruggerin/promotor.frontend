@@ -1,3 +1,4 @@
+import { useAuth } from '../../../lib/auth/AuthContext';
 import AddIcon from '@mui/icons-material/Add';
 import CheckIcon from '@mui/icons-material/Check';
 import CloseIcon from '@mui/icons-material/Close';
@@ -960,6 +961,7 @@ function ExcecoesPorSecao({ control }: { control: Control<FormData> }) {
 
 
 export function SecaoAvancado({ control }: { control: Control<FormData> }) {
+  const { usuario } = useAuth();
   return (
     <Box>
       {OPCOES_AVANCADAS.map((o, i) => (
@@ -982,6 +984,83 @@ export function SecaoAvancado({ control }: { control: Control<FormData> }) {
           )}
         />
       ))}
+      {usuario?.empresa?.avaliacao_formulario_habilitada && (
+        <Controller
+          name="exige_avaliacao"
+          control={control}
+          render={({ field }) => (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, py: 1.75, borderTop: 1, borderColor: 'divider' }}>
+              <Box sx={{ flex: 1 }}>
+                <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                  Exige avaliação do gestor
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  O registro entra na fila de avaliação. Com a régua de XP, só conta XP depois de aprovado.
+                </Typography>
+              </Box>
+              <Switch checked={field.value} onChange={(e) => field.onChange(e.target.checked)} />
+            </Box>
+          )}
+        />
+      )}
+      {usuario?.empresa?.controle_xp_habilitado && <XpDoFormulario control={control} />}
+    </Box>
+  );
+}
+
+// Régua de XP (docs/88 §9): XP de iniciativa — ação ou informação fora do plano que ajuda o
+// cliente a vender. Pontua só em visita de OS, com a visita completa.
+function XpDoFormulario({ control }: { control: Control<FormData> }) {
+  const numero = (nome: 'xp_iniciativa' | 'xp_bonus_acao' | 'xp_intervalo_dias', rotulo: string, ajuda: string, unidade: string) => (
+    <Controller
+      name={nome}
+      control={control}
+      render={({ field, fieldState }) => (
+        <TextField
+          size="small"
+          type="number"
+          label={rotulo}
+          value={Number.isNaN(field.value) ? '' : field.value}
+          onChange={(e) => field.onChange(e.target.value === '' ? 0 : Number(e.target.value))}
+          error={!!fieldState.error}
+          helperText={fieldState.error?.message ?? ajuda}
+          slotProps={{ htmlInput: { min: 0, step: 1 }, input: { endAdornment: <InputAdornment position="end">{unidade}</InputAdornment> } }}
+          sx={{ bgcolor: 'background.paper' }}
+        />
+      )}
+    />
+  );
+  return (
+    <Box sx={{ py: 1.75, borderTop: 1, borderColor: 'divider' }}>
+      <Typography variant="body2" sx={{ fontWeight: 700 }}>
+        XP de iniciativa
+      </Typography>
+      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5 }}>
+        Ponto extra, expositor, validade próxima, estoque baixo, ruptura. Só pontua em visita da agenda e com a visita completa. Para
+        conquista, o recomendado é foto obrigatória e avaliação do gestor. 0 = não gera XP.
+      </Typography>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+        {numero('xp_iniciativa', 'XP por registro', 'Na ruptura do Mix, por produto ausente', 'XP')}
+        {numero('xp_bonus_acao', 'Bônus quando vira ação', 'Plano de ação ou alerta resolvido como procedente', 'XP')}
+        <Controller
+          name="xp_teto_por_visita"
+          control={control}
+          render={({ field, fieldState }) => (
+            <TextField
+              size="small"
+              type="number"
+              label="Máximo por visita"
+              value={field.value ?? ''}
+              onChange={(e) => field.onChange(e.target.value === '' ? null : Number(e.target.value))}
+              error={!!fieldState.error}
+              helperText={fieldState.error?.message ?? 'Vazio = sem teto'}
+              slotProps={{ htmlInput: { min: 1, step: 1 }, input: { endAdornment: <InputAdornment position="end">registros</InputAdornment> } }}
+              sx={{ bgcolor: 'background.paper' }}
+            />
+          )}
+        />
+        {numero('xp_intervalo_dias', 'Mesmo produto na loja pontua a cada', 'Antiduplicata. 0 = sempre', 'dias')}
+      </Box>
     </Box>
   );
 }

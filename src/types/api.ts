@@ -31,6 +31,11 @@ export type Permissao =
   // Regras de visita (docs/74): restringem quem tem a marca, em vez de liberar.
   | 'visitas.exigir_agenda'
   | 'visitas.exigir_sequencia'
+  // Régua de XP (docs/88): ver a régua da operação e gerenciar (classes de loja, ocorrências).
+  | 'xp.visualizar'
+  | 'xp.gerenciar'
+  // Avaliação de formulário pelo gestor (doc 33 / docs/88 §10).
+  | 'formularios.avaliar'
   // Acesso a tela (docs/64) — ver lib/acesso/telas.ts.
   | 'tela.operacao_dia'
   | 'tela.atividades'
@@ -104,6 +109,11 @@ export interface Empresa {
   limite_licencas: number | null;
   // Módulo pago Pedido de Venda — só SUPERADMIN edita (docs/38-PEDIDO-VENDEDOR.md §12).
   pedidos_venda_habilitado: boolean;
+  // Régua de XP (docs/88 §2.1) — recurso de plano, só SUPERADMIN liga.
+  controle_xp_habilitado?: boolean;
+  xp?: { visivel_promotor: boolean; pendente_visivel_promotor: boolean; ranking_habilitado: boolean };
+  // Avaliação de formulário pelo gestor (doc 33) — parâmetro AVALIACAO_FORMULARIO_HABILITADA.
+  avaliacao_formulario_habilitada?: boolean;
   // Fuso (IANA) que define o corte de "dia" da empresa — docs/50 §4.3.
   fuso: string;
   ativo: boolean;
@@ -313,6 +323,8 @@ export interface Usuario {
   // Só tem valor pra user_type PROMOTOR — nome do perfil de custo, nunca os valores (que
   // exigem a permissão centros_custo.gerenciar). Ver docs/08-CENTRO-DE-CUSTO.md.
   centro_custo?: { id: string; descricao: string } | null;
+  // Equipe do supervisor (régua de XP, docs/88 §11).
+  supervisor?: { id: string; nome: string } | null;
   // Licença do app mobile atribuída pelo ADMIN, qualquer tipo (docs/67 §3).
   licenca_mobile?: boolean;
   // Aparelho vinculado agora ao app (1 por usuário, docs/67 §4). null quando não há.
@@ -366,6 +378,9 @@ export interface PontoVenda {
   fachada_url: string | null;
   rede_loja: { id: string; descricao: string } | null;
   ramo_atividade: { id: string; descricao: string } | null;
+  // Classe da régua de XP (docs/88 §4): null = usa a padrão da empresa.
+  classe?: ClasseLojaResumo | null;
+  classe_sugerida?: ClasseLojaResumo | null;
   // Promotores atribuídos a esta loja (regra de negócio 6, ver docs/02-API-BACKEND.md) — vazio
   // quando ninguém foi atribuído ainda (a loja fica visível a todos os promotores da empresa).
   promotores: { id: string; nome: string }[];
@@ -528,6 +543,8 @@ export interface RamoAtividade {
 export interface MotivoResolucaoAlerta {
   id: string;
   descricao: string;
+  // Resolver com este motivo conta como informação que virou ação (régua de XP, docs/88 §9.2).
+  procedente?: boolean;
   ativo: boolean;
   created_at: string;
   updated_at: string;
@@ -680,6 +697,12 @@ export interface TipoRegistro {
   eh_alerta: boolean;
   // Fase 3 de docs/20-FORMULARIO-DINAMICO-CAMPANHA.md (decisões 5 e 8).
   usa_pontuacao: boolean;
+  // Régua de XP (docs/88 §9.1) e avaliação do gestor (doc 33).
+  xp_iniciativa?: number;
+  xp_bonus_acao?: number;
+  xp_teto_por_visita?: number | null;
+  xp_intervalo_dias?: number;
+  exige_avaliacao?: boolean;
   disponivel_registro_livre: boolean;
   campos: CampoTipoRegistro[];
   empresa?: Empresa;
@@ -821,6 +844,8 @@ export interface VisitaRegistro {
   // catálogo (alerta_motivo null quando o motivo foi só texto livre).
   alerta_motivo: { id: string; descricao: string } | null;
   alerta_motivo_texto: string | null;
+  // Avaliação do gestor (doc 33): null = não passa por avaliação.
+  avaliacao?: { status: StatusAvaliacao; motivo: string | null; em: string | null } | null;
   // Plano de Ação em andamento nascido deste alerta — só vem no feed do Painel de Atividades
   // (docs/37-PLANOS-DE-ACAO.md §5).
   plano_acao_ativo?: { id: string; status: StatusPlanoAcao } | null;
@@ -1130,6 +1155,10 @@ export interface MotivoNaoExecucao {
 
 export interface OrdemServico {
   id: string;
+  // Régua de XP (docs/88 §6): congelados quando a OS nasceu.
+  xp_previsto?: number | null;
+  duracao_prevista_minutos?: number | null;
+  classe?: ClasseLojaResumo | null;
   ponto_venda?: { id: string; fantasia: string };
   usuario: { id: string; nome: string } | null;
   origem: OrigemOrdemServico;
@@ -1383,3 +1412,194 @@ export type ListaRecorte = 'PRIMEIRO_DA_LOJA' | 'SO_DA_LOJA';
 export type AoContinuarAcompanhamento = 'CONFIRMA' | 'FORMULARIO_PREENCHIDO' | 'FORMULARIO_CEGO';
 export type SituacaoAcompanhamento = 'ABERTO' | 'ENCERRADO' | 'EXPIRADO' | 'SUBSTITUIDO' | 'ENCERRADO_PELO_GESTOR' | 'CANCELADO';
 export type RespostaAcompanhamento = 'CONTINUA' | 'ACABOU' | 'NAO_CONSEGUI_VER';
+
+// ---- Régua de performance com XP (docs/88) ----
+
+export type StatusAvaliacao = 'PENDENTE' | 'APROVADO' | 'REPROVADO';
+
+export interface ClasseLojaResumo {
+  id?: string;
+  nome: string;
+  icone: string | null;
+  cor: string | null;
+  xp_base?: number;
+}
+
+export interface ClasseLoja {
+  id: string;
+  nome: string;
+  icone: string | null;
+  cor: string | null;
+  xp_base: number;
+  duracao_padrao_minutos: number;
+  eh_padrao: boolean;
+  ordem: number;
+  ativo: boolean;
+  lojas: number | null;
+}
+
+export interface SugestaoClasse {
+  ponto_venda: { id: string; fantasia: string };
+  atual: ClasseLojaResumo | null;
+  sugerida: ClasseLojaResumo;
+}
+
+export interface PerdaXp {
+  categoria: string;
+  rotulo: string;
+  xp: number;
+  visitas: number;
+  percentual: number;
+}
+
+export interface PromotorXp {
+  usuario: { id: string; nome: string };
+  possivel: number;
+  realizado: number;
+  aproveitamento: number | null;
+  iniciativa: number;
+  pendente: number;
+  visitas_previstas: number;
+  visitas_feitas: number;
+  ofensiva: number;
+}
+
+export interface ItemFilaAvaliacao {
+  id: string;
+  visita_id: string | null;
+  formulario: string | null;
+  loja: string | null;
+  promotor: string | null;
+  criado_em: string;
+  xp: number;
+}
+
+export interface ReguaXp {
+  periodo: { tipo: 'dia' | 'semana'; inicio: string; fim: string };
+  congelado_em: string;
+  modo_previa: boolean;
+  promotores_no_escopo: number;
+  promotores_com_os: number;
+  visitas_previstas: number;
+  kpis: {
+    possivel: number;
+    realizado: number;
+    aproveitamento: number | null;
+    iniciativa: number;
+    pendente: number;
+    aguardando_avaliacao: number;
+  };
+  perdas: PerdaXp[];
+  promotores: PromotorXp[];
+  fila_avaliacao: ItemFilaAvaliacao[];
+}
+
+export interface ClassificacaoOcorrencia {
+  justificada: boolean;
+  causa: { id: string; descricao: string } | null;
+  comentario: string | null;
+  plano_acao: { id: string; titulo: string } | null;
+  por: string | null;
+  em: string;
+}
+
+export interface OcorrenciaXp {
+  id: string;
+  categoria: string;
+  rotulo: string;
+  xp: number;
+  dia: string;
+  promotor: { id: string; nome: string } | null;
+  loja: { id: string; fantasia: string } | null;
+  classe: ClasseLojaResumo | null;
+  ordem_servico_id: string | null;
+  visita_id: string | null;
+  responsavel_nao_execucao: string | null;
+  motivo_nao_execucao: string | null;
+  classificacao: ClassificacaoOcorrencia | null;
+}
+
+export interface SemanaXp {
+  semana_inicio: string;
+  possivel: number;
+  realizado: number;
+  aproveitamento: number | null;
+}
+
+export interface PlanejamentoXp {
+  semana_inicio: string;
+  os_total: number;
+  os_com_dia_e_horario: number | null;
+  duracao_revisada: number | null;
+  perdas_responsavel_empresa: number | null;
+  carga_mais_desequilibrada: { promotor: string | null; percentual: number } | null;
+}
+
+export interface ValorGeradoXp {
+  mes: string;
+  formularios: { formulario: { id: string; descricao: string } | null; registros: number; viraram_acao: number; xp: number }[];
+  total_registros: number;
+  total_viraram_acao: number;
+  planos_de_ocorrencias: number;
+}
+
+export interface LinhaRanking {
+  posicao: number;
+  nome: string;
+  xp: number;
+  eu: boolean;
+  plano?: number;
+  iniciativa?: number;
+  possivel?: number;
+  visitas_completas?: number;
+}
+
+export interface RankingXp {
+  semana_inicio: string;
+  fechada: boolean;
+  fecha_em: string | null;
+  grupo: string;
+  minimo_visitas: number;
+  participantes: number;
+  linhas: LinhaRanking[];
+  escondidos: number;
+}
+
+export interface ParteXp {
+  parte: string;
+  rotulo: string;
+  ganho: number;
+  maximo: number;
+  pendente: number;
+  explicacao: string;
+}
+
+export interface PontuacaoVisitaXp {
+  visita_id: string;
+  loja: string | null;
+  quando: string | null;
+  dia: string | null;
+  classe: ClasseLojaResumo | null;
+  possivel: number;
+  total: number;
+  faltou: number;
+  completa: boolean;
+  partes: ParteXp[];
+  iniciativas: { registro_id: number; descricao: string; pontos: number; situacao: string }[];
+  ajustes: { pontos: number; motivo: string | null; por: string | null; em: string }[];
+  fora_da_agenda: boolean;
+}
+
+export interface RegistroParaAvaliar {
+  id: string;
+  visita_id: string | null;
+  formulario: { id: string; descricao: string } | null;
+  produto: string | null;
+  loja: { id: string; fantasia: string } | null;
+  promotor: { id: string; nome: string } | null;
+  criado_em: string;
+  idade_dias: number | null;
+  xp: number;
+  fotos: number;
+  avaliacao: { status: StatusAvaliacao; motivo: string | null; por: string | null; em: string | null };
+}

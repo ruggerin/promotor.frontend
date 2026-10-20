@@ -21,6 +21,8 @@ import { z } from 'zod';
 import { UFS } from '../../lib/uf';
 import { atualizarPontoVenda, criarPontoVenda } from '../../lib/api/pontosVenda';
 import { listarRamosAtividade } from '../../lib/api/ramosAtividade';
+import { listarClasses } from '../../lib/api/xp';
+import { useAuth } from '../../lib/auth/AuthContext';
 import { listarRedesLojas } from '../../lib/api/redesLojas';
 import { FUSOS_BRASIL } from '../../lib/fusos';
 import type { PontoVenda } from '../../types/api';
@@ -49,6 +51,8 @@ const schema = z.object({
   email: z.union([z.literal(''), z.string().email('E-mail inválido')]),
   rede_loja_uuid: z.string().nullable(),
   ramo_atividade_uuid: z.string().nullable(),
+  // Classe da régua de XP (docs/88 §4); null = a padrão da empresa.
+  classe_uuid: z.string().nullable(),
   numero_checkouts: z
     .string()
     .refine((v) => v === '' || (!Number.isNaN(Number(v)) && Number(v) >= 0), 'Deve ser um número positivo'),
@@ -76,6 +80,7 @@ const DEFAULT_VALUES: PontoVendaFormData = {
   email: '',
   rede_loja_uuid: null,
   ramo_atividade_uuid: null,
+  classe_uuid: null,
   numero_checkouts: '',
   fuso: '',
   ativo: true,
@@ -96,6 +101,13 @@ export function PontoVendaFormDialog({ open, pontoVenda, onClose }: PontoVendaFo
     queryKey: ['redes-lojas'],
     queryFn: () => listarRedesLojas(),
     enabled: open,
+  });
+  const { usuario } = useAuth();
+  const xpHabilitado = Boolean(usuario?.empresa?.controle_xp_habilitado);
+  const classesQuery = useQuery({
+    queryKey: ['classes-loja', 'ativas'],
+    queryFn: () => listarClasses(true),
+    enabled: open && xpHabilitado,
   });
   const ramosAtividadeQuery = useQuery({
     queryKey: ['ramos-atividade'],
@@ -136,6 +148,7 @@ export function PontoVendaFormDialog({ open, pontoVenda, onClose }: PontoVendaFo
               email: pontoVenda.email ?? '',
               rede_loja_uuid: pontoVenda.rede_loja?.id ?? null,
               ramo_atividade_uuid: pontoVenda.ramo_atividade?.id ?? null,
+              classe_uuid: pontoVenda.classe?.id ?? null,
               numero_checkouts: pontoVenda.numero_checkouts === null ? '' : String(pontoVenda.numero_checkouts),
               fuso: pontoVenda.fuso ?? '',
               ativo: pontoVenda.ativo,
@@ -164,6 +177,7 @@ export function PontoVendaFormDialog({ open, pontoVenda, onClose }: PontoVendaFo
         email: data.email || null,
         rede_loja_uuid: data.rede_loja_uuid,
         ramo_atividade_uuid: data.ramo_atividade_uuid,
+        ...(xpHabilitado ? { classe_uuid: data.classe_uuid } : {}),
         numero_checkouts: data.numero_checkouts === '' ? null : Number(data.numero_checkouts),
         fuso: data.fuso || null,
       };
@@ -488,6 +502,30 @@ export function PontoVendaFormDialog({ open, pontoVenda, onClose }: PontoVendaFo
           />
           {/* Horário marcado desta loja (visita prevista, atendimento semanal) — docs/50 §4.2. Só
               muda algo pra loja fora do fuso da empresa. */}
+          {xpHabilitado && (
+            <Controller
+              name="classe_uuid"
+              control={control}
+              render={({ field }) => (
+                <TextField
+                  select
+                  label="Classe de loja (régua de XP)"
+                  margin="normal"
+                  fullWidth
+                  value={field.value ?? ''}
+                  onChange={(e) => field.onChange(e.target.value || null)}
+                  helperText="Quanto vale uma visita aqui. Vazio = classe padrão. Vale para as OS criadas daqui pra frente."
+                >
+                  <MenuItem value="">Padrão da empresa</MenuItem>
+                  {(classesQuery.data ?? []).map((c) => (
+                    <MenuItem key={c.id} value={c.id}>
+                      {c.nome} · {c.xp_base.toLocaleString('pt-BR')} XP
+                    </MenuItem>
+                  ))}
+                </TextField>
+              )}
+            />
+          )}
           <Controller
             name="fuso"
             control={control}

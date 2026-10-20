@@ -45,6 +45,7 @@ import { UsuarioAvatar } from '../../components/UsuarioAvatar';
 import { apiClient } from '../../lib/api/client';
 import { atrasoEnvioMinutos, textoAtrasoEnvio } from '../../lib/atrasoEnvio';
 import { useAuth } from '../../lib/auth/AuthContext';
+import { PontuacaoVisitaCard } from '../reguaXp/PontuacaoVisitaCard';
 import {
   buscarVisita,
   cancelarVisita,
@@ -907,6 +908,10 @@ export function VisitaDetailPage() {
               cor={nRupturas > 0 ? 'error' : undefined}
             />
           </Box>
+          {/* Régua de XP (docs/88) — só com o recurso de plano e visita finalizada de OS. */}
+          {usuario?.empresa?.controle_xp_habilitado && visita.ordem_servico && visita.status === 'FINALIZADA' && (
+            <PontuacaoVisitaCard visitaId={visita.id} cardSx={CARD_SX} />
+          )}
         </Box>
       </Box>
 

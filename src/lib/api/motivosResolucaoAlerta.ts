@@ -21,6 +21,7 @@ export async function listarMotivosResolucaoAlerta(
 export interface MotivoResolucaoAlertaPayload {
   descricao: string;
   ativo?: boolean;
+  procedente?: boolean;
 }
 
 export async function criarMotivoResolucaoAlerta(

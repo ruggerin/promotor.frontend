@@ -111,6 +111,12 @@ export interface TipoRegistroPayload {
   excecoes_granularidade?: { secao_uuid: string; granularidade: GranularidadeResposta }[];
   eh_ruptura?: boolean;
   eh_alerta?: boolean;
+  // Régua de XP (docs/88 §9.1) e avaliação do gestor (doc 33).
+  xp_iniciativa?: number;
+  xp_bonus_acao?: number;
+  xp_teto_por_visita?: number | null;
+  xp_intervalo_dias?: number;
+  exige_avaliacao?: boolean;
   // Fase 3 de docs/20-FORMULARIO-DINAMICO-CAMPANHA.md (decisões 5 e 8).
   usa_pontuacao?: boolean;
   disponivel_registro_livre?: boolean;

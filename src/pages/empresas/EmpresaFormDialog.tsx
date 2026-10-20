@@ -43,6 +43,7 @@ function buildSchema(modoEdicao: boolean) {
       limite_pontos_venda: z.string(),
       limite_licencas: z.string(),
       pedidos_venda_habilitado: z.boolean(),
+      controle_xp_habilitado: z.boolean(),
       fuso: z.string().min(1, 'Obrigatório'),
       ativo: z.boolean(),
       admin_nome: z.string(),
@@ -138,6 +139,7 @@ export function EmpresaFormDialog({ open, empresa, onClose }: EmpresaFormDialogP
       limite_pontos_venda: '',
       limite_licencas: '',
       pedidos_venda_habilitado: false,
+      controle_xp_habilitado: false,
       fuso: FUSO_PADRAO,
       ativo: true,
       admin_nome: '',
@@ -162,6 +164,7 @@ export function EmpresaFormDialog({ open, empresa, onClose }: EmpresaFormDialogP
               limite_pontos_venda: empresa.limite_pontos_venda?.toString() ?? '',
               limite_licencas: empresa.limite_licencas?.toString() ?? '',
               pedidos_venda_habilitado: empresa.pedidos_venda_habilitado,
+              controle_xp_habilitado: Boolean(empresa.controle_xp_habilitado),
               fuso: empresa.fuso ?? FUSO_PADRAO,
               ativo: empresa.ativo,
               admin_nome: '',
@@ -177,6 +180,7 @@ export function EmpresaFormDialog({ open, empresa, onClose }: EmpresaFormDialogP
               limite_pontos_venda: '',
               limite_licencas: '',
               pedidos_venda_habilitado: false,
+              controle_xp_habilitado: false,
               fuso: FUSO_PADRAO,
               ativo: true,
               admin_nome: '',
@@ -203,6 +207,7 @@ export function EmpresaFormDialog({ open, empresa, onClose }: EmpresaFormDialogP
           limite_pontos_venda: limitePontosVenda,
           limite_licencas: limiteLicencas,
           pedidos_venda_habilitado: data.pedidos_venda_habilitado,
+          controle_xp_habilitado: data.controle_xp_habilitado,
           fuso: data.fuso,
           ativo: data.ativo,
         });
@@ -217,6 +222,7 @@ export function EmpresaFormDialog({ open, empresa, onClose }: EmpresaFormDialogP
         limite_pontos_venda: limitePontosVenda,
         limite_licencas: limiteLicencas,
         pedidos_venda_habilitado: data.pedidos_venda_habilitado,
+        controle_xp_habilitado: data.controle_xp_habilitado,
         fuso: data.fuso,
         admin_nome: data.admin_nome,
         admin_email: data.admin_email,
@@ -426,6 +432,20 @@ export function EmpresaFormDialog({ open, empresa, onClose }: EmpresaFormDialogP
                 sx={{ mt: 1, display: 'flex' }}
                 control={<Switch checked={field.value} onChange={(e) => field.onChange(e.target.checked)} />}
                 label="Pedido de Venda habilitado (módulo contratado — libera o modo Vendedor)"
+              />
+            )}
+          />
+
+          {/* Recurso de plano (docs/88 §2.1): a régua de XP. Ligar numa empresa sem classes de loja
+              cria as três de exemplo pra ela calibrar. */}
+          <Controller
+            name="controle_xp_habilitado"
+            control={control}
+            render={({ field }) => (
+              <FormControlLabel
+                sx={{ mt: 1, display: 'flex' }}
+                control={<Switch checked={field.value} onChange={(e) => field.onChange(e.target.checked)} />}
+                label="Régua de XP habilitada (recurso do plano — começa em modo prévia, só o gestor vê)"
               />
             )}
           />

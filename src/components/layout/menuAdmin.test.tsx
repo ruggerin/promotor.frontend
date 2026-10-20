@@ -22,7 +22,9 @@ function usuario(user_type: Usuario['user_type'], extra: Partial<Usuario> = {}):
   } as Usuario;
 }
 
-const adminComTudo = usuario('ADMIN', { empresa: { pedidos_venda_habilitado: true } as Usuario['empresa'] });
+const adminComTudo = usuario('ADMIN', {
+  empresa: { pedidos_venda_habilitado: true, controle_xp_habilitado: true, avaliacao_formulario_habilitada: true } as Usuario['empresa'],
+});
 
 function caminhos(u: Usuario | null) {
   // "Suporte" não é rota (abre o painel do portal/e-mail) — fica fora da conferência de rotas.

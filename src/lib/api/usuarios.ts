@@ -49,6 +49,8 @@ export interface CriarUsuarioPayload {
   perfil_uuid?: string | null;
   // Só faz sentido pra PROMOTOR — ver docs/08-CENTRO-DE-CUSTO.md.
   centro_custo_uuid?: string | null;
+  // Equipe do supervisor (régua de XP, docs/88 §11).
+  supervisor_uuid?: string | null;
   // Só SUPERADMIN manda isso (escolhe em qual empresa criar) — obrigatório pra ele, proibido
   // pros outros, ver docs/02-API-BACKEND.md.
   empresa_uuid?: string;
@@ -68,6 +70,8 @@ export interface AtualizarUsuarioPayload {
   user_type?: UserType;
   perfil_uuid?: string | null;
   centro_custo_uuid?: string | null;
+  // Equipe do supervisor (régua de XP, docs/88 §11).
+  supervisor_uuid?: string | null;
   ativo?: boolean;
   licenca_mobile?: boolean;
 }

@@ -1,3 +1,5 @@
+import EmojiEventsIcon from '@mui/icons-material/EmojiEventsOutlined';
+import MilitaryTechIcon from '@mui/icons-material/MilitaryTechOutlined';
 import AccountTreeIcon from '@mui/icons-material/AccountTreeOutlined';
 import AltRouteIcon from '@mui/icons-material/AltRouteOutlined';
 import AssessmentIcon from '@mui/icons-material/AssessmentOutlined';
@@ -125,6 +127,7 @@ export function montarMenu(
         item('registros', { rotulo: 'Registros', caminho: '/registros', icone: <ChecklistIcon /> }), // docs/44
         item('registros', { rotulo: 'Galeria de registros', caminho: '/galeria-fotos', icone: <PhotoLibraryIcon /> }), // docs/23
         item('planos_acao', { rotulo: 'Planos de ação', caminho: '/planos-acao', icone: <TaskAltIcon /> }), // docs/37
+        item('avaliacoes', { rotulo: 'Avaliação de formulários', caminho: '/avaliacoes-formulario', icone: <FactCheckIcon /> }), // doc 33
         // docs/38 — módulo contratado.
         item('pedidos_venda', { rotulo: 'Pedidos de venda', caminho: '/pedidos-venda', icone: <ShoppingCartOutlinedIcon /> }, Boolean(usuario?.empresa?.pedidos_venda_habilitado)),
       ],
@@ -146,6 +149,7 @@ export function montarMenu(
       rotulo: 'Relatórios',
       itens: [
         item('relatorios', { rotulo: 'Relatórios', caminho: '/relatorios-personalizados', icone: <QueryStatsIcon /> }), // docs/60
+        item('regua_xp', { rotulo: 'Régua de XP', caminho: '/regua-xp', icone: <EmojiEventsIcon /> }), // docs/88
         item('relatorios', { rotulo: 'Cumprimento de visitas', caminho: '/relatorios/visitas-planejadas', icone: <AssessmentIcon /> }), // docs/28
         item('relatorios', { rotulo: 'Tempo na loja', caminho: '/relatorios/tempo-na-loja', icone: <TimerOutlinedIcon /> }), // docs/59
         item('relatorios', { rotulo: 'Coleta por formulário', caminho: '/relatorios/respostas-formulario', icone: <FactCheckIcon /> }),
@@ -165,6 +169,7 @@ export function montarMenu(
         item('catalogo', { rotulo: 'Catálogo (produtos)', caminho: '/catalogo', icone: <CategoryIcon /> }),
         item('catalogo', { rotulo: 'Planogramas', caminho: '/planogramas', icone: <GridViewIcon /> }),
         item('formularios', { rotulo: 'Formulários', caminho: '/tipos-registro', icone: <ListAltIcon /> }),
+        item('classes_loja', { rotulo: 'Classes de loja', caminho: '/classes-loja', icone: <MilitaryTechIcon /> }), // docs/88 §4
       ],
     },
     {

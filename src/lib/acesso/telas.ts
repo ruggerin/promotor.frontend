@@ -18,6 +18,9 @@ export type ChaveTela =
   | 'campanhas'
   | 'contratos'
   | 'relatorios'
+  | 'regua_xp'
+  | 'avaliacoes'
+  | 'classes_loja'
   | 'lojas'
   | 'catalogo'
   | 'formularios'
@@ -120,6 +123,23 @@ export const TELAS: DefTela[] = [
     ],
   },
   {
+    // docs/88 — recurso de plano: só aparece com `controle_xp_habilitado` na empresa.
+    chave: 'regua_xp',
+    rotulo: 'Régua de XP',
+    grupo: 'Relatórios',
+    libera: ['xp.visualizar'],
+    ajuda: 'Possível × realizado, perdas, ranking e valor gerado (recurso do plano)',
+    acoes: [{ valor: 'xp.gerenciar', rotulo: 'Classificar ocorrências e cadastrar as classes de loja' }],
+  },
+  {
+    // doc 33 — aparece com o parâmetro "Avaliação de formulário pelo gestor" ligado.
+    chave: 'avaliacoes',
+    rotulo: 'Avaliação de formulários',
+    grupo: 'Campo',
+    libera: ['formularios.avaliar'],
+    ajuda: 'Aprovar ou reprovar formulários marcados com "Exige avaliação"',
+  },
+  {
     chave: 'lojas',
     rotulo: 'Lojas, redes e ramos',
     grupo: 'Cadastros',
@@ -136,6 +156,7 @@ export const TELAS: DefTela[] = [
     acoes: [{ valor: 'catalogo.gerenciar', rotulo: 'Cadastrar e editar produtos, marcas, seções e planogramas' }],
   },
   { chave: 'formularios', rotulo: 'Formulários', grupo: 'Cadastros', libera: ['tela.formularios'], superadmin: true },
+  { chave: 'classes_loja', rotulo: 'Classes de loja (XP)', grupo: 'Cadastros', libera: ['xp.gerenciar'], ajuda: 'Quanto vale uma visita em cada tipo de loja (docs/88)' },
   { chave: 'usuarios', rotulo: 'Usuários', grupo: 'Equipe e acesso', libera: ['usuarios.gerenciar'], superadmin: true, ajuda: 'Ver e editar' },
   {
     chave: 'equipe_comercial',
@@ -178,6 +199,9 @@ export function podeVerTela(usuario: Usuario | null | undefined, chave: ChaveTel
   if (chave === 'manual') return true;
   if (chave === 'empresas') return usuario.user_type === 'SUPERADMIN';
   if (usuario.user_type === 'SUPERADMIN') return Boolean(tela.superadmin);
+  // Recurso de plano (docs/88) e parâmetro da empresa (doc 33): sem eles, a tela nem existe.
+  if ((chave === 'regua_xp' || chave === 'classes_loja') && !usuario.empresa?.controle_xp_habilitado) return false;
+  if (chave === 'avaliacoes' && !usuario.empresa?.avaliacao_formulario_habilitada) return false;
   if (usuario.user_type === 'ADMIN') return true;
   if (usuario.user_type !== 'GESTOR' || chave === 'perfis' || chave === 'licencas') return false;
   const permissoes = usuario.perfil?.permissoes ?? [];
@@ -193,4 +217,11 @@ export function telaDaAcao(acao: Permissao): Permissao | null {
     }
   }
   return null;
+}
+
+/** Ação (escrita) liberada: ADMIN sempre; GESTOR pelo perfil (espelha EnsurePermissao da API). */
+export function temAcao(usuario: Usuario | null | undefined, permissao: Permissao): boolean {
+  if (!usuario) return false;
+  if (usuario.user_type === 'ADMIN') return true;
+  return usuario.user_type === 'GESTOR' && (usuario.perfil?.permissoes ?? []).includes(permissao);
 }

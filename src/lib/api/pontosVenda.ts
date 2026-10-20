@@ -82,6 +82,8 @@ export interface PontoVendaPayload {
   email?: string | null;
   rede_loja_uuid?: string | null;
   ramo_atividade_uuid?: string | null;
+  // Classe da régua de XP (docs/88 §4); null = a padrão da empresa.
+  classe_uuid?: string | null;
   numero_checkouts?: number | null;
   // IANA; null = herda o fuso da empresa (docs/50 §4.2).
   fuso?: string | null;

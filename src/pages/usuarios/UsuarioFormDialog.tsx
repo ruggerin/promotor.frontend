@@ -24,6 +24,7 @@ import { listarEmpresasSuperadmin } from '../../lib/api/empresas';
 import { buscarAcessoApp } from '../../lib/api/licencas';
 import { listarPerfis } from '../../lib/api/perfis';
 import { atualizarUsuario, criarUsuario } from '../../lib/api/usuarios';
+import { listarSupervisores } from '../../lib/api/equipeComercial';
 import { useAuth } from '../../lib/auth/AuthContext';
 import type { UsoLicencas, Usuario, UserType } from '../../types/api';
 
@@ -46,6 +47,8 @@ function buildSchema(modoEdicao: boolean, isSuperadmin: boolean) {
       user_type: z.enum(['ADMIN', 'GESTOR', 'PROMOTOR']),
       perfil_uuid: z.string().nullable(),
       centro_custo_uuid: z.string().nullable(),
+      // Equipe do supervisor (régua de XP, docs/88 §11).
+      supervisor_uuid: z.string().nullable(),
       empresa_uuid: z.string().nullable(),
       ativo: z.boolean(),
       // Licença do app mobile, qualquer tipo (docs/67 §3).
@@ -108,6 +111,7 @@ export function UsuarioFormDialog({ open, usuario, onClose }: UsuarioFormDialogP
       user_type: 'PROMOTOR',
       perfil_uuid: null,
       centro_custo_uuid: null,
+      supervisor_uuid: null,
       empresa_uuid: null,
       ativo: true,
       licenca_mobile: true,
@@ -128,6 +132,7 @@ export function UsuarioFormDialog({ open, usuario, onClose }: UsuarioFormDialogP
               user_type: usuario.user_type === 'SUPERADMIN' ? 'ADMIN' : usuario.user_type,
               perfil_uuid: usuario.perfil?.id ?? null,
               centro_custo_uuid: usuario.centro_custo?.id ?? null,
+              supervisor_uuid: usuario.supervisor?.id ?? null,
               empresa_uuid: null,
               ativo: usuario.ativo,
               licenca_mobile: Boolean(usuario.licenca_mobile),
@@ -139,6 +144,7 @@ export function UsuarioFormDialog({ open, usuario, onClose }: UsuarioFormDialogP
               user_type: 'PROMOTOR',
               perfil_uuid: null,
               centro_custo_uuid: null,
+              supervisor_uuid: null,
               empresa_uuid: null,
               ativo: true,
               licenca_mobile: true,
@@ -181,6 +187,12 @@ export function UsuarioFormDialog({ open, usuario, onClose }: UsuarioFormDialogP
   // tiver essa permissão (dado financeiro, separada de usuarios.gerenciar), a lista vem vazia
   // e ele só consegue deixar sem centro de custo. Mesma limitação já aceita pro seletor de
   // promotor em OrdemServicoFormDialog.
+  const xpHabilitado = Boolean(usuarioLogado?.empresa?.controle_xp_habilitado);
+  const supervisoresQuery = useQuery({
+    queryKey: ['supervisores', 'opcoes'],
+    queryFn: () => listarSupervisores({ ativo: true }),
+    enabled: open && xpHabilitado && !isSuperadmin,
+  });
   const centrosCustoQuery = useQuery({
     queryKey: ['centros-custo'],
     queryFn: () => listarCentrosCusto({ ativo: true }),
@@ -212,6 +224,7 @@ export function UsuarioFormDialog({ open, usuario, onClose }: UsuarioFormDialogP
         if (!isSuperadmin) {
           payload.perfil_uuid = data.user_type === 'GESTOR' || data.user_type === 'PROMOTOR' ? data.perfil_uuid : null;
           payload.centro_custo_uuid = data.user_type === 'PROMOTOR' ? data.centro_custo_uuid : null;
+          if (xpHabilitado) payload.supervisor_uuid = data.user_type === 'PROMOTOR' ? data.supervisor_uuid : null;
         }
         if (data.senha) {
           payload.senha = data.senha;
@@ -226,6 +239,7 @@ export function UsuarioFormDialog({ open, usuario, onClose }: UsuarioFormDialogP
         user_type: data.user_type,
         perfil_uuid: data.user_type === 'GESTOR' || data.user_type === 'PROMOTOR' ? data.perfil_uuid : null,
         centro_custo_uuid: data.user_type === 'PROMOTOR' ? data.centro_custo_uuid : null,
+        supervisor_uuid: xpHabilitado && data.user_type === 'PROMOTOR' ? data.supervisor_uuid : null,
         empresa_uuid: isSuperadmin ? (data.empresa_uuid ?? undefined) : undefined,
         licenca_mobile: data.licenca_mobile,
       });
@@ -242,7 +256,7 @@ export function UsuarioFormDialog({ open, usuario, onClose }: UsuarioFormDialogP
           for (const [campo, mensagens] of Object.entries(errors)) {
             if (
               campo in
-              { nome: 1, email: 1, senha: 1, user_type: 1, perfil_uuid: 1, centro_custo_uuid: 1, empresa_uuid: 1, ativo: 1, licenca_mobile: 1 }
+              { nome: 1, email: 1, senha: 1, user_type: 1, perfil_uuid: 1, centro_custo_uuid: 1, supervisor_uuid: 1, empresa_uuid: 1, ativo: 1, licenca_mobile: 1 }
             ) {
               setError(campo as keyof UsuarioFormData, { message: mensagens[0] });
             }
@@ -432,6 +446,29 @@ export function UsuarioFormDialog({ open, usuario, onClose }: UsuarioFormDialogP
                   {centrosCustoQuery.data?.centros_custo.map((centroCusto) => (
                     <MenuItem key={centroCusto.id} value={centroCusto.id}>
                       {centroCusto.descricao}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              )}
+            />
+          )}
+          {userTypeAtual === 'PROMOTOR' && !isSuperadmin && xpHabilitado && (
+            <Controller
+              name="supervisor_uuid"
+              control={control}
+              render={({ field }) => (
+                <TextField
+                  value={field.value ?? ''}
+                  onChange={(e) => field.onChange(e.target.value || null)}
+                  select
+                  label="Equipe (supervisor)"
+                  fullWidth
+                  helperText="Grupo da liga semanal e da régua por equipe. Sem supervisor, compete com a empresa."
+                >
+                  <MenuItem value="">Sem equipe</MenuItem>
+                  {(supervisoresQuery.data?.supervisores ?? []).map((s) => (
+                    <MenuItem key={s.id} value={s.id}>
+                      {s.nome}
                     </MenuItem>
                   ))}
                 </TextField>

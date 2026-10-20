@@ -1,3 +1,6 @@
+import { AvaliacoesFormularioPage } from './pages/reguaXp/AvaliacoesFormularioPage';
+import { ClassesLojaPage } from './pages/reguaXp/ClassesLojaPage';
+import { ReguaXpPage } from './pages/reguaXp/ReguaXpPage';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { AppLayout } from './components/layout/AppLayout';
 import { RequireAuth } from './lib/auth/RequireAuth';
@@ -138,6 +141,10 @@ export function App() {
           <Route path="/empresas" element={<EmpresasListPage />} />
           <Route path="/empresas/:publicId" element={<EmpresaDetailPage />} />
           <Route path="/manual" element={<ManualPage />} />
+          {/* Régua de performance com XP (docs/88) e avaliação de formulário (doc 33). */}
+          <Route path="/regua-xp" element={<ReguaXpPage />} />
+          <Route path="/classes-loja" element={<ClassesLojaPage />} />
+          <Route path="/avaliacoes-formulario" element={<AvaliacoesFormularioPage />} />
         </Route>
       </Route>
 

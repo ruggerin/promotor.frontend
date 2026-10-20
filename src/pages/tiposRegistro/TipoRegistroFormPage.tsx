@@ -106,7 +106,7 @@ export function TipoRegistroFormPage() {
     }
     if (tipo) {
       reset(formDoTipo(tipo));
-      setAvancadoAberto(tipo.eh_ruptura || tipo.eh_alerta || tipo.usa_pontuacao);
+      setAvancadoAberto(tipo.eh_ruptura || tipo.eh_alerta || tipo.usa_pontuacao || (tipo.xp_iniciativa ?? 0) > 0 || Boolean(tipo.exige_avaliacao));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modoCriacao, tipo, reset]);

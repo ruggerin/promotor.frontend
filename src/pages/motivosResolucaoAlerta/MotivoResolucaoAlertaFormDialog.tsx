@@ -8,9 +8,10 @@ import { z } from 'zod';
 import { atualizarMotivoResolucaoAlerta, criarMotivoResolucaoAlerta } from '../../lib/api/motivosResolucaoAlerta';
 import type { MotivoResolucaoAlerta } from '../../types/api';
 
-const schema = z.object({ descricao: z.string().min(1, 'Obrigatório').max(255), ativo: z.boolean() });
+// `procedente`: resolver com este motivo conta como informação que virou ação (régua de XP, docs/88 §9.2).
+const schema = z.object({ descricao: z.string().min(1, 'Obrigatório').max(255), ativo: z.boolean(), procedente: z.boolean() });
 type FormData = z.infer<typeof schema>;
-const DEFAULT_VALUES: FormData = { descricao: '', ativo: true };
+const DEFAULT_VALUES: FormData = { descricao: '', ativo: true, procedente: false };
 
 interface MotivoResolucaoAlertaFormDialogProps {
   open: boolean;
@@ -34,7 +35,7 @@ export function MotivoResolucaoAlertaFormDialog({ open, motivo, onClose }: Motiv
   useEffect(() => {
     if (open) {
       setErroGeral(null);
-      reset(motivo ? { descricao: motivo.descricao, ativo: motivo.ativo } : DEFAULT_VALUES);
+      reset(motivo ? { descricao: motivo.descricao, ativo: motivo.ativo, procedente: Boolean(motivo.procedente) } : DEFAULT_VALUES);
     }
   }, [open, motivo, reset]);
 
@@ -43,7 +44,7 @@ export function MotivoResolucaoAlertaFormDialog({ open, motivo, onClose }: Motiv
       if (modoEdicao) {
         return atualizarMotivoResolucaoAlerta(motivo!.id, data);
       }
-      return criarMotivoResolucaoAlerta({ descricao: data.descricao });
+      return criarMotivoResolucaoAlerta({ descricao: data.descricao, procedente: data.procedente });
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['motivos-resolucao-alerta'] });
@@ -98,6 +99,17 @@ export function MotivoResolucaoAlertaFormDialog({ open, motivo, onClose }: Motiv
                 error={!!fieldState.error}
                 helperText={fieldState.error?.message}
                 autoFocus
+              />
+            )}
+          />
+          <Controller
+            name="procedente"
+            control={control}
+            render={({ field }) => (
+              <FormControlLabel
+                sx={{ mt: 1, display: 'flex' }}
+                control={<Switch checked={field.value} onChange={(e) => field.onChange(e.target.checked)} />}
+                label="Procedente: a informação do promotor virou ação (bônus de XP de iniciativa)"
               />
             )}
           />
