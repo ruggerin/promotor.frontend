@@ -11,6 +11,8 @@ const mapaFalso = {
   getZoom: () => 13,
   getContainer: () => document.createElement('div'),
   scrollWheelZoom: { enable: vi.fn(), disable: vi.fn() },
+  on: vi.fn(),
+  off: vi.fn(),
 };
 
 export function MapContainer({ children }: { children?: ReactNode }) {
@@ -27,6 +29,10 @@ export function Marker({ children }: { children?: ReactNode }) {
 
 export function Popup({ children }: { children?: ReactNode }) {
   return <div data-testid="popup">{children}</div>;
+}
+
+export function Circle({ pathOptions }: { pathOptions?: { color?: string } }) {
+  return <div data-testid="circulo" data-cor={pathOptions?.color} />;
 }
 
 export function Polyline({ pathOptions }: { pathOptions?: { color?: string; dashArray?: string } }) {

@@ -21,6 +21,24 @@ export function urlDocumento(tipo: TipoDocumentoLegal, versao?: string): string 
   return `${URL_SITE}/${SLUG[tipo]}${versao ? `?versao=${encodeURIComponent(versao)}` : ''}`;
 }
 
+export interface TextoDocumentoLegal {
+  tipo: TipoDocumentoLegal;
+  titulo: string;
+  versao: string;
+  publicado_em: string | null;
+  // Markdown.
+  conteudo: string;
+}
+
+/**
+ * O texto em si, pra mostrar dentro do admin. A página pública não pode ir num iframe: o proxy
+ * de homologação/produção manda a API recusar ser exibida dentro de outro site.
+ */
+export async function buscarTextoDocumento(tipo: TipoDocumentoLegal, versao?: string): Promise<TextoDocumentoLegal> {
+  const { data } = await apiClient.get<TextoDocumentoLegal>(`/documentos-legais/${SLUG[tipo]}`, { params: { versao } });
+  return data;
+}
+
 /** Registra o aceite das versões mostradas. 409 = publicaram versão nova com a tela aberta. */
 export async function aceitarDocumentos(documentos: DocumentoPendente[]): Promise<{ usuario: Usuario }> {
   const { data } = await apiClient.post<{ usuario: Usuario }>('/auth/me/aceites', { documentos });
