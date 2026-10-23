@@ -6,6 +6,9 @@ export interface RegistrosFiltros {
   produto_auditoria_uuid?: string;
   ponto_venda_uuid?: string;
   rede_loja_uuid?: string;
+  // Começo do código do cliente no ERP.
+  codigo_externo?: string;
+  vendedor_uuid?: string;
   data_inicio?: string;
   data_fim?: string;
   ruptura?: boolean;
@@ -16,6 +19,12 @@ export interface RegistrosFiltros {
 export interface RegistrosListResponse {
   registros: RegistroLista[];
   meta: PaginatedMeta;
+}
+
+// Opções do filtro de vendedor — rota própria, não exige vendedores.gerenciar.
+export async function listarVendedoresRegistros(): Promise<{ id: string; nome: string; codigo_externo: string | null }[]> {
+  const { data } = await apiClient.get<{ vendedores: { id: string; nome: string; codigo_externo: string | null }[] }>('/registros/vendedores');
+  return data.vendedores;
 }
 
 export async function listarRegistros(filtros: RegistrosFiltros = {}): Promise<RegistrosListResponse> {

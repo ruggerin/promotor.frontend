@@ -967,6 +967,9 @@ export interface RegistroLista {
   ponto_venda: {
     id: string;
     fantasia: string;
+    // Código do cliente no ERP e vendedores da loja (N:N, espelhados do ERP — docs/73).
+    codigo_externo?: string | null;
+    vendedores?: { id: string; nome: string }[];
     rede_loja: { id: string; descricao: string } | null;
   } | null;
   usuario: { id: string; nome: string } | null;

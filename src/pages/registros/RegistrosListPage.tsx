@@ -5,12 +5,12 @@ import { usePageHeader } from '../../components/layout/PageHeaderSlot';
 import { TituloComAtualizar } from '../../components/RefreshButton';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { createColumnHelper } from '@tanstack/react-table';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { DataTable } from '../../components/DataTable';
 import { listarPontosVenda } from '../../lib/api/pontosVenda';
 import { listarRedesLojas } from '../../lib/api/redesLojas';
-import { listarRegistros } from '../../lib/api/registros';
+import { listarRegistros, listarVendedoresRegistros } from '../../lib/api/registros';
 import { buscarVisita } from '../../lib/api/visitas';
 import { RegistroDetalheDialog } from '../../components/registros/RegistroDetalheDialog';
 import { listarTiposRegistro } from '../../lib/api/tiposRegistro';
@@ -58,6 +58,17 @@ function RegistrosAba() {
   const [dataInicio, setDataInicio] = useState('');
   const [dataFim, setDataFim] = useState('');
   const [status, setStatus] = useState<StatusFiltro>('');
+  // Código do cliente no ERP (digitado) e vendedor da loja.
+  const [codigoCliente, setCodigoCliente] = useState('');
+  const [codigoClienteBusca, setCodigoClienteBusca] = useState('');
+  const [vendedorFiltro, setVendedorFiltro] = useState<{ id: string; nome: string } | null>(null);
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setCodigoClienteBusca(codigoCliente.trim());
+      setPage(0);
+    }, 400);
+    return () => clearTimeout(t);
+  }, [codigoCliente]);
   const [alvoResolver, setAlvoResolver] = useState<AlvoResolucao | null>(null);
   const [alertaPlano, setAlertaPlano] = useState<AlertaOrigem | null>(null);
   // Registro aberto no diálogo (clicar na linha abre o REGISTRO, não a visita inteira).
@@ -66,11 +77,12 @@ function RegistrosAba() {
   const tiposRegistroQuery = useQuery({ queryKey: ['tipos-registro', 'filtro'], queryFn: () => listarTiposRegistro() });
   const pontosVendaQuery = useQuery({ queryKey: ['pontos-venda', 'filtro'], queryFn: () => listarPontosVenda() });
   const redesLojasQuery = useQuery({ queryKey: ['redes-lojas', 'filtro'], queryFn: () => listarRedesLojas() });
+  const vendedoresQuery = useQuery({ queryKey: ['registros', 'vendedores'], queryFn: listarVendedoresRegistros });
 
   const registrosQuery = useQuery({
     queryKey: [
       'registros',
-      { page, tipoRegistroFiltro, pontoVendaUuid, redeLojaUuid, dataInicio, dataFim, status, produtoFiltro, rupturaFiltro },
+      { page, tipoRegistroFiltro, pontoVendaUuid, redeLojaUuid, codigoClienteBusca, vendedorFiltro, dataInicio, dataFim, status, produtoFiltro, rupturaFiltro },
     ],
     queryFn: () =>
       listarRegistros({
@@ -78,6 +90,8 @@ function RegistrosAba() {
         tipo_registro_uuid: tipoRegistroFiltro?.id,
         ponto_venda_uuid: pontoVendaUuid ?? undefined,
         rede_loja_uuid: redeLojaUuid ?? undefined,
+        codigo_externo: codigoClienteBusca || undefined,
+        vendedor_uuid: vendedorFiltro?.id,
         data_inicio: dataInicio || undefined,
         data_fim: dataFim || undefined,
         alerta_status: status || undefined,
@@ -100,6 +114,11 @@ function RegistrosAba() {
         id: 'tipo_registro',
         header: 'Tipo',
         cell: (info) => <Chip label={info.getValue()} size="small" variant="outlined" />,
+      }),
+      coluna.accessor((r) => r.ponto_venda?.codigo_externo ?? '', {
+        id: 'codigo_cliente',
+        header: 'Cód. cliente',
+        cell: (info) => info.getValue() || '—',
       }),
       coluna.accessor((r) => r.ponto_venda?.fantasia ?? '', {
         id: 'ponto_venda',
@@ -134,6 +153,12 @@ function RegistrosAba() {
         id: 'usuario',
         header: 'Promotor',
         cell: (info) => info.getValue() || '—',
+      }),
+      coluna.accessor((r) => (r.ponto_venda?.vendedores ?? []).map((v) => v.nome).join(', '), {
+        id: 'vendedor',
+        header: 'Vendedor',
+        cell: (info) => info.getValue() || '—',
+        meta: { wrap: true },
       }),
       coluna.accessor((r) => r.status ?? '', {
         id: 'status',
@@ -255,6 +280,27 @@ function RegistrosAba() {
           renderInput={(params) => <TextField {...params} label="Rede" />}
         />
         <TextField
+          label="Cód. cliente (ERP)"
+          size="small"
+          sx={{ width: 160 }}
+          value={codigoCliente}
+          onChange={(e) => setCodigoCliente(e.target.value)}
+        />
+        <Autocomplete
+          size="small"
+          sx={{ width: 220 }}
+          options={vendedoresQuery.data ?? []}
+          getOptionLabel={(option) => (option.codigo_externo ? `${option.nome} (${option.codigo_externo})` : option.nome)}
+          isOptionEqualToValue={(a, b) => a.id === b.id}
+          loading={vendedoresQuery.isLoading}
+          value={vendedorFiltro ? { ...vendedorFiltro, codigo_externo: null } : null}
+          onChange={(_, value) => {
+            setPage(0);
+            setVendedorFiltro(value ? { id: value.id, nome: value.nome } : null);
+          }}
+          renderInput={(params) => <TextField {...params} label="Vendedor" />}
+        />
+        <TextField
           label="Data início"
           type="date"
           size="small"
@@ -298,8 +344,8 @@ function RegistrosAba() {
       <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
         <BotaoExportar
           rotina="registros"
-          filtros={{ tipo_registro_uuid: tipoRegistroFiltro?.id, ponto_venda_uuid: pontoVendaUuid, rede_loja_uuid: redeLojaUuid, data_inicio: dataInicio, data_fim: dataFim, alerta_status: status, produto_auditoria_uuid: produtoFiltro?.uuid, ruptura: rupturaFiltro || undefined }}
-          descricaoFiltros={[tipoRegistroFiltro && `Tipo: ${tipoRegistroFiltro.label}`, status && `Status: ${STATUS_LABELS[status]}`, produtoFiltro && `Produto: ${produtoFiltro.descricao}`, rupturaFiltro && 'Só rupturas', dataInicio && `De ${dataInicio}`, dataFim && `Até ${dataFim}`].filter(Boolean).join(' · ')}
+          filtros={{ tipo_registro_uuid: tipoRegistroFiltro?.id, ponto_venda_uuid: pontoVendaUuid, rede_loja_uuid: redeLojaUuid, codigo_externo: codigoClienteBusca || undefined, vendedor_uuid: vendedorFiltro?.id, data_inicio: dataInicio, data_fim: dataFim, alerta_status: status, produto_auditoria_uuid: produtoFiltro?.uuid, ruptura: rupturaFiltro || undefined }}
+          descricaoFiltros={[tipoRegistroFiltro && `Tipo: ${tipoRegistroFiltro.label}`, codigoClienteBusca && `Cód. cliente: ${codigoClienteBusca}`, vendedorFiltro && `Vendedor: ${vendedorFiltro.nome}`, status && `Status: ${STATUS_LABELS[status]}`, produtoFiltro && `Produto: ${produtoFiltro.descricao}`, rupturaFiltro && 'Só rupturas', dataInicio && `De ${dataInicio}`, dataFim && `Até ${dataFim}`].filter(Boolean).join(' · ')}
         />
       </Box>
 
