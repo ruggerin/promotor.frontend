@@ -538,7 +538,7 @@ export function OperacaoDoDiaPage() {
                 >
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: SITUACAO_COR[linha.status], flexShrink: 0 }} />
-                    <UsuarioAvatar nome={linha.usuario.nome} fotoUrl={linha.usuario.foto_url} size={28} />
+                    <UsuarioAvatar nome={linha.usuario.nome} fotoUrl={linha.usuario.foto_url} size={30}/>
                     <Box sx={{ minWidth: 0, flexGrow: 1 }}>
                       <Typography variant="body2" sx={{ fontWeight: 600 }} noWrap>
                         {linha.usuario.nome}
@@ -594,7 +594,7 @@ export function OperacaoDoDiaPage() {
                         <TableCell>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                             <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: SITUACAO_COR[linha.status], flexShrink: 0 }} />
-                            <UsuarioAvatar nome={linha.usuario.nome} fotoUrl={linha.usuario.foto_url} size={24} />
+                            <UsuarioAvatar nome={linha.usuario.nome} fotoUrl={linha.usuario.foto_url} size={36} />
                             <Box>
                               <Typography variant="body2">{linha.usuario.nome}</Typography>
                               <Typography variant="caption" color="text.secondary">{SITUACAO_LABEL[linha.status]}</Typography>
