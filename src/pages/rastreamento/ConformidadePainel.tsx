@@ -44,6 +44,9 @@ export function ConformidadePainel({
         </Typography>
         <Chip size="small" variant="outlined" label={`Exigência: ${EXIGENCIA[dados.exigencia] ?? dados.exigencia}`} />
         {dados.jornada && <Chip size="small" variant="outlined" label={`Jornada ${dados.jornada.inicio}–${dados.jornada.fim}`} />}
+        {dados.jornada?.intervalo && (
+          <Chip size="small" variant="outlined" label={`Intervalo ${dados.jornada.intervalo.inicio}–${dados.jornada.intervalo.fim}`} />
+        )}
         <Chip
           size="small"
           color={dados.irregulares.length > 0 ? 'error' : 'success'}
@@ -52,7 +55,7 @@ export function ConformidadePainel({
       </Box>
       {!dados.dentro_da_jornada ? (
         <Alert severity="info" sx={{ m: 1.5 }}>
-          Fora da jornada — ninguém é cobrado agora.
+          {dados.no_intervalo ? 'Intervalo — ninguém é cobrado agora.' : 'Fora da jornada — ninguém é cobrado agora.'}
         </Alert>
       ) : dados.irregulares.length === 0 ? (
         <Typography variant="body2" color="text.secondary" sx={{ p: 1.5 }}>

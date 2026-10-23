@@ -35,7 +35,9 @@ export interface ConformidadeRastreamento {
   habilitado: boolean;
   exigencia: 'OPCIONAL' | 'AVISO' | 'OBRIGATORIO';
   dentro_da_jornada: boolean;
-  jornada: { inicio: string; fim: string } | null;
+  // Fora da jornada por estar no intervalo desconsiderado (docs/95).
+  no_intervalo?: boolean;
+  jornada: { inicio: string; fim: string; intervalo?: { inicio: string; fim: string } | null } | null;
   tolerancia_sem_sinal_minutos: number;
   irregulares: {
     id: string;

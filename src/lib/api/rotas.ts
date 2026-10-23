@@ -61,11 +61,17 @@ export interface RotaDoDia {
     desvio_minutos: number;
   };
   // Expediente do dia (JORNADA_INICIO/FIM) e o que a empresa deixa a tela mostrar (docs/93).
-  expediente: { recorte: RecorteRota; inicio: string; fim: string };
+  expediente: {
+    recorte: RecorteRota;
+    inicio: string;
+    fim: string;
+    // Intervalo desconsiderado (docs/95); null = a empresa não desconsidera.
+    intervalo: { inicio: string; fim: string } | null;
+  };
   pontos: { latitude: number; longitude: number; em: string }[];
   // Um trecho por período contínuo de sinal, já encaixado nas ruas (Mapbox) — [lat, lng].
   linhas: LatLng[][];
-  // Paralelo a `linhas`: true = trecho fora do expediente (escondido até o gestor pedir).
+  // Paralelo a `linhas`: true = trecho escondido (fora do expediente ou intervalo) até o gestor pedir.
   linhas_fora_expediente: boolean[];
   // true = sem serviço de ruas/falhou: linhas retas entre as posições.
   aproximada: boolean;
@@ -99,8 +105,8 @@ export interface RotaDoDia {
     raio_metros: number;
     lojas: { id: string | null; fantasia: string | null; latitude: number; longitude: number; visitada: boolean }[];
   };
-  // Só com recorte EXPEDIENTE: o que ficou antes e depois, pros blocos recolhidos da linha do tempo.
-  fora_do_expediente: { antes: ResumoForaDoExpediente; depois: ResumoForaDoExpediente } | null;
+  // Blocos recolhidos da linha do tempo: antes/depois (recorte EXPEDIENTE) e intervalo (docs/95).
+  fora_do_expediente: { antes?: ResumoForaDoExpediente; intervalo?: ResumoForaDoExpediente; depois?: ResumoForaDoExpediente } | null;
   resumo: {
     visitas: number;
     // Já descontado o tempo fora da loja durante as visitas.

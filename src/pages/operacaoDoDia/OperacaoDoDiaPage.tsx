@@ -382,6 +382,7 @@ export function OperacaoDoDiaPage() {
           <Typography variant="body2" color="text.secondary">
             {historico ? `${formatarDataSelecionada(dados.data)} (histórico)` : formatarDataHoraAgora()} · jornada{' '}
             {dados.jornada.inicio}–{dados.jornada.fim}
+            {dados.jornada.intervalo && ` · intervalo ${dados.jornada.intervalo.inicio}–${dados.jornada.intervalo.fim}`}
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', width: { xs: '100%', sm: 'auto' } }}>
@@ -727,6 +728,22 @@ export function OperacaoDoDiaPage() {
                       {linha.usuario.nome}
                     </Typography>
                     <Box sx={{ position: 'relative', flexGrow: 1, height: 16, bgcolor: 'action.hover', borderRadius: 0.5 }}>
+                      {/* Intervalo desconsiderado (docs/95): faixa hachurada por baixo dos blocos. */}
+                      {dados.jornada.intervalo && (
+                        <Tooltip title={`Intervalo ${dados.jornada.intervalo.inicio}–${dados.jornada.intervalo.fim}`}>
+                          <Box
+                            sx={{
+                              position: 'absolute',
+                              top: 0,
+                              bottom: 0,
+                              left: `${((horaFracionaria(dados.jornada.intervalo.inicio) - jornadaInicioHora) / totalHoras) * 100}%`,
+                              width: `${((horaFracionaria(dados.jornada.intervalo.fim) - horaFracionaria(dados.jornada.intervalo.inicio)) / totalHoras) * 100}%`,
+                              backgroundImage: 'repeating-linear-gradient(135deg, rgba(143,140,168,.35) 0 4px, transparent 4px 8px)',
+                              borderRadius: 0.5,
+                            }}
+                          />
+                        </Tooltip>
+                      )}
                       {linha.blocos_jornada.map((bloco, i) => {
                         const inicioHora = horaFracionariaIso(bloco.inicio);
                         const fimHora = Math.max(inicioHora, horaFracionariaIso(bloco.fim));
@@ -764,6 +781,23 @@ export function OperacaoDoDiaPage() {
                 prevista
                 <Box component="span" sx={{ display: 'inline-block', width: 10, height: 10, bgcolor: '#dc2626', borderRadius: 0.5, mx: 0.5, ml: 1.5 }} />
                 atraso no início
+                {dados.jornada.intervalo && (
+                  <>
+                    <Box
+                      component="span"
+                      sx={{
+                        display: 'inline-block',
+                        width: 10,
+                        height: 10,
+                        backgroundImage: 'repeating-linear-gradient(135deg, rgba(143,140,168,.6) 0 2px, transparent 2px 4px)',
+                        borderRadius: 0.5,
+                        mx: 0.5,
+                        ml: 1.5,
+                      }}
+                    />
+                    intervalo (ninguém fica sem sinal)
+                  </>
+                )}
                 <Box component="span" sx={{ ml: 1.5 }}>· passe o mouse pra ver a loja e o horário, duplo clique abre a visita</Box>
               </Typography>
             </>

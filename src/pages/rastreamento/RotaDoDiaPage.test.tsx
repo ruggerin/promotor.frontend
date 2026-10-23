@@ -44,7 +44,7 @@ function rota(comAfastamento: boolean): RotaDoDia {
       desvio_raio_metros: 0,
       desvio_minutos: 10,
     },
-    expediente: { recorte: 'DIA_INTEIRO', inicio: '2026-09-29T07:00:00+00:00', fim: '2026-09-29T17:00:00+00:00' },
+    expediente: { recorte: 'DIA_INTEIRO', inicio: '2026-09-29T07:00:00+00:00', fim: '2026-09-29T17:00:00+00:00', intervalo: null },
     pontos: [
       { latitude: -3.1, longitude: -60.0, em: '2026-09-29T08:00:00+00:00' },
       { latitude: -3.1, longitude: -60.0, em: '2026-09-29T10:00:00+00:00' },
@@ -263,6 +263,29 @@ describe('RotaDoDiaPage — expediente, deslocamento e área do roteiro (docs/93
 
     expect(screen.getByText(/Tancredo Neves · nenhuma loja/)).toBeInTheDocument();
     expect(screen.getAllByTestId('linha').filter((l) => l.dataset.cor === CINZA_FORA)).toHaveLength(1);
+  });
+
+  it('intervalo desconsiderado (docs/95): bloco no meio do dia, parada do almoço escondida até abrir', async () => {
+    const base = rotaDoc93('DIA_INTEIRO');
+    vi.mocked(rotasApi.buscarRotaDoDia).mockResolvedValue({
+      ...base,
+      expediente: { ...base.expediente, intervalo: { inicio: '2026-09-29T12:00:00+00:00', fim: '2026-09-29T13:30:00+00:00' } },
+      paradas: [
+        ...base.paradas,
+        { inicio: '2026-09-29T12:05:00+00:00', fim: '2026-09-29T13:20:00+00:00', minutos: 75, latitude: -3.03, longitude: -60.0, bairro: 'Lagoa Azul' },
+      ],
+      fora_do_expediente: { intervalo: { posicoes: 75, distancia_km: 0, parado_fora_minutos: 75, sem_sinal_minutos: 0 } },
+    });
+    abrir();
+
+    expect(await screen.findByText(/Intervalo · /)).toBeInTheDocument();
+    expect(screen.getByText('1h15 parado')).toBeInTheDocument();
+    expect(screen.getByText('Distância (sem o intervalo)')).toBeInTheDocument();
+    expect(screen.queryByText(/Lagoa Azul · nenhuma loja/)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Ver' }));
+
+    expect(screen.getByText(/Lagoa Azul · nenhuma loja/)).toBeInTheDocument();
   });
 
   it('só expediente: avisa que o resto não aparece e não oferece abrir', async () => {

@@ -67,7 +67,8 @@ export interface OperacaoDoDiaResponse {
   // nesse caso (são sempre o estado atual, nunca "daquele dia" — ver
   // docs/32-PAINEL-OPERACAO-DO-DIA.md).
   historico: boolean;
-  jornada: { inicio: string; fim: string };
+  // `intervalo`: almoço desconsiderado (docs/95) — ninguém fica "sem sinal" nele; null = desligado.
+  jornada: { inicio: string; fim: string; intervalo?: { inicio: string; fim: string } | null };
   kpis: {
     visitas_realizadas: { feitas: number; total: number };
     em_campo: { atual: number; total: number; encerrados: number };

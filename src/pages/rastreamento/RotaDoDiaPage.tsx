@@ -153,7 +153,8 @@ function cortar<T extends Intervalo>(item: T, de: number, ate: number): (T & { c
   };
 }
 
-type Lado = 'antes' | 'depois' | null;
+// Onde o item fica escondido: antes/depois do expediente (recorte) ou no intervalo (docs/95).
+type Lado = 'antes' | 'intervalo' | 'depois' | null;
 
 type Evento = (
   | { chave: string; tipo: 'inicio'; em: string; lat: number; lng: number; detalhe: string }
@@ -166,45 +167,62 @@ type Evento = (
   | { chave: string; tipo: 'marco'; em: string; titulo: string; detalhe: string }
 ) & { lado: Lado };
 
-// Janela do que a tela mostra: o dia inteiro, ou só o expediente (docs/93).
+// Janela do que a tela mostra: o dia inteiro, ou só o expediente (docs/93), sem o intervalo quando
+// a empresa o desconsidera (docs/95).
 interface Janela {
   recortado: boolean;
+  // Tem algo escondido (fora do expediente com recorte, ou intervalo).
+  escondeAlgo: boolean;
+  // O gestor pode abrir o que está escondido (tudo menos SO_EXPEDIENTE).
   podeAbrir: boolean;
   inicio: number;
   fim: number;
+  intervalo: [number, number] | null;
 }
 
 function janelaDaRota(rota: RotaDoDia): Janela {
   const recorte = rota.expediente?.recorte ?? 'DIA_INTEIRO';
+  const intervalo = rota.expediente?.intervalo;
   return {
     recortado: recorte !== 'DIA_INTEIRO',
-    podeAbrir: recorte === 'EXPEDIENTE',
+    escondeAlgo: recorte !== 'DIA_INTEIRO' || !!intervalo,
+    podeAbrir: recorte !== 'SO_EXPEDIENTE',
     inicio: rota.expediente ? ms(rota.expediente.inicio) : 0,
     fim: rota.expediente ? ms(rota.expediente.fim) : 0,
+    intervalo: intervalo ? [ms(intervalo.inicio), ms(intervalo.fim)] : null,
   };
+}
+
+// Em que bloco escondido cai um instante (null = à mostra).
+function ladoNaHora(janela: Janela, t: number): Lado {
+  if (janela.recortado && t < janela.inicio) return 'antes';
+  if (janela.recortado && t > janela.fim) return 'depois';
+  if (janela.intervalo && t >= janela.intervalo[0] && t <= janela.intervalo[1]) return 'intervalo';
+  return null;
 }
 
 function eventosDaRota(rota: RotaDoDia, janela: Janela): Evento[] {
   const eventos: Evento[] = [];
   const { recortado, inicio: de, fim: ate } = janela;
+  // Visita é trabalho: só some fora do expediente, nunca por cair no intervalo.
   const lado = (inicio: string, fim: string): Lado => (!recortado ? null : ms(fim) <= de ? 'antes' : ms(inicio) >= ate ? 'depois' : null);
 
-  // Parada, sem sinal e deslocamento que atravessam a borda viram dois pedaços: o de dentro (na
-  // lista) e o de fora (nos blocos recolhidos).
-  function pedacos<T extends Intervalo>(item: T): { item: T & { cortado?: boolean }; lado: Lado }[] {
-    if (!recortado) return [{ item, lado: null }];
-    return (
-      [
-        [cortar(item, -Infinity, de), 'antes'],
-        [cortar(item, de, ate), null],
-        [cortar(item, ate, Infinity), 'depois'],
-      ] as const
-    )
-      .filter(([pedaco]) => pedaco)
-      .map(([pedaco, l]) => ({ item: pedaco!, lado: l }));
+  // Parada, sem sinal e deslocamento que atravessam uma borda (expediente, intervalo) viram
+  // pedaços: os à mostra (na lista) e os escondidos (nos blocos recolhidos).
+  const bordas = [...(recortado ? [de, ate] : []), ...(janela.intervalo ?? [])].sort((a, b) => a - b);
+  function pedacos<T extends Intervalo>(item: T): { item: T & { cortado?: boolean }; lado: Lado; sufixo: string }[] {
+    if (!bordas.length) return [{ item, lado: null, sufixo: '' }];
+    const limites = [-Infinity, ...bordas, Infinity];
+    const lista = limites
+      .slice(1)
+      .map((ate_, k) => ({ pedaco: cortar(item, limites[k], ate_), meio: (Math.max(limites[k], ms(item.inicio)) + Math.min(ate_, ms(item.fim))) / 2 }))
+      .filter((x) => x.pedaco)
+      .map((x) => ({ item: x.pedaco!, lado: ladoNaHora(janela, x.meio) }));
+    // Um pedaço só: chave igual à de sempre. Mais de um: índice no fim ("p-0-1").
+    return lista.map((x, k) => ({ ...x, sufixo: lista.length > 1 ? `-${k}` : '' }));
   }
 
-  const primeiro = recortado ? (rota.pontos.find((p) => ms(p.em) >= de && ms(p.em) <= ate) ?? rota.pontos[0]) : rota.pontos[0];
+  const primeiro = rota.pontos.find((p) => !ladoNaHora(janela, ms(p.em))) ?? rota.pontos[0];
   if (primeiro) {
     eventos.push({
       chave: 'inicio',
@@ -213,7 +231,7 @@ function eventosDaRota(rota: RotaDoDia, janela: Janela): Evento[] {
       lat: primeiro.latitude,
       lng: primeiro.longitude,
       detalhe: recortado ? 'Primeira posição no expediente' : 'Primeira posição do dia',
-      lado: lado(primeiro.em, primeiro.em),
+      lado: ladoNaHora(janela, ms(primeiro.em)),
     });
   }
   rota.visitas.forEach((v) => {
@@ -221,13 +239,13 @@ function eventosDaRota(rota: RotaDoDia, janela: Janela): Evento[] {
     v.afastamentos.forEach((a, i) => eventos.push({ chave: `a-${v.id}-${i}`, tipo: 'afastamento', em: a.inicio, v, a, lado: lado(a.inicio, a.fim ?? a.inicio) }));
   });
   rota.paradas.forEach((p, i) =>
-    pedacos(p).forEach(({ item, lado: l }) => eventos.push({ chave: `p-${i}${l ? `-${l}` : ''}`, tipo: 'parada', em: item.inicio, p: item, lado: l })),
+    pedacos(p).forEach(({ item, lado: l, sufixo }) => eventos.push({ chave: `p-${i}${sufixo}`, tipo: 'parada', em: item.inicio, p: item, lado: l })),
   );
   rota.sem_sinal.forEach((g, i) =>
-    pedacos(g).forEach(({ item, lado: l }) => eventos.push({ chave: `g-${i}${l ? `-${l}` : ''}`, tipo: 'gap', em: item.inicio, g: item, lado: l })),
+    pedacos(g).forEach(({ item, lado: l, sufixo }) => eventos.push({ chave: `g-${i}${sufixo}`, tipo: 'gap', em: item.inicio, g: item, lado: l })),
   );
   (rota.deslocamentos ?? []).forEach((d, i) =>
-    pedacos(d).forEach(({ item, lado: l }) => eventos.push({ chave: `desl-${i}${l ? `-${l}` : ''}`, tipo: 'deslocamento', em: item.inicio, d: item, lado: l })),
+    pedacos(d).forEach(({ item, lado: l, sufixo }) => eventos.push({ chave: `desl-${i}${sufixo}`, tipo: 'deslocamento', em: item.inicio, d: item, lado: l })),
   );
   (rota.desvios ?? []).forEach((d, i) => eventos.push({ chave: `desv-${i}`, tipo: 'desvio', em: d.inicio, d, lado: null }));
 
@@ -333,8 +351,8 @@ function ControleMapa({
       mapa.fitBounds(L.latLngBounds(trecho.pontos), { padding: [60, 60], maxZoom: 16 });
       return;
     }
-    // Pedaço de parada recortado ("p-0-depois") usa o marcador da parada inteira.
-    const marcador = marcadores.current?.[selecionado.replace(/-(antes|depois)$/, '')];
+    // Pedaço de parada cortado na borda ("p-0-1") usa o marcador da parada inteira.
+    const marcador = marcadores.current?.[selecionado.replace(/^(p-\d+)-\d+$/, '$1')];
     if (marcador) {
       mapa.setView(marcador.getLatLng(), Math.max(mapa.getZoom(), 15));
       marcador.openPopup();
@@ -435,12 +453,12 @@ export function RotaDoDiaPage() {
     setTocando(false);
   }
 
-  // Fora do expediente só aparece no mapa quando o gestor abre (recorte EXPEDIENTE).
-  const verFora = !!janela && (!janela.recortado || (janela.podeAbrir && mostrarFora));
-  const visivel = (iso: string) => !janela?.recortado || verFora || (ms(iso) >= janela.inicio && ms(iso) <= janela.fim);
-  const foraDaJanela = (iso: string) => !!janela?.recortado && (ms(iso) < janela.inicio || ms(iso) > janela.fim);
+  // Fora do expediente e intervalo só aparecem no mapa quando o gestor abre.
+  const verFora = !!janela && (!janela.escondeAlgo || (janela.podeAbrir && mostrarFora));
+  const foraDaJanela = (iso: string) => !!janela && ladoNaHora(janela, ms(iso)) !== null;
+  const visivel = (iso: string) => verFora || !foraDaJanela(iso);
 
-  // Régua do dia: vai do início ao fim do que está à mostra.
+  // Régua do dia: vai do início ao fim do que está à mostra (o intervalo fica cinza no meio).
   const limitesRegua = useMemo<[number, number] | null>(() => {
     if (!rota || !janela) return null;
     if (janela.recortado && !verFora) return [janela.inicio, janela.fim];
@@ -469,7 +487,8 @@ export function RotaDoDiaPage() {
   const vazio = rota && rota.pontos.length === 0 && rota.visitas.length === 0;
   const trecho = rota ? trechoSelecionado(rota, eventos, selecionado) : null;
   const etiquetas = rota && janela ? etiquetasDeHora(rota, eventos, trecho, visivel) : [];
-  const posicaoRegua = rota && horaRegua !== null ? posicaoNaHora(rota, horaRegua) : null;
+  // No horário escondido (fora do expediente, intervalo), a régua não mostra onde ele estava.
+  const posicaoRegua = rota && horaRegua !== null && visivel(new Date(horaRegua).toISOString()) ? posicaoNaHora(rota, horaRegua) : null;
   const raioArea = rota?.area_roteiro?.raio_metros ?? 0;
 
   return (
@@ -499,11 +518,14 @@ export function RotaDoDiaPage() {
               onChange={(e) => e.target.value && filtrar(usuarioUuid, e.target.value)}
               slotProps={{ inputLabel: { shrink: true }, htmlInput: { max: hoje() } }}
             />
-            {rota && janela?.recortado && (
+            {rota && janela?.escondeAlgo && (
               <Box
                 sx={{ px: 1.5, height: 40, display: 'flex', alignItems: 'center', borderRadius: 1, bgcolor: horus.indigoClaro, color: COR.rota, fontWeight: 600, fontSize: 13 }}
               >
-                Expediente {hora(rota.expediente.inicio)}–{hora(rota.expediente.fim)}
+                {janela.recortado && `Expediente ${hora(rota.expediente.inicio)}–${hora(rota.expediente.fim)}`}
+                {janela.recortado && rota.expediente.intervalo && ' · '}
+                {rota.expediente.intervalo &&
+                  `${janela.recortado ? 'intervalo' : 'Intervalo'} ${hora(rota.expediente.intervalo.inicio)}–${hora(rota.expediente.intervalo.fim)} desconsiderado`}
               </Box>
             )}
           </Box>
@@ -530,7 +552,7 @@ export function RotaDoDiaPage() {
                 <Kpi titulo="Visitas" valor={String(rota.resumo.visitas)} />
                 <Kpi titulo="Tempo em loja" valor={duracao(rota.resumo.tempo_em_loja_minutos)} />
                 <Kpi
-                  titulo={janela.recortado ? 'Distância no expediente' : 'Distância percorrida'}
+                  titulo={janela.recortado ? 'Distância no expediente' : janela.intervalo ? 'Distância (sem o intervalo)' : 'Distância percorrida'}
                   valor={`${rota.resumo.distancia_km.toLocaleString('pt-BR')} km`}
                 />
                 {raioArea > 0 && (
@@ -568,12 +590,20 @@ export function RotaDoDiaPage() {
               ) : (
                 <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', lg: 'minmax(0, 1fr) 360px' }, gap: 2, alignItems: 'start' }}>
                   <Paper variant="outlined" sx={{ overflow: 'hidden', borderRadius: 1.5 }}>
-                    {(janela.podeAbrir || raioArea > 0) && (
+                    {((janela.escondeAlgo && janela.podeAbrir) || raioArea > 0) && (
                       <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center', px: 1.5, py: 0.25, borderBottom: '1px solid', borderColor: 'divider' }}>
-                        {janela.podeAbrir && (
+                        {janela.escondeAlgo && janela.podeAbrir && (
                           <FormControlLabel
                             control={<Checkbox size="small" checked={mostrarFora} onChange={(e) => setMostrarFora(e.target.checked)} />}
-                            label={<Typography variant="body2">Mostrar fora do expediente</Typography>}
+                            label={
+                              <Typography variant="body2">
+                                {janela.recortado && janela.intervalo
+                                  ? 'Mostrar fora do expediente e intervalo'
+                                  : janela.recortado
+                                    ? 'Mostrar fora do expediente'
+                                    : 'Mostrar o intervalo'}
+                              </Typography>
+                            }
                           />
                         )}
                         {raioArea > 0 && (
@@ -733,7 +763,8 @@ export function RotaDoDiaPage() {
                       ))}
 
                       {rota.paradas.map((p, i) => {
-                        const dentro = !janela.recortado || (ms(p.fim) > janela.inicio && ms(p.inicio) < janela.fim);
+                        // À mostra se algum pedaço dela cai fora dos blocos escondidos.
+                        const dentro = eventos.some((e) => e.tipo === 'parada' && !e.lado && (e.chave === `p-${i}` || e.chave.startsWith(`p-${i}-`)));
                         if (!dentro && !verFora) return null;
                         return (
                           <Marker
@@ -806,7 +837,13 @@ export function RotaDoDiaPage() {
                         />
                       )}
                       <Legenda cor={COR.gap} texto="Sem sinal" tracejada />
-                      {janela.recortado && verFora && <Legenda cor={COR.foraExpediente} texto="Fora do expediente" pontilhada />}
+                      {janela.escondeAlgo && verFora && (
+                        <Legenda
+                          cor={COR.foraExpediente}
+                          texto={janela.recortado && janela.intervalo ? 'Fora do expediente e intervalo' : janela.recortado ? 'Fora do expediente' : 'Intervalo'}
+                          pontilhada
+                        />
+                      )}
                       <Legenda cor={COR.rota} texto="Visita, na ordem" />
                       {raioArea > 0 && rota.area_roteiro.lojas.some((l) => !l.visitada) && <Legenda cor={COR.rota} texto="Na agenda, não visitada" oca />}
                       <Legenda cor={COR.parada} texto={`Parado fora de loja (${rota.parametros.parada_minutos} min ou mais)`} />
@@ -842,33 +879,39 @@ export function RotaDoDiaPage() {
                               onDoubleClick={() => abrirNoGoogleMaps(ev)}
                             />
                           ));
-                        if (!janela.recortado) return itens(eventos);
-                        const antes = eventos.filter((e) => e.lado === 'antes');
-                        const depois = eventos.filter((e) => e.lado === 'depois');
+                        if (!janela.escondeAlgo) return itens(eventos);
+                        const doLado = (l: Lado) => eventos.filter((e) => e.lado === l);
                         const dentro = eventos.filter((e) => !e.lado);
-                        return (
+                        const abertos = janela.podeAbrir && mostrarFora;
+                        const grupo = (l: Exclude<Lado, null>, titulo: string) => (
                           <>
                             <GrupoForaDoExpediente
-                              titulo={`Antes do expediente · até ${hora(rota.expediente.inicio)}`}
-                              resumo={rota.fora_do_expediente?.antes ?? null}
+                              key={`grupo-${l}`}
+                              titulo={titulo}
+                              resumo={rota.fora_do_expediente?.[l] ?? null}
                               podeAbrir={janela.podeAbrir}
                               aberto={mostrarFora}
                               onAlternar={() => setMostrarFora(!mostrarFora)}
                             />
-                            {janela.podeAbrir && mostrarFora && itens(antes, true)}
-                            {itens(dentro)}
-                            <GrupoForaDoExpediente
-                              titulo={`Depois do expediente · a partir de ${hora(rota.expediente.fim)}`}
-                              resumo={rota.fora_do_expediente?.depois ?? null}
-                              podeAbrir={janela.podeAbrir}
-                              aberto={mostrarFora}
-                              onAlternar={() => setMostrarFora(!mostrarFora)}
-                            />
-                            {janela.podeAbrir && mostrarFora && itens(depois, true)}
+                            {abertos && itens(doLado(l), true)}
+                          </>
+                        );
+                        // O bloco do intervalo entra no meio da lista, na hora em que o intervalo começa.
+                        const corte = janela.intervalo ? dentro.findIndex((e) => ms(e.em) >= janela.intervalo![0]) : -1;
+                        const antesDoIntervalo = corte === -1 ? dentro : dentro.slice(0, corte);
+                        const depoisDoIntervalo = corte === -1 ? [] : dentro.slice(corte);
+                        const intervalo = rota.expediente.intervalo;
+                        return (
+                          <>
+                            {janela.recortado && grupo('antes', `Antes do expediente · até ${hora(rota.expediente.inicio)}`)}
+                            {itens(antesDoIntervalo)}
+                            {intervalo && grupo('intervalo', `Intervalo · ${hora(intervalo.inicio)}–${hora(intervalo.fim)}`)}
+                            {itens(depoisDoIntervalo)}
+                            {janela.recortado && grupo('depois', `Depois do expediente · a partir de ${hora(rota.expediente.fim)}`)}
                           </>
                         );
                       })()}
-                      {rota.resumo.ultima_posicao_em && !janela.recortado && (
+                      {rota.resumo.ultima_posicao_em && !janela.escondeAlgo && (
                         <Box component="li" sx={{ px: 1.75, pt: 1, color: 'text.secondary', fontSize: 12 }}>
                           Última posição às {hora(rota.resumo.ultima_posicao_em)}
                         </Box>
@@ -1008,7 +1051,7 @@ function ReguaDoDia({
   const frase = (() => {
     switch (situacao) {
       case 'fora-expediente':
-        return 'Fora do expediente';
+        return ladoNaHora(janela, atual) === 'intervalo' ? 'Intervalo' : 'Fora do expediente';
       case 'gap':
         return 'Sem sinal';
       case 'afastamento':
