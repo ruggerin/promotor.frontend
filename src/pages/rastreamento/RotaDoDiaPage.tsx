@@ -1032,7 +1032,9 @@ function ReguaDoDia({
         <IconButton size="small" onClick={onTocar} aria-label={tocando ? 'Pausar' : 'Reproduzir o dia'} sx={{ border: '1px solid', borderColor: 'divider' }}>
           {tocando ? <PauseRounded fontSize="small" /> : <PlayArrowRounded fontSize="small" />}
         </IconButton>
-        <Box sx={{ position: 'relative', height: 30 }}>
+        {/* zIndex acima das camadas do Leaflet (painéis 400–700, controles 1000): o balão do horário
+            do Slider sobe por cima do mapa e, sem isso, ficava escondido atrás dele. */}
+        <Box sx={{ position: 'relative', height: 30, zIndex: 1100 }}>
           {faixas.map((f, i) => (
             <Box
               key={i}
