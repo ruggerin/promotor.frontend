@@ -46,6 +46,13 @@ const COR = {
 };
 
 type Visita = RotaDoDia['visitas'][number];
+
+// Como a visita foi finalizada, quando não foi o checkout normal (docs/92 §9) — nota neutra.
+const NOTA_CHECKOUT: Record<string, string> = {
+  SAIDA_DETECTADA: 'finalizada pela saída detectada',
+  AUTOMATICO: 'finalizada automaticamente',
+  ADMIN: 'checkout forçado pelo gestor',
+};
 type Parada = RotaDoDia['paradas'][number];
 type SemSinal = RotaDoDia['sem_sinal'][number];
 type LatLng = [number, number];
@@ -751,6 +758,12 @@ export function RotaDoDiaPage() {
                             <br />
                             Ficou: {duracao(v.minutos)}
                             {v.minutos_fora > 0 && ` · ${duracao(v.minutos_fora)} fora`}
+                            {NOTA_CHECKOUT[v.checkout_tipo ?? ''] && (
+                              <>
+                                <br />
+                                {NOTA_CHECKOUT[v.checkout_tipo ?? '']}
+                              </>
+                            )}
                             {v.afastamentos.map((a, i) => (
                               <span key={i} style={{ display: 'block', color: COR.fora, fontWeight: 600, marginTop: 4 }}>
                                 {textoAfastamento(a)}
@@ -1286,7 +1299,8 @@ function ItemLinhaDoTempo({
         return [
           evento.v.ponto_venda?.fantasia ?? 'Visita',
           (evento.v.fim ? `até ${hora(evento.v.fim)} · ficou ${duracao(evento.v.minutos)}` : 'ainda na loja') +
-            (evento.v.minutos_fora > 0 ? ` · ${duracao(evento.v.minutos_fora)} fora` : ''),
+            (evento.v.minutos_fora > 0 ? ` · ${duracao(evento.v.minutos_fora)} fora` : '') +
+            (NOTA_CHECKOUT[evento.v.checkout_tipo ?? ''] ? ` · ${NOTA_CHECKOUT[evento.v.checkout_tipo ?? '']}` : ''),
           null,
           'neutra',
         ];

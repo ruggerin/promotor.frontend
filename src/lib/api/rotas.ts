@@ -92,6 +92,8 @@ export interface RotaDoDia {
     inicio: string;
     fim: string | null;
     minutos: number | null;
+    // SAIDA_DETECTADA / AUTOMATICO (docs/92) viram uma nota na linha do tempo e no popup.
+    checkout_tipo?: string | null;
     // Saídas da loja durante a visita (docs/49) e a soma delas.
     afastamentos: AfastamentoTrecho[];
     minutos_fora: number;

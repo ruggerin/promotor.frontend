@@ -50,6 +50,7 @@ import {
   cancelarVisita,
   corrigirHorariosVisita,
   forcarCheckoutVisita,
+  buscarSaidaDetectada,
 } from '../../lib/api/visitas';
 import type { AcaoIntervencaoVisita, StatusVisita, Visita, VisitaRegistro } from '../../types/api';
 import { descricaoDoVinculo } from '../../lib/vinculoRegistro';
@@ -357,6 +358,13 @@ function Jornada({ visita, raio }: { visita: Visita; raio: number | null | undef
               ) : visita.fim_distancia_metros != null ? (
                 <SeloDistancia metros={visita.fim_distancia_metros} raio={raio} />
               ) : null}
+              {/* docs/92: finalizada no horário em que ele saiu da loja (a posição é a da saída). */}
+              {visita.checkout_tipo === 'SAIDA_DETECTADA' && (
+                <Chip size="small" color="info" variant="outlined" label="Pela saída detectada" sx={{ height: 22, mt: 0.5 }} />
+              )}
+              {visita.checkout_tipo === 'AUTOMATICO' && (
+                <Chip size="small" color="warning" variant="outlined" label="Finalizada automaticamente" sx={{ height: 22, mt: 0.5 }} />
+              )}
             </>
           ) : (
             <Typography variant="body2" color="text.secondary">
@@ -611,6 +619,19 @@ export function VisitaDetailPage() {
     onError: (err) => setErroDialog(mensagemDeErro(err)),
   });
 
+  // "Forçar checkout" preenchido com a saída detectada (docs/92 decisão 6).
+  const saidaQuery = useQuery({
+    queryKey: ['visitas', publicId, 'saida-detectada'],
+    queryFn: () => buscarSaidaDetectada(publicId as string),
+    enabled: dialog === 'forcar' && !!publicId,
+  });
+  const saida = dialog === 'forcar' ? saidaQuery.data : null;
+  useEffect(() => {
+    if (saida && !fimInput) setFimInput(isoParaInputLocal(saida.saiu_em));
+    // Só ao chegar a saída — depois o gestor pode mudar à vontade.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [saida]);
+
   const forcarMutation = useMutation({
     mutationFn: () =>
       forcarCheckoutVisita(publicId as string, {
@@ -724,6 +745,13 @@ export function VisitaDetailPage() {
               {visita.ordem_servico && <Chip size="small" variant="outlined" icon={<EventNoteOutlinedIcon />} label="Veio de uma Ordem de Serviço" />}
               {visita.campanha && <Chip size="small" variant="outlined" icon={<CampaignOutlinedIcon />} label={visita.campanha.descricao} />}
               {visita.checkout_tipo === 'ADMIN' && <Chip size="small" variant="outlined" color="info" label="Checkout feito pelo admin" />}
+              {visita.checkout_tipo === 'SAIDA_DETECTADA' && (
+                <Chip size="small" variant="outlined" color="info" label="Finalizada pela saída detectada" />
+              )}
+              {visita.checkout_tipo === 'AUTOMATICO' && <Chip size="small" variant="outlined" color="warning" label="Finalizada automaticamente" />}
+              {visita.checkout_no_raio === false && <Chip size="small" variant="outlined" color="warning" label="Checkout fora do raio" />}
+              {visita.tempo_confirmado_gps && <Chip size="small" variant="outlined" color="success" label="Tempo confirmado por GPS" />}
+              {visita.saida_contestada_em && <Chip size="small" variant="outlined" label="Promotor disse que ainda estava na loja" />}
             </Box>
             {/* Endereço inteiro, quebrando linha se precisar — nunca cortado com reticências. */}
             <Typography variant="body2" color="text.secondary" sx={{ display: 'flex', flexWrap: 'wrap', columnGap: 1.5, mt: 0.25 }}>
@@ -995,6 +1023,19 @@ export function VisitaDetailPage() {
               </Alert>
             )}
 
+            {dialog === 'forcar' && saida && (
+              <Alert
+                severity="info"
+                action={
+                  <Button color="inherit" size="small" onClick={() => setFimInput(isoParaInputLocal(saida.saiu_em))}>
+                    Usar
+                  </Button>
+                }
+              >
+                Saída detectada às {formatarHora(saida.saiu_em)}: última posição perto da loja antes de ele sair (há{' '}
+                {saida.minutos_fora} min).
+              </Alert>
+            )}
             {dialog === 'forcar' && (
               <TextField
                 label="Horário real da saída"

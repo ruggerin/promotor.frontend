@@ -778,9 +778,9 @@ export function PontoVendaDetailPage() {
                     <TableCell>{new Date(visita.inicio_data).toLocaleString('pt-BR')}</TableCell>
                     <TableCell>
                       {visita.fim_data ? new Date(visita.fim_data).toLocaleString('pt-BR') : '—'}
-                      {visita.checkout_tipo === 'ADMIN' && (
+                      {visita.checkout_tipo && visita.checkout_tipo !== 'PROMOTOR' && (
                         <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                          forçado pelo admin
+                          {{ ADMIN: 'forçado pelo admin', SAIDA_DETECTADA: 'pela saída detectada', AUTOMATICO: 'finalizada automaticamente' }[visita.checkout_tipo]}
                         </Typography>
                       )}
                     </TableCell>

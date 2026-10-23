@@ -92,6 +92,22 @@ export async function forcarCheckoutVisita(
   return data;
 }
 
+// Saída detectada (docs/92 §3): o "Forçar checkout" usa pra preencher o horário real da saída.
+export interface SaidaDetectada {
+  saiu_em: string;
+  latitude: number;
+  longitude: number;
+  distancia_metros: number;
+  dentro_do_raio: boolean | null;
+  distancia_atual_metros: number;
+  minutos_fora: number;
+}
+
+export async function buscarSaidaDetectada(uuid: string): Promise<SaidaDetectada | null> {
+  const { data } = await apiClient.get<{ saida: SaidaDetectada | null }>(`/visitas/${uuid}/saida-detectada`);
+  return data.saida;
+}
+
 export async function corrigirHorariosVisita(
   uuid: string,
   payload: { motivo: string; inicio_data?: string; fim_data?: string },

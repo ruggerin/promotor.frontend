@@ -54,7 +54,8 @@ export type PlanoEmpresa = 'GRATUITO' | 'START' | 'PRO' | 'BUSINESS';
 export type StatusVisita = 'ABERTA' | 'FINALIZADA' | 'CANCELADA';
 // PROMOTOR = checkout normal pelo app (com GPS); ADMIN = forçado por um gestor (sem GPS);
 // null = visita ainda aberta. Ver docs/15-INTERVENCAO-ADMINISTRATIVA-VISITA.md.
-export type CheckoutTipo = 'PROMOTOR' | 'ADMIN';
+// SAIDA_DETECTADA: o promotor finalizou no horário em que saiu; AUTOMATICO: o servidor fechou (docs/92).
+export type CheckoutTipo = 'PROMOTOR' | 'ADMIN' | 'SAIDA_DETECTADA' | 'AUTOMATICO';
 export type AcaoIntervencaoVisita = 'CANCELAMENTO' | 'CHECKOUT_FORCADO' | 'CORRECAO_HORARIO';
 export type Propriedade = 'PROPRIA' | 'CONCORRENTE';
 export type TipoItemCampanha = 'PRODUTO' | 'SECAO' | 'DEPARTAMENTO' | 'MARCA';
@@ -1076,6 +1077,12 @@ export interface Visita {
   fim_longitude: number | null;
   fim_distancia_metros: number | null;
   checkout_tipo: CheckoutTipo | null;
+  // Raio do checkout (docs/92 §9): null = a empresa não exige raio no checkout.
+  checkout_no_raio?: boolean | null;
+  // Entrada e saída dentro do raio — tempo em loja confirmado por GPS.
+  tempo_confirmado_gps?: boolean | null;
+  // O promotor disse "ainda estou na loja" depois que o sistema detectou a saída.
+  saida_contestada_em?: string | null;
   // Só pra quem tem rastreamento.trajeto; null = ainda não calculado ou sem posição na visita.
   afastamento?: AfastamentoResumo | null;
   // Quando o servidor recebeu cada passo (docs/51) — inicio_data/fim_data são a hora do campo.
