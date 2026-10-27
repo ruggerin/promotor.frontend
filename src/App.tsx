@@ -26,6 +26,8 @@ import { OrdensServicoListPage } from './pages/ordensServico/OrdensServicoListPa
 import { ConfiguracoesPage } from './pages/parametros/ConfiguracoesPage';
 import { ParametrosListPage } from './pages/parametros/ParametrosListPage';
 import { LicencasPage } from './pages/licencas/LicencasPage';
+import { IntegracaoDetailPage } from './pages/integracoes/IntegracaoDetailPage';
+import { IntegracoesListPage } from './pages/integracoes/IntegracoesListPage';
 import { PerfisListPage } from './pages/perfis/PerfisListPage';
 import { PlanejadorVisitasPage } from './pages/planejadorVisitas/PlanejadorVisitasPage';
 import { PlanoAcaoDetailPage } from './pages/planosAcao/PlanoAcaoDetailPage';
@@ -138,6 +140,9 @@ export function App() {
           <Route path="/perfis" element={<PerfisListPage />} />
           {/* docs/67 — só ADMIN; mesma regra de Perfis (a API responde 403 pros outros). */}
           <Route path="/licencas" element={<LicencasPage />} />
+          {/* docs/96 — tokens de API (ERP/BI); só ADMIN, mesma regra de Perfis. */}
+          <Route path="/integracoes" element={<IntegracoesListPage />} />
+          <Route path="/integracoes/:publicId" element={<IntegracaoDetailPage />} />
           <Route path="/empresas" element={<EmpresasListPage />} />
           <Route path="/empresas/:publicId" element={<EmpresaDetailPage />} />
           <Route path="/manual" element={<ManualPage />} />

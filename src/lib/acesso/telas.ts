@@ -31,6 +31,7 @@ export type ChaveTela =
   | 'centros_custo'
   | 'configuracoes'
   | 'importacao'
+  | 'integracoes'
   | 'manual'
   | 'empresas';
 
@@ -178,6 +179,8 @@ export const TELAS: DefTela[] = [
     acoes: [{ valor: 'parametros.gerenciar', rotulo: 'Alterar parâmetros' }],
   },
   { chave: 'importacao', rotulo: 'Importação de dados', grupo: 'Configurações', libera: ['pontos_venda.gerenciar', 'catalogo.gerenciar', 'vendedores.gerenciar', 'ordens_servico.gerenciar'] },
+  // docs/96 — tokens de API pro ERP/BI do cliente; como Perfis, nunca delegável a GESTOR.
+  { chave: 'integracoes', rotulo: 'Integrações (tokens de API)', grupo: 'Configurações', ajuda: 'Sempre só do ADMIN' },
   { chave: 'manual', rotulo: 'Manual', grupo: 'Ajuda', superadmin: true },
   { chave: 'empresas', rotulo: 'Empresas', grupo: 'Ajuda', superadmin: true },
 ];
@@ -203,7 +206,7 @@ export function podeVerTela(usuario: Usuario | null | undefined, chave: ChaveTel
   if ((chave === 'regua_xp' || chave === 'classes_loja') && !usuario.empresa?.controle_xp_habilitado) return false;
   if (chave === 'avaliacoes' && !usuario.empresa?.avaliacao_formulario_habilitada) return false;
   if (usuario.user_type === 'ADMIN') return true;
-  if (usuario.user_type !== 'GESTOR' || chave === 'perfis' || chave === 'licencas') return false;
+  if (usuario.user_type !== 'GESTOR' || chave === 'perfis' || chave === 'licencas' || chave === 'integracoes') return false;
   const permissoes = usuario.perfil?.permissoes ?? [];
   return (tela.libera ?? []).some((p) => permissoes.includes(p));
 }

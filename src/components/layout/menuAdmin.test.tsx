@@ -76,6 +76,13 @@ describe('menu do admin (docs/63)', () => {
     expect(c).not.toContain('/pedidos-venda');
   });
 
+  it('Integrações (docs/96) é só do ADMIN: GESTOR com todas as permissões não vê', () => {
+    const todas = [...PERMISSOES_DE_TELA, 'pontos_venda.gerenciar', 'catalogo.gerenciar', 'usuarios.gerenciar'] as typeof PERMISSOES_DE_TELA;
+    expect(caminhos(adminComTudo)).toContain('/integracoes');
+    expect(caminhos(usuario('GESTOR', { perfil: { id: 'p', nome: 'Tudo', permissoes: todas } }))).not.toContain('/integracoes');
+    expect(caminhos(usuario('SUPERADMIN'))).not.toContain('/integracoes');
+  });
+
   it('GESTOR sem perfil só vê o Manual (docs/64)', () => {
     expect(caminhos(usuario('GESTOR', { perfil: null }))).toEqual(['/manual']);
   });

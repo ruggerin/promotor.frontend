@@ -20,6 +20,7 @@ import FlagIcon from '@mui/icons-material/FlagOutlined';
 import GridViewIcon from '@mui/icons-material/GridViewOutlined';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutlineOutlined';
 import InsightsIcon from '@mui/icons-material/InsightsOutlined';
+import KeyIcon from '@mui/icons-material/KeyOutlined';
 import LabelIcon from '@mui/icons-material/LabelOutlined';
 import ListAltIcon from '@mui/icons-material/ListAltOutlined';
 import MyLocationIcon from '@mui/icons-material/MyLocationOutlined';
@@ -198,6 +199,8 @@ export function montarMenu(
         item('configuracoes', { rotulo: 'Motivos de resolução', caminho: '/motivos-resolucao-alerta', icone: <RuleIcon /> }),
         // docs/42 — lojas/vínculo: pontos_venda.gerenciar; produtos: catalogo.gerenciar
         item('importacao', { rotulo: 'Importação de dados', caminho: '/importacao-dados', icone: <UploadFileIcon /> }),
+        // docs/96 — tokens de API pro ERP/BI; só ADMIN, como Perfis.
+        item('integracoes', { rotulo: 'Integrações', caminho: '/integracoes', icone: <KeyIcon /> }),
       ],
     },
     {
