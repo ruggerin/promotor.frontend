@@ -1,3 +1,4 @@
+import HistoryIcon from '@mui/icons-material/History';
 import SearchIcon from '@mui/icons-material/Search';
 import {
   Alert,
@@ -9,6 +10,7 @@ import {
   CircularProgress,
   FormControlLabel,
   InputAdornment,
+  Link,
   List,
   ListItemButton,
   ListItemText,
@@ -43,6 +45,7 @@ import {
   type Edicao,
 } from './configuracoesLogica';
 import { ParametrosListPage } from './ParametrosListPage';
+import { HistoricoConfiguracoesDialog, ORIGEM_ROTULO } from './HistoricoConfiguracoesDialog';
 
 const LIGAR_COM = '60';
 
@@ -64,6 +67,8 @@ function Configuracoes() {
   const [busca, setBusca] = useState('');
   const [edicoes, setEdicoes] = useState<Record<string, Edicao>>({});
   const [salvo, setSalvo] = useState(false);
+  // Histórico de alterações (auditoria): null = fechado; '' = todas; chave = só aquela configuração.
+  const [historico, setHistorico] = useState<string | null>(null);
 
   const cabecalho = usePageHeader(<TituloComAtualizar titulo="Configurações" />);
 
@@ -138,6 +143,9 @@ function Configuracoes() {
           }}
         />
         <Box sx={{ flexGrow: 1 }} />
+        <Button size="small" startIcon={<HistoryIcon />} onClick={() => setHistorico('')}>
+          Histórico de alterações
+        </Button>
         <Button component={RouterLink} to="/parametros/avancado" size="small">
           Avançado (tabela completa)
         </Button>
@@ -223,6 +231,7 @@ function Configuracoes() {
                     aviso={avisoRaio}
                     separador={idx > 0}
                     onChange={(e) => alterar(item, e)}
+                    onHistorico={() => setHistorico(item.chave)}
                   />
                 );
               })}
@@ -261,6 +270,8 @@ function Configuracoes() {
           {mensagemErro}
         </Alert>
       )}
+      <HistoricoConfiguracoesDialog open={historico !== null} onClose={() => setHistorico(null)} itens={itens} chaveInicial={historico || null} />
+
       {salvo && (
         <Alert severity="success" sx={{ mt: 2 }} onClose={() => setSalvo(false)}>
           Configurações salvas. O aplicativo do promotor aplica na próxima sincronização.
@@ -279,9 +290,10 @@ interface LinhaProps {
   aviso: string | null;
   separador: boolean;
   onChange: (e: Edicao) => void;
+  onHistorico: () => void;
 }
 
-function LinhaConfiguracao({ item, areaRotulo, edicao, pendente, bloqueio, aviso, separador, onChange }: LinhaProps) {
+function LinhaConfiguracao({ item, areaRotulo, edicao, pendente, bloqueio, aviso, separador, onChange, onHistorico }: LinhaProps) {
   const erro = pendente ? erroDaEdicao(item, edicao) : null;
   const igualAoPadrao = iguais(edicao, edicaoPadrao(item));
   const idAjuda = `ajuda-${item.chave}`;
@@ -312,6 +324,15 @@ function LinhaConfiguracao({ item, areaRotulo, edicao, pendente, bloqueio, aviso
         <Typography variant="caption" color="text.disabled" sx={{ fontFamily: 'monospace' }}>
           {item.chave}
         </Typography>
+        {item.ultima_alteracao && (
+          <Typography variant="caption" color="text.secondary" component="div">
+            Alterado por {item.ultima_alteracao.por ?? ORIGEM_ROTULO[item.ultima_alteracao.origem] ?? 'sistema'}
+            {item.ultima_alteracao.em ? ` em ${new Date(item.ultima_alteracao.em).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}` : ''} ·{' '}
+            <Link component="button" type="button" variant="caption" onClick={onHistorico} sx={{ verticalAlign: 'baseline' }}>
+              histórico
+            </Link>
+          </Typography>
+        )}
         {aviso && (
           <Alert severity="warning" sx={{ mt: 1 }}>
             {aviso}

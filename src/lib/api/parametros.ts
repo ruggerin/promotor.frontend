@@ -61,6 +61,8 @@ export interface ItemConfiguracao {
   ativo: boolean;
   cadastrado: boolean;
   alterado_do_padrao: boolean;
+  // Auditoria: quem mexeu por último (null = nunca mudou desde que o histórico existe).
+  ultima_alteracao?: { por: string | null; origem: OrigemAlteracao; em: string | null } | null;
 }
 
 export interface AreaConfiguracao {
@@ -126,4 +128,28 @@ export async function buscarOmitirSabadoPlanejador(): Promise<boolean> {
   const parametro = parametros.find((p) => p.chave === 'PLANEJADOR_VISITAS_OMITIR_SABADO');
   if (!parametro || !parametro.ativo) return false;
   return VALORES_VERDADEIROS.includes(parametro.valor.toLowerCase());
+}
+
+// ── Auditoria das configurações ────────────────────────────────────────────────────────────
+
+export type OrigemAlteracao = 'CONFIGURACOES' | 'AVANCADO' | 'PADROES' | 'SUPORTE' | 'COMANDO' | 'SISTEMA';
+
+export interface AlteracaoHistorico {
+  chave: string;
+  rotulo: string;
+  valor_anterior: string | null;
+  valor_novo: string | null;
+  ativo_anterior: boolean | null;
+  ativo_novo: boolean | null;
+  por: string | null;
+  origem: OrigemAlteracao;
+  em: string;
+}
+
+export async function buscarHistoricoConfiguracoes(params: { chave?: string | null; page?: number }): Promise<{
+  historico: AlteracaoHistorico[];
+  meta: { total: number; current_page: number; last_page: number };
+}> {
+  const { data } = await apiClient.get('/parametros/historico', { params: { chave: params.chave || undefined, page: params.page ?? 1, per_page: 50 } });
+  return data;
 }
