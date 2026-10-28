@@ -332,7 +332,7 @@ export function WebhooksPanel({ integracao, revogada }: Props) {
         <DialogTitle>Segredo da assinatura</DialogTitle>
         <DialogContent dividers>
           <DialogContentText sx={{ mb: 2 }}>
-            Copie agora e configure no sistema do cliente: ele não aparece de novo. Cada aviso traz o cabeçalho <code>X-Horus-Assinatura: t=…,v1=…</code>, com v1 =
+            Copie agora e configure no sistema do cliente: ele não aparece de novo. Cada aviso traz o cabeçalho <code>X-Horus-Signature: t=…,v1=…</code>, com v1 =
             HMAC-SHA256(segredo, &quot;t.corpo&quot;).
           </DialogContentText>
           <TextField

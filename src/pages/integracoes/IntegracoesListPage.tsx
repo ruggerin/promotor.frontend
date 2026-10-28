@@ -1,4 +1,5 @@
 import AddIcon from '@mui/icons-material/Add';
+import MenuBookOutlinedIcon from '@mui/icons-material/MenuBookOutlined';
 import {
   Alert,
   Box,
@@ -27,6 +28,9 @@ import { IntegracaoFormDialog } from './IntegracaoFormDialog';
 import { TokenCriadoDialog } from './TokenCriadoDialog';
 
 // docs/96 §8.1 — lista das integrações da empresa. Só ADMIN chega aqui (menu e API).
+
+// Página pública servida pela API (sem login), pra repassar ao dev do ERP/BI do cliente.
+const URL_DOCUMENTACAO = `${String(import.meta.env.VITE_API_URL ?? '').replace(/\/api\/?$/, '')}/docs/integracao`;
 
 const MAX_CHIPS = 3;
 const DIAS_SEM_USO = 90;
@@ -71,9 +75,14 @@ export function IntegracoesListPage() {
         <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 640 }}>
           Tokens para o ERP enviar dados e o BI ler dados do Horus, sem usar a senha de ninguém. Cada token só acessa o que você liberar.
         </Typography>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={() => setFormAberto(true)}>
-          Nova integração
-        </Button>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button variant="outlined" startIcon={<MenuBookOutlinedIcon />} href={URL_DOCUMENTACAO} target="_blank" rel="noopener">
+            Documentação da API
+          </Button>
+          <Button variant="contained" startIcon={<AddIcon />} onClick={() => setFormAberto(true)}>
+            Nova integração
+          </Button>
+        </Box>
       </Box>
 
       {vencendo.map((i) => (
