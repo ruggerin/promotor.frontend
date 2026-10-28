@@ -681,7 +681,7 @@ export function RotaDoDiaPage() {
                         </Typography>
                       </Box>
                     )}
-                    <Box className="area-mapa" sx={{ position: 'relative', flex: mapaCheio ? '1 1 0' : undefined, minHeight: 0 }}>
+                    <Box className="area-mapa" sx={{ position: 'relative', height: mapaCheio ? '82vh' : 560 }}>
                     <Tooltip title={mapaCheio ? 'Sair da tela cheia (Esc)' : 'Maximizar o mapa'}>
                       <IconButton
                         size="small"
@@ -692,7 +692,7 @@ export function RotaDoDiaPage() {
                         {mapaCheio ? <FullscreenExitRounded /> : <FullscreenRounded />}
                       </IconButton>
                     </Tooltip>
-                    <MapContainer center={[-3.1, -60.0]} zoom={13} scrollWheelZoom={false} style={{ height: mapaCheio ? '100%' : 560, width: '100%' }}>
+                    <MapContainer center={[-3.1, -60.0]} zoom={13} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
                       <AjustarTamanho chave={mapaCheio} />
                       <TileLayer
                         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
