@@ -13,10 +13,24 @@ export interface FotoComRegistro {
   registro: VisitaRegistro;
   imagem: { id: string; url: string };
   usuario?: { id: string; nome: string; foto_url: string | null };
+  // Loja da visita — o registro sozinho não traz; quem monta a lista passa (evento/foto da galeria).
+  loja?: { fantasia: string } | null;
 }
 
-export function achatarFotos(registros: VisitaRegistro[]): FotoComRegistro[] {
-  return registros.flatMap((registro) => registro.imagens.map((imagem) => ({ registro, imagem })));
+export function achatarFotos(
+  registros: VisitaRegistro[],
+  contexto: Pick<FotoComRegistro, 'usuario' | 'loja'> = {},
+): FotoComRegistro[] {
+  return registros.flatMap((registro) => registro.imagens.map((imagem) => ({ registro, imagem, ...contexto })));
+}
+
+// Rótulo do vínculo do registro ("Produto", "Seção"…), na mesma ordem de prioridade do valor.
+export function vinculoDaFoto({ registro }: FotoComRegistro): { rotulo: string; valor: string } | null {
+  if (registro.produto_auditoria) return { rotulo: 'Produto', valor: registro.produto_auditoria.descricao };
+  if (registro.secao) return { rotulo: 'Seção', valor: registro.secao.descricao };
+  if (registro.departamento) return { rotulo: 'Departamento', valor: registro.departamento.descricao };
+  if (registro.marca) return { rotulo: 'Marca', valor: registro.marca.descricao };
+  return null;
 }
 
 // Texto alternativo da foto (leitor de tela), montado com o que o registro já traz: tipo e

@@ -7,7 +7,7 @@ import { ComentariosRegistro } from '../ComentariosRegistro';
 import { MdiIcon } from '../MdiIcon';
 import { UsuarioAvatar } from '../UsuarioAvatar';
 import { AutenticatedImage } from './AutenticatedImage';
-import { descricaoDaFoto, type FotoComRegistro } from './tipos';
+import { descricaoDaFoto, vinculoDaFoto, type FotoComRegistro } from './tipos';
 
 // Galeria (lightbox) — abre a foto clicada em tamanho grande, com setas (e ← → do teclado) pra
 // navegar entre as outras fotos do mesmo grupo, e a informação do registro (tipo, vínculo,
@@ -60,11 +60,13 @@ export function GaleriaDialog({
   if (!foto) return null;
   const registro = foto.registro;
 
-  const vinculo =
-    registro.produto_auditoria?.descricao ??
-    registro.secao?.descricao ??
-    registro.departamento?.descricao ??
-    registro.marca?.descricao;
+  const vinculo = vinculoDaFoto(foto);
+  const info = [
+    { rotulo: 'Loja', valor: foto.loja?.fantasia },
+    { rotulo: 'Promotor', valor: foto.usuario?.nome },
+    { rotulo: vinculo?.rotulo ?? 'Produto', valor: vinculo?.valor },
+    { rotulo: 'Data', valor: new Date(registro.created_at).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) },
+  ];
   // Respostas já com rótulo e valor legíveis (FormatadorValoresCampos no backend) — antes eram
   // chips com a chave crua ("dt_validade: 2027-01-17").
   const respostas = (registro.campos_respondidos ?? []).filter((c) => c.tipo_campo !== 'SORTIMENTO' && c.valor);
@@ -166,11 +168,18 @@ export function GaleriaDialog({
               />
               {registro.ruptura && <Chip label="Ruptura" color="error" size="small" />}
             </Box>
-            {vinculo && (
-              <Typography variant="subtitle1" sx={{ fontWeight: 700, lineHeight: 1.3 }}>
-                {vinculo}
-              </Typography>
-            )}
+            <Box component="dl" sx={{ m: 0, display: 'grid', gridTemplateColumns: 'auto 1fr', columnGap: 1.5, rowGap: 0.5 }}>
+              {info.map((i) => (
+                <Box key={i.rotulo} sx={{ display: 'contents' }}>
+                  <Typography component="dt" variant="caption" color="text.secondary" sx={{ lineHeight: 1.6 }}>
+                    {i.rotulo}
+                  </Typography>
+                  <Typography component="dd" variant="body2" sx={{ m: 0, fontWeight: i.valor ? 600 : 400, color: i.valor ? 'text.primary' : 'text.disabled' }}>
+                    {i.valor ?? '—'}
+                  </Typography>
+                </Box>
+              ))}
+            </Box>
             {registro.observacao && (
               <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-wrap' }}>
                 {registro.observacao}
@@ -190,9 +199,6 @@ export function GaleriaDialog({
                 ))}
               </Box>
             )}
-            <Typography variant="caption" color="text.secondary">
-              {new Date(registro.created_at).toLocaleString('pt-BR')}
-            </Typography>
             {/* Feedback do registro (docs/28 §3). `key` por registro: navegar pra foto de outro
                 registro recomeça o feed fechado. */}
             {registro.visita_id && (

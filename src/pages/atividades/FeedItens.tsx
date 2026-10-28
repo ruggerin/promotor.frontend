@@ -26,6 +26,11 @@ import {
 } from './feedUtil';
 import { horus } from '../../theme';
 
+// Quem e onde, pra galeria mostrar junto da foto (o registro sozinho não traz).
+function contextoFotos(evento: AtividadeEvento) {
+  return { usuario: evento.usuario ?? undefined, loja: evento.ponto_venda };
+}
+
 // Itens do feed do Painel de Atividades, na hierarquia por importância do protótipo
 // "Painel de atividades— revisão de UX.html" (v2) — ver docs/43-REVISAO-UX-PAINEL-ATIVIDADES.md §2:
 // chegada = linha de sistema; saída/registro = post; alerta = post grande com conversa embutida;
@@ -437,7 +442,7 @@ function ConversaEmbutida({
 // ————— posts —————
 
 export function PostSaida({ evento, acoes }: { evento: AtividadeEvento; acoes: AcoesFeed }) {
-  const fotos = achatarFotos(evento.imagens ?? []);
+  const fotos = achatarFotos(evento.imagens ?? [], contextoFotos(evento));
   const resumo = evento.resumo;
 
   return (
@@ -490,7 +495,7 @@ function PostRegistroUnico({
   acoes: AcoesFeed;
 }) {
   const [comentando, setComentando] = useState(false);
-  const fotos = achatarFotos([registro]);
+  const fotos = achatarFotos([registro], contextoFotos(evento));
   const assunto = assuntoDoRegistro(registro);
   const campos = registro.campos_respondidos.filter((c) => c.tipo_campo !== 'SORTIMENTO' && c.valor);
   const blocos = [...(assunto ? [{ rotulo: 'Produto', valor: assunto }] : []), ...campos.map((c) => ({ rotulo: c.rotulo, valor: c.valor }))];
@@ -584,7 +589,7 @@ export function PostFormulario({ evento, acoes }: { evento: AtividadeEvento; aco
   }
   const colunasVisiveis = colunas.slice(0, 3);
   const temAssunto = registros.some((r) => assuntoDoRegistro(r));
-  const fotos = achatarFotos(registros);
+  const fotos = achatarFotos(registros, contextoFotos(evento));
   const pontuados = registros.filter((r) => r.pontuacao !== null);
   const compliance = pontuados.length
     ? Math.round(pontuados.reduce((soma, r) => soma + (r.pontuacao ?? 0), 0) / pontuados.length)
@@ -630,7 +635,7 @@ export function PostFormulario({ evento, acoes }: { evento: AtividadeEvento; aco
         {visiveis.map((r) => {
           const total = r.comentarios_count ?? 0;
           const novos = r.comentarios_novos ?? 0;
-          const fotosDoRegistro = achatarFotos([r]);
+          const fotosDoRegistro = achatarFotos([r], contextoFotos(evento));
           const aberta = conversaAberta === r.id;
           return (
             <Box key={r.id} sx={{ borderTop: `1px solid ${COR.borda}` }}>
@@ -712,7 +717,7 @@ export function PostFormulario({ evento, acoes }: { evento: AtividadeEvento; aco
 export function PostAlerta({ evento, acoes }: { evento: AtividadeEvento; acoes: AcoesFeed }) {
   const registro = evento.registro!;
   const [comentando, setComentando] = useState(false);
-  const fotos = achatarFotos([registro]);
+  const fotos = achatarFotos([registro], contextoFotos(evento));
   const assunto = assuntoDoRegistro(registro);
   const resolvido = !!registro.alerta_resolvido_em;
   const plano = registro.plano_acao_ativo;

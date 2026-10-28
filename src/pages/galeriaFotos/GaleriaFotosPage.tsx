@@ -327,7 +327,7 @@ export function GaleriaFotosPage() {
   const todasFotos = useMemo<FotoComRegistro[]>(
     () =>
       fotos.flatMap((f) =>
-        f.registro.imagens.map((imagem) => ({ registro: f.registro, imagem, usuario: f.usuario ?? undefined })),
+        f.registro.imagens.map((imagem) => ({ registro: f.registro, imagem, usuario: f.usuario ?? undefined, loja: f.ponto_venda })),
       ),
     [fotos],
   );

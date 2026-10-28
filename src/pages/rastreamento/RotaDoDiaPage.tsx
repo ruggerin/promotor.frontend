@@ -1,3 +1,5 @@
+import FullscreenExitRounded from '@mui/icons-material/FullscreenExitRounded';
+import FullscreenRounded from '@mui/icons-material/FullscreenRounded';
 import PauseRounded from '@mui/icons-material/PauseRounded';
 import PlayArrowRounded from '@mui/icons-material/PlayArrowRounded';
 import {
@@ -10,6 +12,7 @@ import {
   FormControlLabel,
   IconButton,
   Paper,
+  Tooltip,
   Slider,
   TextField,
   Typography,
@@ -27,6 +30,16 @@ import { TituloComAtualizar } from '../../components/RefreshButton';
 import { buscarRotaDoDia, listarPromotoresRota, type DeslocamentoRota, type DesvioRota, type RotaDoDia } from '../../lib/api/rotas';
 import type { AfastamentoTrecho } from '../../types/api';
 import { horus } from '../../theme';
+
+// O Leaflet não percebe sozinho que o contêiner mudou de tamanho (maximizar/restaurar).
+function AjustarTamanho({ chave }: { chave: unknown }) {
+  const map = useMap();
+  useEffect(() => {
+    const t = setTimeout(() => map.invalidateSize(), 0);
+    return () => clearTimeout(t);
+  }, [chave, map]);
+  return null;
+}
 
 // Rota do dia — por onde o promotor passou num dia: trajeto seguindo as ruas, visitas numeradas
 // com chegada/saída, paradas fora de loja e trechos sem sinal. docs/48-ROTA-DO-DIA.md; protótipo
@@ -455,6 +468,14 @@ export function RotaDoDiaPage() {
   const [mostrarPlanejadas, setMostrarPlanejadas] = useState(params.get('planejadas') === '1');
   const [horaRegua, setHoraRegua] = useState<number | null>(null);
   const [tocando, setTocando] = useState(false);
+  // Mapa em tela cheia (cobre a aplicação inteira); Esc sai.
+  const [mapaCheio, setMapaCheio] = useState(false);
+  useEffect(() => {
+    if (!mapaCheio) return;
+    const aoTeclar = (e: KeyboardEvent) => e.key === 'Escape' && setMapaCheio(false);
+    window.addEventListener('keydown', aoTeclar);
+    return () => window.removeEventListener('keydown', aoTeclar);
+  }, [mapaCheio]);
   const marcadores = useRef<Record<string, L.Marker | null>>({});
 
   const promotoresQuery = useQuery({ queryKey: ['rotas', 'promotores'], queryFn: listarPromotoresRota });
@@ -619,7 +640,14 @@ export function RotaDoDiaPage() {
                 </Paper>
               ) : (
                 <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', lg: 'minmax(0, 1fr) 360px' }, gap: 2, alignItems: 'start' }}>
-                  <Paper variant="outlined" sx={{ overflow: 'hidden', borderRadius: 1.5 }}>
+                  <Paper
+                    variant="outlined"
+                    sx={
+                      mapaCheio
+                        ? { position: 'fixed', inset: 0, zIndex: (t) => t.zIndex.modal, borderRadius: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }
+                        : { overflow: 'hidden', borderRadius: 1.5 }
+                    }
+                  >
                     {((janela.escondeAlgo && janela.podeAbrir) || raioArea > 0 || naoFeitas.length > 0) && (
                       <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center', px: 1.5, py: 0.25, borderBottom: '1px solid', borderColor: 'divider' }}>
                         {janela.escondeAlgo && janela.podeAbrir && (
@@ -653,7 +681,19 @@ export function RotaDoDiaPage() {
                         </Typography>
                       </Box>
                     )}
-                    <MapContainer center={[-3.1, -60.0]} zoom={13} scrollWheelZoom={false} style={{ height: 560, width: '100%' }}>
+                    <Box sx={{ position: 'relative', flex: mapaCheio ? 1 : undefined, minHeight: 0 }}>
+                    <Tooltip title={mapaCheio ? 'Sair da tela cheia (Esc)' : 'Maximizar o mapa'}>
+                      <IconButton
+                        size="small"
+                        onClick={() => setMapaCheio(!mapaCheio)}
+                        aria-label={mapaCheio ? 'Sair da tela cheia' : 'Maximizar o mapa'}
+                        sx={{ position: 'absolute', top: 10, right: 10, zIndex: 1000, bgcolor: '#fff', color: '#333', boxShadow: 2, borderRadius: 1, '&:hover': { bgcolor: '#f4f4f4' } }}
+                      >
+                        {mapaCheio ? <FullscreenExitRounded /> : <FullscreenRounded />}
+                      </IconButton>
+                    </Tooltip>
+                    <MapContainer center={[-3.1, -60.0]} zoom={13} scrollWheelZoom={false} style={{ height: mapaCheio ? '100%' : 560, width: '100%' }}>
+                      <AjustarTamanho chave={mapaCheio} />
                       <TileLayer
                         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -868,6 +908,7 @@ export function RotaDoDiaPage() {
                         />
                       )}
                     </MapContainer>
+                    </Box>
 
                     {limitesRegua && limitesRegua[1] > limitesRegua[0] && (
                       <ReguaDoDia
