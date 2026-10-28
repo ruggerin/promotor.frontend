@@ -1,5 +1,5 @@
 import { Box, ToggleButton, ToggleButtonGroup, Typography, useTheme } from '@mui/material';
-import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import type { LinhaPlanejadoExecutado, LinhaTempoNaLoja } from '../../lib/api/relatorios';
 
 export type Visao = 'tabela' | 'grafico';
@@ -20,15 +20,21 @@ export function AlternarMedida({ valor, onChange }: { valor: MedidaTempo; onChan
 }
 
 // Alterna a mesma consulta entre tabela e gráfico (docs/60 — o gerador terá o mesmo seletor).
-export function AlternarVisao({ valor, onChange }: { valor: Visao; onChange: (v: Visao) => void }) {
+// `extras`: visões a mais de um relatório (ex.: "Por loja" no cumprimento de visitas).
+export function AlternarVisao<V extends string = Visao>({ valor, onChange, extras = [] }: { valor: V; onChange: (v: V) => void; extras?: { valor: V; rotulo: string }[] }) {
   return (
-    <ToggleButtonGroup size="small" exclusive value={valor} onChange={(_, v: Visao | null) => v && onChange(v)} aria-label="Forma de exibição">
+    <ToggleButtonGroup size="small" exclusive value={valor} onChange={(_, v: V | null) => v && onChange(v)} aria-label="Forma de exibição">
       <ToggleButton value="tabela" sx={{ textTransform: 'none' }}>
         Tabela
       </ToggleButton>
       <ToggleButton value="grafico" sx={{ textTransform: 'none' }}>
         Gráfico
       </ToggleButton>
+      {extras.map((e) => (
+        <ToggleButton key={e.valor} value={e.valor} sx={{ textTransform: 'none' }}>
+          {e.rotulo}
+        </ToggleButton>
+      ))}
     </ToggleButtonGroup>
   );
 }
@@ -46,38 +52,68 @@ function Vazio() {
   );
 }
 
-/** Visitas por dia, empilhadas por situação (soma de todos os promotores filtrados). */
+/**
+ * Como terminou o planejado do período, em pizza (rosca): cumpridas, não visitadas, em andamento,
+ * a vencer e canceladas, com o cumprimento no centro. Espontâneas ficam fora (não eram planejadas),
+ * como no percentual.
+ */
 export function GraficoCumprimento({ linhas }: { linhas: LinhaPlanejadoExecutado[] }) {
   const theme = useTheme();
-  const porDia = new Map<string, { dia: string; Cumpridas: number; 'Em andamento': number; Atrasadas: number; 'A vencer': number; Canceladas: number }>();
-  for (const l of linhas) {
-    const atual = porDia.get(l.data) ?? { dia: dia(l.data), Cumpridas: 0, 'Em andamento': 0, Atrasadas: 0, 'A vencer': 0, Canceladas: 0 };
-    atual.Cumpridas += l.cumpridas;
-    atual['Em andamento'] += l.em_andamento;
-    atual.Atrasadas += l.atrasadas;
-    atual['A vencer'] += l.a_vencer;
-    atual.Canceladas += l.canceladas;
-    porDia.set(l.data, atual);
-  }
-  const dados = [...porDia.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([, v]) => v);
-  if (dados.length === 0) return <Vazio />;
+  const soma = (campo: 'cumpridas' | 'em_andamento' | 'atrasadas' | 'a_vencer' | 'canceladas' | 'planejadas') =>
+    linhas.reduce((t, l) => t + l[campo], 0);
+  const fatias = [
+    { nome: 'Cumpridas', valor: soma('cumpridas'), cor: theme.palette.success.main },
+    { nome: 'Não visitadas', valor: soma('atrasadas'), cor: theme.palette.error.main },
+    { nome: 'Em andamento', valor: soma('em_andamento'), cor: theme.palette.info.main },
+    { nome: 'A vencer', valor: soma('a_vencer'), cor: theme.palette.grey[500] },
+    { nome: 'Canceladas', valor: soma('canceladas'), cor: theme.palette.warning.main },
+  ].filter((f) => f.valor > 0);
+  const total = fatias.reduce((t, f) => t + f.valor, 0);
+  if (total === 0) return <Vazio />;
+  const planejadas = soma('planejadas');
+  const cumprimento = planejadas > 0 ? Math.round((soma('cumpridas') / planejadas) * 100) : null;
 
   return (
-    <Box sx={{ height: 360 }} role="img" aria-label="Gráfico de visitas por dia, por situação">
+    <Box
+      sx={{ height: 360, position: 'relative' }}
+      role="img"
+      aria-label={`Gráfico de pizza das visitas planejadas por situação: ${fatias.map((f) => `${f.nome} ${f.valor}`).join(', ')}`}
+    >
       <ResponsiveContainer>
-        <BarChart data={dados}>
-          <CartesianGrid strokeDasharray="3 3" vertical={false} />
-          <XAxis dataKey="dia" />
-          <YAxis allowDecimals={false} />
-          <Tooltip />
-          <Legend />
-          <Bar dataKey="Cumpridas" stackId="v" fill={theme.palette.success.main} />
-          <Bar dataKey="Em andamento" stackId="v" fill={theme.palette.info.main} />
-          <Bar dataKey="A vencer" stackId="v" fill={theme.palette.grey[400]} />
-          <Bar dataKey="Atrasadas" stackId="v" fill={theme.palette.error.main} />
-          <Bar dataKey="Canceladas" stackId="v" fill={theme.palette.warning.main} />
-        </BarChart>
+        <PieChart>
+          <Pie
+            data={fatias}
+            dataKey="valor"
+            nameKey="nome"
+            innerRadius="55%"
+            outerRadius="80%"
+            paddingAngle={fatias.length > 1 ? 2 : 0}
+            stroke={theme.palette.background.paper}
+            label={(e: { value?: number }) => `${Math.round(((e.value ?? 0) / total) * 100)}%`}
+            isAnimationActive={false}
+          >
+            {fatias.map((f) => (
+              <Cell key={f.nome} fill={f.cor} />
+            ))}
+          </Pie>
+          <Tooltip
+            formatter={(v) => [`${v} (${Math.round((Number(v) / total) * 100)}%)`]}
+            contentStyle={{ background: theme.palette.background.paper, border: `1px solid ${theme.palette.divider}`, borderRadius: 6 }}
+            itemStyle={{ color: theme.palette.text.primary }}
+          />
+          <Legend formatter={(nome, item) => `${nome}: ${(item.payload as { valor?: number } | undefined)?.valor ?? ''}`} />
+        </PieChart>
       </ResponsiveContainer>
+      {cumprimento !== null && (
+        <Box sx={{ position: 'absolute', inset: 0, bottom: 36, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+          <Typography variant="h5" sx={{ fontWeight: 700 }}>
+            {cumprimento}%
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            cumprimento
+          </Typography>
+        </Box>
+      )}
     </Box>
   );
 }

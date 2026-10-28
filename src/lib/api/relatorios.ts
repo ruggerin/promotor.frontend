@@ -136,6 +136,72 @@ export async function buscarTempoNaLoja(
 
 // PDF dos relatórios — rota autenticada atrás de application/pdf, vem como blob (ver
 // baixarRelatorioRota em agendasVisita.ts pro mesmo raciocínio).
+// Lojas por trás do cumprimento de visitas: abrir a linha "dia × promotor" e a visão por loja.
+
+export type SituacaoLojaPlanejada = 'visitada' | 'em_andamento' | 'nao_visitada' | 'a_vencer' | 'cancelada' | 'espontanea';
+
+export interface LojaPlanejada {
+  data: string;
+  promotor: { id: string; nome: string } | null;
+  loja: { id: string; nome: string; codigo_externo: string | null; latitude?: number | null; longitude?: number | null } | null;
+  situacao: SituacaoLojaPlanejada;
+  visita_id: string | null;
+  entrada: string | null;
+  saida: string | null;
+  minutos_na_loja: number | null;
+  registros: number | null;
+  ordem_servico_id: string | null;
+  previsto: string | null;
+  prazo_fim: string | null;
+  obrigatoria: boolean;
+  motivo_cancelamento: string | null;
+  responsavel_cancelamento: string | null;
+}
+
+export interface LojaNoPeriodo {
+  loja: { id: string; nome: string; codigo_externo: string | null };
+  promotores: { id: string; nome: string }[];
+  planejadas: number;
+  visitadas: number;
+  em_andamento: number;
+  nao_visitadas: number;
+  a_vencer: number;
+  canceladas: number;
+  espontaneas: number;
+  dias_perdidos: string[];
+  ultima_visita: string | null;
+  dias_sem_visita: number | null;
+}
+
+export async function buscarLojasDaLinha(params: { data: string; usuario_uuid: string | null; ponto_venda_uuid: string | null }): Promise<LojaPlanejada[]> {
+  const { data } = await apiClient.get<{ lojas: LojaPlanejada[] }>('/relatorios/visitas-planejadas-x-executadas/lojas', {
+    params: {
+      tz: fusoLocal(),
+      data: params.data,
+      usuario_uuid: params.usuario_uuid || undefined,
+      sem_promotor: params.usuario_uuid ? undefined : 1,
+      ponto_venda_uuid: params.ponto_venda_uuid || undefined,
+    },
+  });
+  return data.lojas;
+}
+
+export async function buscarVisitasPorLoja(
+  filtros: FiltrosRelatorio & { so_perdidas: boolean },
+): Promise<{ lojas: LojaNoPeriodo[]; total_lojas: number; lojas_com_perda: number }> {
+  const { data } = await apiClient.get<{ lojas: LojaNoPeriodo[]; total_lojas: number; lojas_com_perda: number }>('/relatorios/visitas-planejadas-x-executadas/por-loja', {
+    params: {
+      tz: fusoLocal(),
+      data_inicio: filtros.data_inicio || undefined,
+      data_fim: filtros.data_fim || undefined,
+      usuario_uuid: filtros.usuario_uuid || undefined,
+      ponto_venda_uuid: filtros.ponto_venda_uuid || undefined,
+      so_perdidas: filtros.so_perdidas ? 1 : undefined,
+    },
+  });
+  return data;
+}
+
 export async function baixarPdfVisitasPlanejadas(filtros: FiltrosRelatorio): Promise<Blob> {
   const { data } = await apiClient.get<Blob>('/relatorios/visitas-planejadas-x-executadas/pdf', {
     params: {

@@ -18,6 +18,7 @@ import {
   DialogContent,
   DialogTitle,
   LinearProgress,
+  Link,
   Paper,
   Table,
   TableBody,
@@ -34,7 +35,9 @@ import {
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import { useState, type ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link as RouterLink, useNavigate } from 'react-router-dom';
+import { podeVerTela } from '../../lib/acesso/telas';
+import { useAuth } from '../../lib/auth/AuthContext';
 import { usePageHeader } from '../../components/layout/PageHeaderSlot';
 import { UsuarioAvatar } from '../../components/UsuarioAvatar';
 import { baixarCsv } from '../../lib/csv';
@@ -180,6 +183,29 @@ function formatarDataHoraAgora(): string {
 function diaAnteriorISO(iso: string): string {
   const [ano, mes, dia] = iso.split('-').map(Number);
   return dataLocalISO(new Date(ano, mes - 1, dia - 1));
+}
+
+/**
+ * Nome do promotor que leva pra Rota do dia dele, na data escolhida aqui. Sem acesso à Rota do dia
+ * (permissão rastreamento.trajeto), fica só o texto.
+ */
+function NomePromotor({ id, nome, data, negrito = false }: { id: string; nome: string; data: string; negrito?: boolean }) {
+  const { usuario } = useAuth();
+  const estilo = { fontWeight: negrito ? 600 : undefined };
+  if (!podeVerTela(usuario, 'rota_dia')) {
+    return (
+      <Typography variant="body2" sx={estilo} noWrap={negrito}>
+        {nome}
+      </Typography>
+    );
+  }
+  return (
+    <Typography variant="body2" sx={estilo} noWrap={negrito}>
+      <Link component={RouterLink} to={`/rota-do-dia?usuario=${id}&data=${data}`} underline="hover" color="inherit" title="Ver a rota do dia">
+        {nome}
+      </Link>
+    </Typography>
+  );
 }
 
 function formatarDataSelecionada(iso: string): string {
@@ -541,9 +567,7 @@ export function OperacaoDoDiaPage() {
                     <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: SITUACAO_COR[linha.status], flexShrink: 0 }} />
                     <UsuarioAvatar nome={linha.usuario.nome} fotoUrl={linha.usuario.foto_url} size={30}/>
                     <Box sx={{ minWidth: 0, flexGrow: 1 }}>
-                      <Typography variant="body2" sx={{ fontWeight: 600 }} noWrap>
-                        {linha.usuario.nome}
-                      </Typography>
+                      <NomePromotor id={linha.usuario.id} nome={linha.usuario.nome} data={dataSelecionada} negrito />
                       <Typography variant="caption" color="text.secondary">
                         {SITUACAO_LABEL[linha.status]}
                         {linha.ponto_venda_atual ? ` · ${linha.ponto_venda_atual.fantasia}` : ''}
@@ -597,7 +621,7 @@ export function OperacaoDoDiaPage() {
                             <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: SITUACAO_COR[linha.status], flexShrink: 0 }} />
                             <UsuarioAvatar nome={linha.usuario.nome} fotoUrl={linha.usuario.foto_url} size={36} />
                             <Box>
-                              <Typography variant="body2">{linha.usuario.nome}</Typography>
+                              <NomePromotor id={linha.usuario.id} nome={linha.usuario.nome} data={dataSelecionada} />
                               <Typography variant="caption" color="text.secondary">{SITUACAO_LABEL[linha.status]}</Typography>
                             </Box>
                           </Box>

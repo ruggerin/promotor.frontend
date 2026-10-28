@@ -1,9 +1,12 @@
 import DownloadIcon from '@mui/icons-material/Download';
-import { Alert, Autocomplete, Box, Button, Chip, CircularProgress, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@mui/material';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
+import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
+import { Alert, Autocomplete, Box, Button, Chip, CircularProgress, IconButton, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography } from '@mui/material';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import axios from 'axios';
-import { useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { usePageHeader } from '../../components/layout/PageHeaderSlot';
 import { TituloComAtualizar } from '../../components/RefreshButton';
 import { FiltroPeriodo, hojeISO } from '../../components/relatorios/FiltroPeriodo';
@@ -14,6 +17,8 @@ import { baixarPdfVisitasPlanejadas, buscarVisitasPlanejadasXExecutadas, type Ti
 import { baixarBlob, baixarCsv } from '../../lib/csv';
 import { listarUsuarios } from '../../lib/api/usuarios';
 import { horus } from '../../theme';
+import type { LojaNoPeriodo } from '../../lib/api/relatorios';
+import { LojasDaLinha, VisitasPorLoja } from './VisitasPlanejadasLojas';
 
 const RESPONSAVEL_ROTULOS: Record<string, string> = {
   PROMOTOR: 'Promotor',
@@ -52,12 +57,45 @@ function Kpi({ rotulo, valor, cor, extra }: { rotulo: string; valor: number | st
  * no período (o planejado) com as Visitas (o executado), por dia e promotor.
  */
 export function VisitasPlanejadasPage() {
-  const [inicio, setInicio] = useState(hojeISO(-6));
-  const [fim, setFim] = useState(hojeISO());
-  const [promotorUuid, setPromotorUuid] = useState<string | null>(null);
-  const [pontoVendaUuid, setPontoVendaUuid] = useState<string | null>(null);
-  const [comparar, setComparar] = useState<TipoComparativo | ''>('');
-  const [visao, setVisao] = useState<Visao>('tabela');
+  // Filtros na URL (?de=&ate=&promotor=&loja=&comparar=&visao=): outra tela pode mandar pra cá já
+  // filtrada, e o link copiado abre igual. Ex.: /relatorios/visitas-planejadas?promotor=<uuid>&visao=por_loja
+  const [params, setParams] = useSearchParams();
+  const dataValida = (v: string | null) => (v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null);
+  const [inicio, setInicio] = useState(() => dataValida(params.get('de')) ?? hojeISO(-6));
+  const [fim, setFim] = useState(() => dataValida(params.get('ate')) ?? hojeISO());
+  const [promotorUuid, setPromotorUuid] = useState<string | null>(() => params.get('promotor'));
+  const [pontoVendaUuid, setPontoVendaUuid] = useState<string | null>(() => params.get('loja'));
+  const [comparar, setComparar] = useState<TipoComparativo | ''>(() => {
+    const c = params.get('comparar');
+    return c === 'anterior' || c === 'ano_anterior' ? c : '';
+  });
+  const [visao, setVisao] = useState<Visao | 'por_loja'>(() => {
+    const v = params.get('visao');
+    return v === 'grafico' || v === 'por_loja' ? v : 'tabela';
+  });
+
+  useEffect(() => {
+    const novos = new URLSearchParams();
+    novos.set('de', inicio);
+    novos.set('ate', fim);
+    if (promotorUuid) novos.set('promotor', promotorUuid);
+    if (pontoVendaUuid) novos.set('loja', pontoVendaUuid);
+    if (comparar) novos.set('comparar', comparar);
+    if (visao !== 'tabela') novos.set('visao', visao);
+    if (novos.toString() !== params.toString()) setParams(novos, { replace: true });
+  }, [inicio, fim, promotorUuid, pontoVendaUuid, comparar, visao, params, setParams]);
+  // Linhas abertas ("dia|promotor"): mostram as lojas por trás dos números.
+  const [abertas, setAbertas] = useState<Set<string>>(new Set());
+  const [lojasPorLoja, setLojasPorLoja] = useState<LojaNoPeriodo[]>([]);
+
+  function alternarLinha(chave: string) {
+    setAbertas((atual) => {
+      const nova = new Set(atual);
+      if (nova.has(chave)) nova.delete(chave);
+      else nova.add(chave);
+      return nova;
+    });
+  }
 
   const cabecalho = usePageHeader(<TituloComAtualizar titulo="Cumprimento de visitas" />);
 
@@ -103,10 +141,11 @@ export function VisitasPlanejadasPage() {
           options={promotoresQuery.data?.usuarios ?? []}
           getOptionLabel={(u) => u.nome}
           loading={promotoresQuery.isLoading}
+          value={promotoresQuery.data?.usuarios.find((u) => u.id === promotorUuid) ?? null}
           onChange={(_, u) => setPromotorUuid(u?.id ?? null)}
           renderInput={(params) => <TextField {...params} label="Promotor" />}
         />
-        <SeletorPontoVenda onChange={setPontoVendaUuid} />
+        <SeletorPontoVenda valor={pontoVendaUuid} onChange={setPontoVendaUuid} />
         <SeletorComparativo valor={comparar} onChange={setComparar} />
       </Box>
       {query.data?.comparativo && (
@@ -116,13 +155,13 @@ export function VisitasPlanejadasPage() {
       )}
 
       <Box sx={{ mb: 2 }}>
-        <AlternarVisao valor={visao} onChange={setVisao} />
+        <AlternarVisao<Visao | 'por_loja'> valor={visao} onChange={setVisao} extras={[{ valor: 'por_loja', rotulo: 'Por loja' }]} />
       </Box>
 
       <Button
         size="small"
         startIcon={<PictureAsPdfIcon />}
-        disabled={!query.data || query.data.linhas.length === 0 || pdfMutation.isPending}
+        disabled={!query.data || query.data.linhas.length === 0 || pdfMutation.isPending || visao === 'por_loja'}
         sx={{ mb: 2, mr: 1 }}
         onClick={() => pdfMutation.mutate()}
       >
@@ -131,12 +170,21 @@ export function VisitasPlanejadasPage() {
       <Button
         size="small"
         startIcon={<DownloadIcon />}
-        disabled={!query.data || query.data.linhas.length === 0}
+        disabled={visao === 'por_loja' ? lojasPorLoja.length === 0 : !query.data || query.data.linhas.length === 0}
         sx={{ mb: 2 }}
         onClick={() =>
-          baixarCsv(
+          visao === 'por_loja'
+            ? baixarCsv(
+                `visitas-por-loja-${inicio}-a-${fim}.csv`,
+                ['Loja', 'Codigo', 'Promotor', 'Planejadas', 'Visitadas', 'Nao visitadas', 'Canceladas', 'Espontaneas', 'Ultima visita', 'Dias perdidos'],
+                lojasPorLoja.map((l) => [
+                  l.loja.nome, l.loja.codigo_externo ?? '', l.promotores.map((p) => p.nome).join(', '), l.planejadas, l.visitadas, l.nao_visitadas,
+                  l.canceladas, l.espontaneas, l.ultima_visita ? new Date(l.ultima_visita).toLocaleDateString('pt-BR') : '', l.dias_perdidos.map(formatarDia).join(' '),
+                ]),
+              )
+            : baixarCsv(
             `cumprimento-visitas-${inicio}-a-${fim}.csv`,
-            ['Dia', 'Promotor', 'Planejadas', 'Cumpridas', 'Em andamento', 'Atrasadas', 'A vencer', 'Canceladas', 'Espontaneas', 'Cumprimento (%)', 'Cumprimento ajustado (%)'],
+            ['Dia', 'Promotor', 'Planejadas', 'Cumpridas', 'Em andamento', 'Nao visitadas', 'A vencer', 'Canceladas', 'Espontaneas', 'Cumprimento (%)', 'Cumprimento ajustado (%)'],
             (query.data?.linhas ?? []).map((l) => [
               formatarDia(l.data), l.promotor?.nome ?? 'Fila aberta', l.planejadas, l.cumpridas, l.em_andamento,
               l.atrasadas, l.a_vencer, l.canceladas, l.espontaneas, l.percentual_cumprimento, l.percentual_cumprimento_ajustado,
@@ -158,7 +206,7 @@ export function VisitasPlanejadasPage() {
           <Kpi rotulo="Planejadas" valor={total.planejadas} extra={<Variacao atual={total.planejadas} anterior={comp?.planejadas} />} />
           <Kpi rotulo="Cumpridas" valor={total.cumpridas} cor="#16a34a" extra={<Variacao atual={total.cumpridas} anterior={comp?.cumpridas} />} />
           <Kpi rotulo="Em andamento" valor={total.em_andamento} />
-          <Kpi rotulo="Atrasadas" valor={total.atrasadas} cor={total.atrasadas > 0 ? '#dc2626' : undefined} extra={<Variacao atual={total.atrasadas} anterior={comp?.atrasadas} melhorQuandoMaior={false} />} />
+          <Kpi rotulo="Não visitadas" valor={total.atrasadas} cor={total.atrasadas > 0 ? '#dc2626' : undefined} extra={<Variacao atual={total.atrasadas} anterior={comp?.atrasadas} melhorQuandoMaior={false} />} />
           <Kpi rotulo="A vencer" valor={total.a_vencer} />
           <Kpi rotulo="Canceladas" valor={total.canceladas} cor={total.canceladas > 0 ? horus.ambarEscuro : undefined} extra={<Variacao atual={total.canceladas} anterior={comp?.canceladas} melhorQuandoMaior={false} />} />
           <Kpi rotulo="Espontâneas" valor={total.espontaneas} />
@@ -191,17 +239,22 @@ export function VisitasPlanejadasPage() {
         </Paper>
       )}
 
+      {visao === 'por_loja' && (
+        <VisitasPorLoja inicio={inicio} fim={fim} promotorUuid={promotorUuid} pontoVendaUuid={pontoVendaUuid} onDados={setLojasPorLoja} />
+      )}
+
       {visao === 'tabela' && (
       <TableContainer component={Paper}>
         <Table size="small">
           <TableHead>
             <TableRow>
+              <TableCell sx={{ width: 44 }} />
               <TableCell>Dia</TableCell>
               <TableCell>Promotor</TableCell>
               <TableCell align="right">Planejadas</TableCell>
               <TableCell align="right">Cumpridas</TableCell>
               <TableCell align="right">Em andamento</TableCell>
-              <TableCell align="right">Atrasadas</TableCell>
+              <TableCell align="right">Não visitadas</TableCell>
               <TableCell align="right">A vencer</TableCell>
               <TableCell align="right">Canceladas</TableCell>
               <TableCell align="right">Espontâneas</TableCell>
@@ -211,20 +264,29 @@ export function VisitasPlanejadasPage() {
           <TableBody>
             {query.isLoading && (
               <TableRow>
-                <TableCell colSpan={10} align="center">
+                <TableCell colSpan={11} align="center">
                   <CircularProgress size={24} />
                 </TableCell>
               </TableRow>
             )}
             {query.data?.linhas.length === 0 && (
               <TableRow>
-                <TableCell colSpan={10} align="center">
+                <TableCell colSpan={11} align="center">
                   Nada planejado nem executado nesse período.
                 </TableCell>
               </TableRow>
             )}
-            {query.data?.linhas.map((l) => (
-              <TableRow key={`${l.data}-${l.promotor?.id ?? 'fila'}`} hover>
+            {query.data?.linhas.map((l) => {
+              const chave = `${l.data}|${l.promotor?.id ?? 'fila'}`;
+              const aberta = abertas.has(chave);
+              return (
+              <Fragment key={chave}>
+              <TableRow hover selected={aberta}>
+                <TableCell sx={{ pr: 0 }}>
+                  <IconButton size="small" onClick={() => alternarLinha(chave)} aria-expanded={aberta} aria-label={`${aberta ? 'Fechar' : 'Ver'} lojas de ${l.promotor?.nome ?? 'fila aberta'} em ${formatarDia(l.data)}`}>
+                    {aberta ? <KeyboardArrowDownIcon fontSize="small" /> : <KeyboardArrowRightIcon fontSize="small" />}
+                  </IconButton>
+                </TableCell>
                 <TableCell>{formatarDia(l.data)}</TableCell>
                 <TableCell>{l.promotor?.nome ?? <em>Fila aberta (sem promotor)</em>}</TableCell>
                 <TableCell align="right">{l.planejadas}</TableCell>
@@ -240,7 +302,17 @@ export function VisitasPlanejadasPage() {
                   <Percentual valor={l.percentual_cumprimento} />
                 </TableCell>
               </TableRow>
-            ))}
+              {/* Só existe aberta: o tema dá altura mínima à célula, e uma linha vazia virava um vão. */}
+              {aberta && (
+                <TableRow>
+                  <TableCell colSpan={11} sx={{ height: 'auto', py: 0, pl: 7 }}>
+                    <LojasDaLinha data={l.data} promotorUuid={l.promotor?.id ?? null} pontoVendaUuid={pontoVendaUuid} />
+                  </TableCell>
+                </TableRow>
+              )}
+              </Fragment>
+              );
+            })}
           </TableBody>
         </Table>
       </TableContainer>

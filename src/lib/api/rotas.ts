@@ -1,3 +1,4 @@
+import type { LojaPlanejada } from './relatorios';
 import type { AfastamentoTrecho } from '../../types/api';
 import { apiClient } from './client';
 
@@ -103,6 +104,8 @@ export interface RotaDoDia {
   deslocamentos: DeslocamentoRota[];
   desvios: DesvioRota[];
   // Lojas do dia (agenda + visitadas) que formam a área do roteiro; vazia com o desvio desligado.
+  // Planejado pro dia que não virou visita (não visitada, a vencer, em andamento, cancelada).
+  planejadas_nao_feitas?: LojaPlanejada[];
   area_roteiro: {
     raio_metros: number;
     lojas: { id: string | null; fantasia: string | null; latitude: number; longitude: number; visitada: boolean }[];

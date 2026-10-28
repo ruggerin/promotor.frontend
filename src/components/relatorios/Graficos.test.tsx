@@ -27,6 +27,6 @@ describe('Graficos dos relatórios padrão', () => {
       />,
     );
 
-    expect(screen.getByRole('img', { name: /visitas por dia/i })).toBeTruthy();
+    expect(screen.getByRole('img', { name: /pizza das visitas planejadas/i })).toBeTruthy();
   });
 });

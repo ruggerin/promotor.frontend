@@ -117,6 +117,26 @@ const pinoAgenda = L.divIcon({
   html: `<div style="width:22px;height:22px;border-radius:50%;background:#fff;border:2.5px dashed ${COR.rota};box-sizing:border-box"></div>`,
 });
 
+// Planejado pro dia e não feito (checkbox "Planejadas não feitas"): quadrado com borda tracejada,
+// pra não confundir com a visita feita (círculo numerado).
+const SITUACAO_PLANEJADA: Record<string, { rotulo: string; cor: string; texto: string }> = {
+  nao_visitada: { rotulo: 'Não visitada', cor: '#dc2626', texto: '!' },
+  a_vencer: { rotulo: 'A vencer', cor: '#6b7280', texto: '…' },
+  em_andamento: { rotulo: 'Em andamento', cor: '#2563eb', texto: '▶' },
+  cancelada: { rotulo: 'Cancelada', cor: '#d97706', texto: '×' },
+};
+
+function pinoPlanejada(situacao: string): L.DivIcon {
+  const s = SITUACAO_PLANEJADA[situacao] ?? SITUACAO_PLANEJADA.a_vencer;
+  return L.divIcon({
+    className: '',
+    iconSize: [26, 26],
+    iconAnchor: [13, 13],
+    popupAnchor: [0, -12],
+    html: `<div style="width:26px;height:26px;border-radius:6px;background:#fff;border:2.5px dashed ${s.cor};box-sizing:border-box;color:${s.cor};font:800 13px 'IBM Plex Sans',sans-serif;display:flex;align-items:center;justify-content:center">${s.texto}</div>`,
+  });
+}
+
 // Horário escrito em cima do trajeto.
 function etiquetaHora(texto: string): L.DivIcon {
   return L.divIcon({
@@ -431,6 +451,8 @@ export function RotaDoDiaPage() {
   const [selecionado, setSelecionado] = useState<string | null>(null);
   const [mostrarFora, setMostrarFora] = useState(false);
   const [mostrarArea, setMostrarArea] = useState(true);
+  // O que estava planejado e o promotor não fez (não visitada, a vencer, cancelada) — no mapa e na linha do tempo.
+  const [mostrarPlanejadas, setMostrarPlanejadas] = useState(params.get('planejadas') === '1');
   const [horaRegua, setHoraRegua] = useState<number | null>(null);
   const [tocando, setTocando] = useState(false);
   const marcadores = useRef<Record<string, L.Marker | null>>({});
@@ -497,6 +519,7 @@ export function RotaDoDiaPage() {
   // No horário escondido (fora do expediente, intervalo), a régua não mostra onde ele estava.
   const posicaoRegua = rota && horaRegua !== null && visivel(new Date(horaRegua).toISOString()) ? posicaoNaHora(rota, horaRegua) : null;
   const raioArea = rota?.area_roteiro?.raio_metros ?? 0;
+  const naoFeitas = rota?.planejadas_nao_feitas ?? [];
 
   return (
     <Box>
@@ -597,7 +620,7 @@ export function RotaDoDiaPage() {
               ) : (
                 <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', lg: 'minmax(0, 1fr) 360px' }, gap: 2, alignItems: 'start' }}>
                   <Paper variant="outlined" sx={{ overflow: 'hidden', borderRadius: 1.5 }}>
-                    {((janela.escondeAlgo && janela.podeAbrir) || raioArea > 0) && (
+                    {((janela.escondeAlgo && janela.podeAbrir) || raioArea > 0 || naoFeitas.length > 0) && (
                       <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center', px: 1.5, py: 0.25, borderBottom: '1px solid', borderColor: 'divider' }}>
                         {janela.escondeAlgo && janela.podeAbrir && (
                           <FormControlLabel
@@ -617,6 +640,12 @@ export function RotaDoDiaPage() {
                           <FormControlLabel
                             control={<Checkbox size="small" checked={mostrarArea} onChange={(e) => setMostrarArea(e.target.checked)} />}
                             label={<Typography variant="body2">Área do roteiro</Typography>}
+                          />
+                        )}
+                        {naoFeitas.length > 0 && (
+                          <FormControlLabel
+                            control={<Checkbox size="small" checked={mostrarPlanejadas} onChange={(e) => setMostrarPlanejadas(e.target.checked)} />}
+                            label={<Typography variant="body2">Planejadas não feitas ({naoFeitas.length})</Typography>}
                           />
                         )}
                         <Typography variant="caption" color="text.secondary" sx={{ ml: 'auto', display: { xs: 'none', md: 'block' } }}>
@@ -733,6 +762,26 @@ export function RotaDoDiaPage() {
                                 <strong>{l.fantasia ?? 'Loja da agenda'}</strong>
                                 <br />
                                 Na agenda do dia, não visitada. Ir pra perto dela não conta como desvio.
+                              </Popup>
+                            </Marker>
+                          ))}
+
+                      {mostrarPlanejadas &&
+                        naoFeitas
+                          .filter((p) => p.loja?.latitude != null && p.loja?.longitude != null)
+                          .map((p, i) => (
+                            <Marker key={`pl-${p.ordem_servico_id ?? i}`} position={[Number(p.loja!.latitude), Number(p.loja!.longitude)]} icon={pinoPlanejada(p.situacao)}>
+                              <Popup>
+                                <strong>{p.loja?.nome ?? 'Loja'}</strong>
+                                <br />
+                                {SITUACAO_PLANEJADA[p.situacao]?.rotulo ?? p.situacao}
+                                {p.previsto ? ` · previsto ${p.previsto}` : p.prazo_fim ? ` · prazo até ${p.prazo_fim}` : ''}
+                                {p.motivo_cancelamento && (
+                                  <>
+                                    <br />
+                                    Motivo: {p.motivo_cancelamento}
+                                  </>
+                                )}
                               </Popup>
                             </Marker>
                           ))}
@@ -859,6 +908,7 @@ export function RotaDoDiaPage() {
                       )}
                       <Legenda cor={COR.rota} texto="Visita, na ordem" />
                       {raioArea > 0 && rota.area_roteiro.lojas.some((l) => !l.visitada) && <Legenda cor={COR.rota} texto="Na agenda, não visitada" oca />}
+                      {mostrarPlanejadas && naoFeitas.length > 0 && <Legenda cor={SITUACAO_PLANEJADA.nao_visitada.cor} texto="Planejada e não feita (quadrado tracejado)" oca />}
                       <Legenda cor={COR.parada} texto={`Parado fora de loja (${rota.parametros.parada_minutos} min ou mais)`} />
                       <Legenda
                         cor={COR.fora}
@@ -930,6 +980,38 @@ export function RotaDoDiaPage() {
                         </Box>
                       )}
                     </Box>
+                    {mostrarPlanejadas && naoFeitas.length > 0 && (
+                      <Box sx={{ borderTop: '1px solid', borderColor: 'divider', px: 1.75, py: 1.25 }}>
+                        <Typography variant="body2" sx={{ fontWeight: 700, mb: 0.75 }}>
+                          Planejado e não feito ({naoFeitas.length})
+                        </Typography>
+                        <Box component="ul" sx={{ listStyle: 'none', m: 0, p: 0, display: 'flex', flexDirection: 'column', gap: 1 }}>
+                          {naoFeitas.map((p, i) => {
+                            const s = SITUACAO_PLANEJADA[p.situacao] ?? SITUACAO_PLANEJADA.a_vencer;
+                            return (
+                              <Box component="li" key={p.ordem_servico_id ?? i} sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+                                <Box sx={{ mt: 0.25, width: 18, height: 18, flexShrink: 0, borderRadius: 1, border: `2px dashed ${s.cor}`, color: s.cor, fontSize: 11, fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                  {s.texto}
+                                </Box>
+                                <Box sx={{ minWidth: 0 }}>
+                                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                                    {p.loja?.nome ?? 'Loja'}
+                                  </Typography>
+                                  <Typography variant="caption" color="text.secondary" component="div">
+                                    <Box component="span" sx={{ color: s.cor, fontWeight: 600 }}>
+                                      {s.rotulo}
+                                    </Box>
+                                    {p.previsto ? ` · previsto ${p.previsto}` : p.prazo_fim ? ` · prazo até ${p.prazo_fim}` : ''}
+                                    {p.obrigatoria ? ' · obrigatória' : ''}
+                                    {p.motivo_cancelamento ? ` · ${p.motivo_cancelamento}` : ''}
+                                  </Typography>
+                                </Box>
+                              </Box>
+                            );
+                          })}
+                        </Box>
+                      </Box>
+                    )}
                   </Paper>
                 </Box>
               )}
