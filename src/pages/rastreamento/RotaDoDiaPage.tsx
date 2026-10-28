@@ -644,7 +644,7 @@ export function RotaDoDiaPage() {
                     variant="outlined"
                     sx={
                       mapaCheio
-                        ? { position: 'fixed', inset: 0, zIndex: (t) => t.zIndex.modal, borderRadius: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }
+                        ? { position: 'fixed', inset: 0, zIndex: (t) => t.zIndex.modal, borderRadius: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', '& > *:not(.area-mapa)': { flexShrink: 0 } }
                         : { overflow: 'hidden', borderRadius: 1.5 }
                     }
                   >
@@ -681,7 +681,7 @@ export function RotaDoDiaPage() {
                         </Typography>
                       </Box>
                     )}
-                    <Box sx={{ position: 'relative', flex: mapaCheio ? 1 : undefined, minHeight: 0 }}>
+                    <Box className="area-mapa" sx={{ position: 'relative', flex: mapaCheio ? '1 1 0' : undefined, minHeight: 0 }}>
                     <Tooltip title={mapaCheio ? 'Sair da tela cheia (Esc)' : 'Maximizar o mapa'}>
                       <IconButton
                         size="small"
