@@ -357,11 +357,14 @@ function Formulario({
   const [vinculo, setVinculo] = useState<string | null>(null);
   // Tocar em "Câmera" simula a foto tirada (no app abre a câmera direto, sem galeria).
   const [fotos, setFotos] = useState(0);
-  const faltaFoto = d.exige_foto && fotos === 0;
+  // Sem fotos livres, a exigência de foto é cumprida pelas perguntas de foto.
+  const faltaFoto = d.exige_foto && d.permite_foto_livre && fotos === 0;
 
   return (
     <>
       <Box sx={{ flex: 1, overflow: 'auto', p: 1.5, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+        {/* Fotos livres desligadas no formulário (docs/98): só as perguntas de foto. */}
+        {d.permite_foto_livre && (
         <Bloco>
           <Rotulo>
             Fotos{' '}
@@ -412,6 +415,7 @@ function Formulario({
             ))}
           </Box>
         </Bloco>
+        )}
 
         {/* Por marca: a embalagem é fixa e vem antes das perguntas (docs/85 §3.2). */}
         {porMarca && (
@@ -461,6 +465,8 @@ function Formulario({
           </Typography>
         )}
 
+        {/* Botão de ruptura desligado no formulário: não aparece no app. */}
+        {d.permite_ruptura && (
         <Box
           role="button"
           onClick={() => setRuptura(!ruptura)}
@@ -505,6 +511,7 @@ function Formulario({
             />
           </Box>
         </Box>
+        )}
 
         {mostraVinculo && (
           <Bloco>
@@ -584,6 +591,48 @@ function Campo({ c, valor, onChange }: { c: CampoForm; valor: string; onChange: 
       );
       break;
     }
+    case 'FOTO':
+      // Foto nomeada (docs/98): no app, "Registro fotográfico" e, se aceitar, "Usar foto já tirada".
+      corpo = (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.6 }}>
+          {c.foto_dica.trim() && <Typography sx={{ fontSize: 10, color: C.textoTerciario }}>{c.foto_dica.trim()}</Typography>}
+          <Box sx={{ display: 'flex', gap: 0.75 }}>
+            <Box
+              sx={{
+                flex: 1,
+                height: 34,
+                borderRadius: '9px',
+                border: `1px dashed ${C.borda}`,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 0.5,
+              }}
+            >
+              <MdiIcon icone="camera" size={13} sx={{ color: C.primaria }} />
+              <Typography sx={{ fontSize: 10.5, fontWeight: 700, color: C.primaria }}>Registro fotográfico</Typography>
+            </Box>
+            {c.foto_reaproveitar !== 'NAO' && (
+              <Box
+                sx={{
+                  flex: 1,
+                  height: 34,
+                  borderRadius: '9px',
+                  border: `1px solid ${C.borda}`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 0.5,
+                }}
+              >
+                <MdiIcon icone="image-multiple-outline" size={13} sx={{ color: C.texto }} />
+                <Typography sx={{ fontSize: 10.5, fontWeight: 700, color: C.texto }}>Usar foto já tirada</Typography>
+              </Box>
+            )}
+          </Box>
+        </Box>
+      );
+      break;
     default:
       corpo = (
         <Box

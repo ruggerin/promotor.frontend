@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ItemConfiguracao } from '../../lib/api/parametros';
-import { casaComBusca, edicaoDoServidor, erroDaEdicao, estaLigado, iguais, paraAlteracao } from './configuracoesLogica';
+import { avisoCombinacaoCheckout, casaComBusca, edicaoDoServidor, erroDaEdicao, estaLigado, iguais, paraAlteracao } from './configuracoesLogica';
 
 function item(extra: Partial<ItemConfiguracao>): ItemConfiguracao {
   return {
@@ -49,5 +49,33 @@ describe('configuracoesLogica', () => {
     expect(casaComBusca(i, 'Visitas e check-in', 'distancia')).toBe(true);
     expect(casaComBusca(i, 'Visitas e check-in', 'raio_metros')).toBe(true);
     expect(casaComBusca(i, 'Visitas e check-in', 'rastreamento')).toBe(false);
+  });
+});
+
+describe('avisoCombinacaoCheckout (docs/92 §8)', () => {
+  const com = (valores: Record<string, string>) => (c: string) => valores[c] ?? null;
+
+  it('avisa raio do checkout maior que o afastamento do rastreamento', () => {
+    expect(avisoCombinacaoCheckout('CHECKOUT_RAIO_METROS', com({ CHECKOUT_RAIO_METROS: '500', RASTREAMENTO_AFASTAMENTO_METROS: '300' }))).toMatch(/300 m/);
+    expect(avisoCombinacaoCheckout('CHECKOUT_RAIO_METROS', com({ CHECKOUT_RAIO_METROS: '200', RASTREAMENTO_AFASTAMENTO_METROS: '300' }))).toBeNull();
+    expect(avisoCombinacaoCheckout('CHECKOUT_RAIO_METROS', com({ CHECKOUT_RAIO_METROS: '0', RASTREAMENTO_AFASTAMENTO_METROS: '300' }))).toBeNull();
+  });
+
+  it('avisa BLOQUEIA sem a sugestão da saída, só com raio definido', () => {
+    const base = { CHECKOUT_RAIO_METROS: '200', CHECKOUT_FORA_DO_RAIO: 'BLOQUEIA' };
+    expect(avisoCombinacaoCheckout('CHECKOUT_FORA_DO_RAIO', com({ ...base, CHECKOUT_SUGERIR_SAIDA: 'false' }))).toMatch(/voltar à loja/);
+    expect(avisoCombinacaoCheckout('CHECKOUT_FORA_DO_RAIO', com({ ...base, CHECKOUT_SUGERIR_SAIDA: 'true' }))).toBeNull();
+    expect(avisoCombinacaoCheckout('CHECKOUT_FORA_DO_RAIO', com({ ...base, CHECKOUT_RAIO_METROS: '0' }))).toBeNull();
+    expect(avisoCombinacaoCheckout('CHECKOUT_FORA_DO_RAIO', com({ ...base, CHECKOUT_FORA_DO_RAIO: 'AVISA' }))).toBeNull();
+  });
+
+  it('avisa fechamento automático antes do push', () => {
+    expect(avisoCombinacaoCheckout('CHECKOUT_AUTOMATICO_MINUTOS', com({ CHECKOUT_AUTOMATICO_MINUTOS: '30', CHECKOUT_AVISO_SAIDA_MINUTOS: '30' }))).toMatch(/30 min/);
+    expect(avisoCombinacaoCheckout('CHECKOUT_AUTOMATICO_MINUTOS', com({ CHECKOUT_AUTOMATICO_MINUTOS: '60', CHECKOUT_AVISO_SAIDA_MINUTOS: '10' }))).toBeNull();
+    expect(avisoCombinacaoCheckout('CHECKOUT_AUTOMATICO_MINUTOS', com({ CHECKOUT_AUTOMATICO_MINUTOS: '30', CHECKOUT_AVISO_SAIDA_MINUTOS: '0' }))).toBeNull();
+  });
+
+  it('não avisa nas outras chaves', () => {
+    expect(avisoCombinacaoCheckout('CHECKIN_RAIO_METROS', com({}))).toBeNull();
   });
 });

@@ -96,3 +96,32 @@ describe('lista do onde é e filtro de marca', () => {
     expect(payloadDoForm(d).filtra_marca).toBe(false);
   });
 });
+
+// docs/98 — pergunta FOTO (antes/depois).
+describe('pergunta FOTO', () => {
+  function conquista(antes: Partial<ReturnType<typeof campoVazio>> = {}): FormData {
+    return {
+      ...DEFAULT_VALUES,
+      descricao: 'Conquista de espaço',
+      campos: [
+        { ...campoVazio('FOTO'), chave: 'antes', rotulo: 'Antes', obrigatorio: true, fotoMinTexto: '1', fotoMaxTexto: '2', foto_reaproveitar: 'HISTORICO', foto_dica: ' Enquadre a gôndola ', ...antes },
+        { ...campoVazio('NUMERO'), chave: 'modulos', rotulo: 'Módulos' },
+      ],
+    };
+  }
+
+  it('vai pro payload com quantidade, reaproveitamento e dica; outras perguntas não levam config de foto', () => {
+    const payload = payloadDoForm(conquista());
+    expect(payload.campos?.[0]).toMatchObject({ tipo_campo: 'FOTO', foto_min: 1, foto_max: 2, foto_reaproveitar: 'HISTORICO', foto_dica: 'Enquadre a gôndola' });
+    expect(payload.campos?.[1]).not.toHaveProperty('foto_max');
+  });
+
+  it('vazio = sem limite', () => {
+    expect(payloadDoForm(conquista({ fotoMinTexto: '', fotoMaxTexto: '' })).campos?.[0]).toMatchObject({ foto_min: null, foto_max: null });
+  });
+
+  it('máximo menor que o mínimo é inválido', () => {
+    expect(schema.safeParse(conquista({ fotoMinTexto: '3', fotoMaxTexto: '1' })).success).toBe(false);
+    expect(schema.safeParse(conquista()).success).toBe(true);
+  });
+});

@@ -517,6 +517,8 @@ function ResumoSecao({ control, n }: { control: Control<FormData>; n: NumeroSeca
   if (n === 5) {
     const ligadas = OPCOES_AVANCADAS.filter((o) => d[o.nome]).map((o) => o.curto);
     texto = ligadas.length ? `Ligado: ${ligadas.join(', ')}` : 'Nenhuma ligada. A maioria dos formulários não precisa mexer aqui.';
+    if (!d.permite_ruptura) texto += ' Sem botão de ruptura no app.';
+    if (!d.permite_foto_livre) texto += ' Sem fotos livres.';
   }
   return (
     <Typography variant="body2" color="text.secondary" noWrap>

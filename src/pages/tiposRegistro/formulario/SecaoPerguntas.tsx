@@ -43,6 +43,7 @@ import {
   campoDaApi,
   campoVazio,
   gerarChave,
+  OPCOES_REAPROVEITAR_FOTO,
   opcoesDoTexto,
   problemaDeOrdem,
   temEscolhaDeRecorte,
@@ -538,7 +539,86 @@ function ConfigDoTipo({
     );
   }
   if (tipo === 'SORTIMENTO') return <ConfigChecklist control={control} setValue={setValue} indice={indice} tipoAtualId={tipoAtualId} />;
+  if (tipo === 'FOTO') return <ConfigFoto control={control} indice={indice} />;
   return null;
+}
+
+// Pergunta FOTO (docs/98): quantas fotos, de onde podem vir e a dica que aparece no app.
+function ConfigFoto({ control, indice }: { control: Control<FormData>; indice: number }) {
+  return (
+    <Box sx={{ mt: 2, p: 1.5, borderRadius: 2, bgcolor: horus.subcard, border: 1, borderColor: 'divider', display: 'grid', gap: 1.5 }}>
+      <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
+        <Controller
+          name={`campos.${indice}.fotoMinTexto`}
+          control={control}
+          render={({ field, fieldState }) => (
+            <TextField
+              {...field}
+              label="Mínimo de fotos"
+              type="number"
+              size="small"
+              sx={{ width: 180 }}
+              slotProps={{ htmlInput: { min: 0, max: 20 } }}
+              error={!!fieldState.error}
+              helperText={fieldState.error?.message ?? 'Vazio = 1 se obrigatória'}
+            />
+          )}
+        />
+        <Controller
+          name={`campos.${indice}.fotoMaxTexto`}
+          control={control}
+          render={({ field, fieldState }) => (
+            <TextField
+              {...field}
+              label="Máximo de fotos"
+              type="number"
+              size="small"
+              sx={{ width: 180 }}
+              slotProps={{ htmlInput: { min: 1, max: 20 } }}
+              error={!!fieldState.error}
+              helperText={fieldState.error?.message ?? 'Vazio = sem limite'}
+            />
+          )}
+        />
+      </Box>
+      <Controller
+        name={`campos.${indice}.foto_reaproveitar`}
+        control={control}
+        render={({ field }) => (
+          <TextField
+            select
+            size="small"
+            label="De onde a foto pode vir"
+            value={field.value}
+            onChange={(e) => field.onChange(e.target.value)}
+            helperText={`${OPCOES_REAPROVEITAR_FOTO.find((o) => o.valor === field.value)?.ajuda ?? ''} A galeria do celular nunca é aceita.`}
+            sx={{ maxWidth: 520 }}
+          >
+            {OPCOES_REAPROVEITAR_FOTO.map((o) => (
+              <MenuItem key={o.valor} value={o.valor}>
+                {o.rotulo}
+              </MenuItem>
+            ))}
+          </TextField>
+        )}
+      />
+      <Controller
+        name={`campos.${indice}.foto_dica`}
+        control={control}
+        render={({ field, fieldState }) => (
+          <TextField
+            {...field}
+            size="small"
+            label="Dica para o promotor (opcional)"
+            placeholder="Ex.: enquadre a gôndola inteira"
+            error={!!fieldState.error}
+            helperText={fieldState.error?.message}
+            sx={{ maxWidth: 520 }}
+          />
+        )}
+      />
+    </Box>
+  );
 }
 
 function OpcoesMultipla({ control, indice }: { control: Control<FormData>; indice: number }) {
@@ -801,7 +881,8 @@ function Condicao({ control, setValue, indice }: { control: Control<FormData>; s
   const dependeDe = useWatch({ control, name: `campos.${indice}.depende_de_chave` });
   const valor = useWatch({ control, name: `campos.${indice}.depende_de_valor` });
   // Só perguntas ANTERIORES, com código e de um tipo que dá pra comparar.
-  const candidatas = todos.slice(0, indice).filter((c) => c.chave && c.tipo_campo !== 'SORTIMENTO');
+  // Checklist e foto não têm uma resposta simples pra condicionar outra pergunta.
+  const candidatas = todos.slice(0, indice).filter((c) => c.chave && c.tipo_campo !== 'SORTIMENTO' && c.tipo_campo !== 'FOTO');
 
   if (!dependeDe) {
     return (

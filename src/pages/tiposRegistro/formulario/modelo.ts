@@ -16,7 +16,7 @@ export const campoSchema = z.object({
   // de pergunta já salva nunca muda sozinha: as respostas antigas ficam gravadas por ela.
   chaveFixa: z.boolean(),
   rotulo: z.string().min(1, 'Escreva a pergunta').max(255),
-  tipo_campo: z.enum(['NUMERO', 'TEXTO', 'MOEDA', 'MULTIPLA_ESCOLHA', 'BOOLEANO', 'DATA', 'SORTIMENTO']),
+  tipo_campo: z.enum(['NUMERO', 'TEXTO', 'MOEDA', 'MULTIPLA_ESCOLHA', 'BOOLEANO', 'DATA', 'SORTIMENTO', 'FOTO']),
   opcoesTexto: z.string(),
   obrigatorio: z.boolean(),
   limiteDiasRetroativosTexto: z
@@ -36,6 +36,14 @@ export const campoSchema = z.object({
   // Mix segue a marca/departamento/seção que o promotor escolhe no registro (docs/79).
   sortimento_segue_escolha: z.boolean(),
   confirmar_ruptura_ausentes: z.boolean(),
+  // Pergunta FOTO (docs/98): quantidade (texto vazio = sem limite), reaproveitamento e dica.
+  fotoMinTexto: z.string().refine((v) => v === '' || /^\d+$/.test(v), 'Use um número inteiro.'),
+  fotoMaxTexto: z.string().refine((v) => v === '' || /^[1-9]\d*$/.test(v), 'Use 1 ou mais.'),
+  foto_reaproveitar: z.enum(['NAO', 'VISITA', 'HISTORICO']),
+  foto_dica: z.string().max(255, 'No máximo 255 caracteres.'),
+}).refine((c) => c.tipo_campo !== 'FOTO' || c.fotoMinTexto === '' || c.fotoMaxTexto === '' || Number(c.fotoMinTexto) <= Number(c.fotoMaxTexto), {
+  message: 'O máximo não pode ser menor que o mínimo.',
+  path: ['fotoMaxTexto'],
 });
 
 const excecaoGranularidadeSchema = z.object({
@@ -71,6 +79,10 @@ export const schema = z
     // docs/82: só valem com a opção "o promotor escolhe".
     lista_recorte: z.enum(['PRIMEIRO_DA_LOJA', 'SO_DA_LOJA']),
     filtra_marca: z.boolean(),
+    // Botão "Produto em ruptura" no registro do app (padrão ligado).
+    permite_ruptura: z.boolean(),
+    // Área de foto livre no app (docs/98): desligada, só as perguntas FOTO.
+    permite_foto_livre: z.boolean(),
     // "Ainda está lá?" (docs/83 §3.1).
     acompanha: z.boolean(),
     acompanha_gatilho_chave: z.string().nullable(),
@@ -199,6 +211,8 @@ export const DEFAULT_VALUES: FormData = {
   escolhe_secao: false,
   lista_recorte: 'PRIMEIRO_DA_LOJA',
   filtra_marca: false,
+  permite_ruptura: true,
+  permite_foto_livre: true,
   acompanha: false,
   acompanha_gatilho_chave: null,
   acompanha_gatilho_valor: null,
@@ -262,6 +276,10 @@ export function campoVazio(tipo: TipoCampoRegistro = 'BOOLEANO'): CampoForm {
     sortimento_produtos: [],
     sortimento_segue_escolha: false,
     confirmar_ruptura_ausentes: false,
+    fotoMinTexto: '',
+    fotoMaxTexto: '',
+    foto_reaproveitar: 'NAO',
+    foto_dica: '',
   };
 }
 
@@ -285,6 +303,10 @@ export function campoDaApi(c: CampoTipoRegistro, manterCondicao: boolean): Campo
     sortimento_produtos: c.sortimento_produtos.map((p) => ({ uuid: p.id, descricao: p.descricao })),
     sortimento_segue_escolha: c.sortimento_segue_escolha ?? false,
     confirmar_ruptura_ausentes: c.confirmar_ruptura_ausentes,
+    fotoMinTexto: c.foto_min ? String(c.foto_min) : '',
+    fotoMaxTexto: c.foto_max ? String(c.foto_max) : '',
+    foto_reaproveitar: c.foto_reaproveitar ?? 'NAO',
+    foto_dica: c.foto_dica ?? '',
   };
 }
 
@@ -312,6 +334,8 @@ export function formDoTipo(tipo: TipoRegistro): FormData {
     escolhe_secao: tipo.escolhe_secao ?? false,
     lista_recorte: tipo.lista_recorte ?? 'PRIMEIRO_DA_LOJA',
     filtra_marca: tipo.filtra_marca ?? false,
+    permite_ruptura: tipo.permite_ruptura ?? true,
+    permite_foto_livre: tipo.permite_foto_livre ?? true,
     acompanha: tipo.acompanha ?? false,
     acompanha_gatilho_chave: tipo.acompanha_gatilho_chave ?? null,
     acompanha_gatilho_valor: tipo.acompanha_gatilho_valor ?? null,
@@ -367,6 +391,8 @@ export function payloadDoForm(d: FormData): TipoRegistroPayload {
     lista_recorte: temEscolhaDeRecorte(d) ? d.lista_recorte : 'PRIMEIRO_DA_LOJA',
     // O filtro de marca é "depois da seção/departamento": sem nenhum dos dois, não vale.
     filtra_marca: temEscolhaDeRecorte(d) && (d.escolhe_departamento || d.escolhe_secao) && d.filtra_marca,
+    permite_ruptura: d.permite_ruptura,
+    permite_foto_livre: d.permite_foto_livre,
     // docs/83: desligado, a configuração vai limpa (o servidor também ignora sem `acompanha`).
     acompanha: d.acompanha,
     acompanha_gatilho_chave: d.acompanha && d.acompanha_gatilho_chave ? d.acompanha_gatilho_chave : null,
@@ -410,6 +436,14 @@ export function payloadDoForm(d: FormData): TipoRegistroPayload {
       sortimento_produtos_uuids:
         c.tipo_campo === 'SORTIMENTO' && c.sortimento_origem === 'FIXO' ? c.sortimento_produtos.map((p) => p.uuid) : undefined,
       confirmar_ruptura_ausentes: c.tipo_campo === 'SORTIMENTO' ? c.confirmar_ruptura_ausentes : false,
+      ...(c.tipo_campo === 'FOTO'
+        ? {
+            foto_min: c.fotoMinTexto === '' ? null : Number(c.fotoMinTexto),
+            foto_max: c.fotoMaxTexto === '' ? null : Number(c.fotoMaxTexto),
+            foto_reaproveitar: c.foto_reaproveitar,
+            foto_dica: c.foto_dica.trim() || null,
+          }
+        : {}),
     })),
   } as TipoRegistroPayload;
 }
@@ -509,6 +543,19 @@ export const TIPOS_RESPOSTA: { valor: TipoCampoRegistro; rotulo: string; sigla: 
   { valor: 'DATA', rotulo: 'Data', sigla: '31', cor: '#be123c' },
   { valor: 'MULTIPLA_ESCOLHA', rotulo: 'Múltipla escolha', sigla: '≡', cor: '#0f766e' },
   { valor: 'SORTIMENTO', rotulo: 'Checklist de produtos', sigla: '✓', cor: '#15803d' },
+  // Foto nomeada (docs/98): "Antes", "Depois", "Etiqueta de preço"...
+  { valor: 'FOTO', rotulo: 'Foto', sigla: 'Ft', cor: '#0369a1' },
+];
+
+// Pergunta FOTO: de onde a foto pode vir além da câmera (docs/98 §9.1). A galeria do celular nunca.
+export const OPCOES_REAPROVEITAR_FOTO: { valor: 'NAO' | 'VISITA' | 'HISTORICO'; rotulo: string; ajuda: string }[] = [
+  { valor: 'NAO', rotulo: 'Só tirar agora', ajuda: 'O promotor tira a foto na hora, pela câmera do app.' },
+  { valor: 'VISITA', rotulo: 'Ou usar foto desta visita', ajuda: 'Pode escolher uma foto que já tirou nesta visita (ex.: o "antes" feito no começo).' },
+  {
+    valor: 'HISTORICO',
+    rotulo: 'Ou usar foto desta visita ou de visitas anteriores',
+    ajuda: 'Também mostra as fotos tiradas nesta loja em visitas anteriores (ex.: o "antes" da semana passada).',
+  },
 ];
 
 export function tipoResposta(valor: TipoCampoRegistro) {

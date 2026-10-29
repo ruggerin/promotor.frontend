@@ -1,14 +1,15 @@
 import CloseIcon from '@mui/icons-material/Close';
 import ImageOutlinedIcon from '@mui/icons-material/ImageOutlined';
-import { Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, Skeleton, Stack, Typography } from '@mui/material';
+import { Alert, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle, IconButton, Skeleton, Stack, Typography } from '@mui/material';
 import { useEffect, useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../lib/api/client';
-import type { CampoRespondido, VisitaRegistro } from '../../types/api';
+import type { CampoRespondido, FotoRegistro, VisitaRegistro } from '../../types/api';
 import { ComentariosRegistro } from '../ComentariosRegistro';
 import { AcompanhamentoDialog } from '../acompanhamentos/AcompanhamentoDialog';
 import { listarAcompanhamentos, ROTULO_SITUACAO } from '../../lib/api/acompanhamentos';
 import { descricaoDoVinculo } from '../../lib/vinculoRegistro';
+import { agruparFotos, legendaFoto, textoDistancia } from '../../lib/fotosNomeadas';
 
 // Detalhe de UM registro (fotos, campos respondidos, observação e conversa) — usado na tela da
 // visita e na lista de Registros, pra abrir o registro sem sair da tela.
@@ -118,6 +119,69 @@ export function tituloRegistro(registro: VisitaRegistro): string {
 }
 
 
+// Fotos do registro (docs/98): com perguntas FOTO, cada grupo ("Antes", "Depois") lado a lado com
+// hora, origem e distância; sem elas, a fileira de sempre. Alertas (fora da loja, fora de ordem) no topo.
+function FotosDoRegistro({ registro }: { registro: VisitaRegistro }) {
+  const { grupos, livres } = agruparFotos(registro);
+  const alertas = registro.alertas_fotos ?? [];
+
+  if (grupos.length === 0) {
+    return (
+      <Stack spacing={1}>
+        {alertas.map((a) => (
+          <Alert key={a} severity="warning">{a}</Alert>
+        ))}
+        <Box sx={{ display: 'flex', gap: 1, overflowX: 'auto', pb: 0.5 }}>
+          {registro.imagens.map((img) => (
+            <ImagemBlob key={img.id} url={img.url} alt={tituloRegistro(registro)} tamanho={220} />
+          ))}
+        </Box>
+      </Stack>
+    );
+  }
+
+  const colunas = [...grupos, ...(livres.length ? [{ chave: '__livres', rotulo: 'Outras fotos', fotos: livres }] : [])];
+  return (
+    <Stack spacing={1}>
+      {alertas.map((a) => (
+        <Alert key={a} severity="warning">{a}</Alert>
+      ))}
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: `repeat(${Math.min(colunas.length, 2)}, 1fr)` }, gap: 1.5 }}>
+        {colunas.map((g) => (
+          <Box key={g.chave}>
+            <Typography variant="overline" sx={{ fontWeight: 700, lineHeight: 1.6 }}>{g.rotulo}</Typography>
+            <Stack spacing={1}>
+              {g.fotos.map((foto) => (
+                <FotoNomeada key={foto.id} foto={foto} alt={`${g.rotulo} — ${tituloRegistro(registro)}`} />
+              ))}
+            </Stack>
+          </Box>
+        ))}
+      </Box>
+    </Stack>
+  );
+}
+
+function FotoNomeada({ foto, alt }: { foto: FotoRegistro; alt: string }) {
+  const legenda = legendaFoto(foto);
+  // Distância só quando chama atenção; perto da loja não precisa de legenda.
+  const longe = foto.origem !== 'HISTORICO' && (foto.distancia_loja_metros ?? 0) >= 50 ? textoDistancia(foto.distancia_loja_metros) : null;
+  return (
+    <Box>
+      <Box sx={{ '& img, & .MuiSkeleton-root': { width: '100% !important', height: 'auto !important', aspectRatio: '1 / 1' } }}>
+        <ImagemBlob url={foto.url} alt={alt} tamanho={240} />
+      </Box>
+      {(legenda || longe) && (
+        <Typography variant="caption" color="text.secondary" component="div">
+          {legenda}
+          {legenda && longe ? ' · ' : ''}
+          {longe}
+        </Typography>
+      )}
+    </Box>
+  );
+}
+
 export function RegistroDetalheDialog({
   registro,
   visitaUuid,
@@ -152,11 +216,7 @@ export function RegistroDetalheDialog({
       <DialogContent dividers>
         <Stack spacing={2}>
           {registro.imagens.length > 0 ? (
-            <Box sx={{ display: 'flex', gap: 1, overflowX: 'auto', pb: 0.5 }}>
-              {registro.imagens.map((img) => (
-                <ImagemBlob key={img.id} url={img.url} alt={tituloRegistro(registro)} tamanho={220} />
-              ))}
-            </Box>
+            <FotosDoRegistro registro={registro} />
           ) : (
             <Box
               sx={{

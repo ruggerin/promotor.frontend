@@ -82,3 +82,33 @@ export function casaComBusca(item: ItemConfiguracao, areaRotulo: string, busca: 
   if (!q) return true;
   return normalizar(`${item.rotulo} ${item.ajuda} ${item.chave} ${areaRotulo}`).includes(q);
 }
+
+/**
+ * Combinações do checkout que não fazem sentido (docs/92 §8). `valor(chave)` devolve o valor em
+ * edição (ou o salvo); `null` quando a chave não existe na tela. As dependências de rastreamento já
+ * travam pelo `depende_de` do catálogo, aqui ficam só as que comparam dois valores.
+ */
+export function avisoCombinacaoCheckout(chave: string, valor: (chave: string) => string | null): string | null {
+  const numero = (c: string) => Number(valor(c) ?? 0) || 0;
+  const raio = numero('CHECKOUT_RAIO_METROS');
+
+  if (chave === 'CHECKOUT_RAIO_METROS') {
+    const afastamento = numero('RASTREAMENTO_AFASTAMENTO_METROS');
+    return raio > 0 && afastamento > 0 && raio > afastamento
+      ? `Maior que a distância de afastamento do rastreamento (${afastamento} m): a saída é detectada antes de o promotor sair do raio, e o checkout pela saída não conta como dentro do raio.`
+      : null;
+  }
+  if (chave === 'CHECKOUT_FORA_DO_RAIO') {
+    return raio > 0 && valor('CHECKOUT_FORA_DO_RAIO') === 'BLOQUEIA' && valor('CHECKOUT_SUGERIR_SAIDA') !== 'true'
+      ? 'Sem "sugerir a saída", quem esquecer o checkout e já estiver longe vai ter que voltar à loja ou pedir ao gestor.'
+      : null;
+  }
+  if (chave === 'CHECKOUT_AUTOMATICO_MINUTOS') {
+    const automatico = numero('CHECKOUT_AUTOMATICO_MINUTOS');
+    const aviso = numero('CHECKOUT_AVISO_SAIDA_MINUTOS');
+    return automatico > 0 && aviso > 0 && automatico <= aviso
+      ? `Fecha a visita antes (ou junto) do aviso por push (${aviso} min): o promotor não chega a ser avisado.`
+      : null;
+  }
+  return null;
+}

@@ -1,6 +1,7 @@
 import type {
   AoContinuarAcompanhamento,
   EscopoAcaoTipoRegistro,
+  FotoReaproveitar,
   GranularidadeResposta,
   ListaProdutosOrigem,
   ListaRecorte,
@@ -65,6 +66,11 @@ export interface CampoTipoRegistroPayload {
   sortimento_produtos_uuids?: string[];
   sortimento_segue_escolha?: boolean;
   confirmar_ruptura_ausentes?: boolean;
+  // Pergunta FOTO (docs/98).
+  foto_min?: number | null;
+  foto_max?: number | null;
+  foto_reaproveitar?: FotoReaproveitar;
+  foto_dica?: string | null;
 }
 
 export interface TipoRegistroPayload {
@@ -97,6 +103,8 @@ export interface TipoRegistroPayload {
   escolhe_secao?: boolean;
   lista_recorte?: ListaRecorte;
   filtra_marca?: boolean;
+  permite_ruptura?: boolean;
+  permite_foto_livre?: boolean;
   acompanha?: boolean;
   acompanha_gatilho_chave?: string | null;
   acompanha_gatilho_valor?: string | null;

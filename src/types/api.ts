@@ -71,7 +71,10 @@ export type AutonomiaPromotor = 'DESABILITADO' | 'AUTONOMO' | 'REQUER_APROVACAO'
 export type StatusFatura = 'PENDENTE' | 'PAGA' | 'CANCELADA';
 export type TipoEventoHistorico = 'LOGIN' | 'VISITA_INICIO' | 'VISITA_FIM' | 'REGISTRO';
 export type TipoContrato = 'COMODATO' | 'PONTO_EXTRA';
-export type TipoCampoRegistro = 'NUMERO' | 'TEXTO' | 'MOEDA' | 'MULTIPLA_ESCOLHA' | 'BOOLEANO' | 'DATA' | 'SORTIMENTO';
+// FOTO = foto nomeada (docs/98): sem resposta em valores_campos, as fotos vêm em imagens[].campo_chave.
+export type TipoCampoRegistro = 'NUMERO' | 'TEXTO' | 'MOEDA' | 'MULTIPLA_ESCOLHA' | 'BOOLEANO' | 'DATA' | 'SORTIMENTO' | 'FOTO';
+// Pergunta FOTO: de onde o promotor pode tirar a foto além da câmera (docs/98 §9.1).
+export type FotoReaproveitar = 'NAO' | 'VISITA' | 'HISTORICO';
 // visitas.tipo (PROGRAMADA/NAO_PROGRAMADA) foi removido — agendamento agora vive inteiro em
 // OrdemServico, ver docs/07-ORDEM-DE-SERVICO.md e docs/10-AGENDA-VISITA.md. CONTRATO = gerada
 // automaticamente por um comodato/ponto extra vencendo, ver GerarOrdensServicoPorContrato.
@@ -590,6 +593,21 @@ export type SortimentoOrigemCampo = 'DINAMICO' | 'FIXO';
 // Subconjunto de TipoItemCampanha — sem PRODUTO, que não faz sentido como recorte de um checklist.
 export type SortimentoTipoVinculo = 'SECAO' | 'DEPARTAMENTO' | 'MARCA';
 
+// Foto de um registro (docs/21). Os campos de captura e de pergunta vêm do docs/98 e ficam null
+// em foto de app antigo.
+export interface FotoRegistro {
+  id: string;
+  url: string;
+  campo_chave?: string | null;
+  // CAMERA (tirada agora) | VISITA (reaproveitada desta visita) | HISTORICO (de visita anterior).
+  origem?: 'CAMERA' | 'VISITA' | 'HISTORICO' | null;
+  capturada_em?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  distancia_loja_metros?: number | null;
+  de_outra_visita?: boolean;
+}
+
 export interface CampoTipoRegistro {
   id: string;
   chave: string;
@@ -619,6 +637,11 @@ export interface CampoTipoRegistro {
   sortimento_segue_escolha: boolean;
   // Ausência no checklist vira ruptura só quando este switch está ligado (decisão 4).
   confirmar_ruptura_ausentes: boolean;
+  // Pergunta FOTO (docs/98) — null = sem limite.
+  foto_min?: number | null;
+  foto_max?: number | null;
+  foto_reaproveitar?: FotoReaproveitar;
+  foto_dica?: string | null;
 }
 
 // Substitui o antigo enum fixo TipoRegistroVisita (FOTO/RUPTURA/OBSERVACAO) — lista
@@ -680,6 +703,8 @@ export interface TipoRegistro {
   // docs/82: lista "Onde é" (o que a loja tem primeiro, ou só ele) e filtro de marca depois da seção.
   lista_recorte?: ListaRecorte;
   filtra_marca?: boolean;
+  permite_ruptura?: boolean;
+  permite_foto_livre?: boolean;
   // "Ainda está lá?" (docs/83 §3.1).
   acompanha?: boolean;
   acompanha_gatilho_chave?: string | null;
@@ -830,7 +855,11 @@ export interface VisitaRegistro {
   pontuacao: number | null;
   // N:N — mesma foto pode evidenciar vários registros, um registro pode ter várias fotos. Ver
   // docs/21-EVIDENCIA-EM-FOTOS.md. Substitui o antigo imagem_url (string única).
-  imagens: { id: string; url: string }[];
+  imagens: FotoRegistro[];
+  // Fotos nomeadas (docs/98): perguntas FOTO do formulário em ordem (ausente quando o backend não
+  // carregou os campos) e os alertas das fotos (fora da loja, fora de ordem).
+  perguntas_foto?: { chave: string; rotulo: string }[];
+  alertas_fotos?: string[];
   // Feedback (docs/28 §3) — só presentes onde o backend contou (detalhe da visita e Painel de
   // Atividades): total de comentários e quantos são novos pra quem está olhando.
   comentarios_count?: number;

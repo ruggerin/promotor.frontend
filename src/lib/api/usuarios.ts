@@ -140,3 +140,19 @@ export async function buscarHistoricoUsuario(
   });
   return data;
 }
+
+// Checkout esquecido do promotor nos últimos `dias` (docs/92 §9).
+export interface ReincidenciaCheckout {
+  dias: number;
+  visitas_finalizadas: number;
+  saida_detectada: number;
+  automatico: number;
+  fora_do_raio: number;
+  forcado_pelo_gestor: number;
+  esqueceu: number;
+}
+
+export async function buscarReincidenciaCheckout(uuid: string, dias = 30): Promise<ReincidenciaCheckout> {
+  const { data } = await apiClient.get<{ reincidencia: ReincidenciaCheckout }>(`/usuarios/${uuid}/reincidencia-checkout`, { params: { dias } });
+  return data.reincidencia;
+}

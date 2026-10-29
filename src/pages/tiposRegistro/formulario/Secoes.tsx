@@ -984,6 +984,40 @@ export function SecaoAvancado({ control }: { control: Control<FormData> }) {
           )}
         />
       ))}
+      <Controller
+        name="permite_ruptura"
+        control={control}
+        render={({ field }) => (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, py: 1.75, borderTop: 1, borderColor: 'divider' }}>
+            <Box sx={{ flex: 1 }}>
+              <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                Permitir marcar "Produto em ruptura"
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Mostra no app o botão de ruptura ao registrar um produto. Desligado, o promotor sempre responde as perguntas.
+              </Typography>
+            </Box>
+            <Switch checked={field.value} onChange={(e) => field.onChange(e.target.checked)} />
+          </Box>
+        )}
+      />
+      <Controller
+        name="permite_foto_livre"
+        control={control}
+        render={({ field }) => (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, py: 1.75, borderTop: 1, borderColor: 'divider' }}>
+            <Box sx={{ flex: 1 }}>
+              <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                Permitir fotos livres
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Mostra no app a área "Fotos" (ou "Outras fotos"). Desligado, o promotor só tira as fotos das perguntas de foto.
+              </Typography>
+            </Box>
+            <Switch checked={field.value} onChange={(e) => field.onChange(e.target.checked)} />
+          </Box>
+        )}
+      />
       {usuario?.empresa?.avaliacao_formulario_habilitada && (
         <Controller
           name="exige_avaliacao"

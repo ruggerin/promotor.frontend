@@ -51,6 +51,7 @@ import { formatarDataSemFuso } from '../../lib/formatarData';
 import type { EventoHistorico, PontoVenda, TipoEventoHistorico, UserType, Usuario } from '../../types/api';
 import { AceitesPanel } from './AceitesPanel';
 import { AcessoAppPanel } from './AcessoAppPanel';
+import { ReincidenciaCheckoutPanel } from './ReincidenciaCheckoutPanel';
 import { SelecionarPontoVendaDialog } from './SelecionarPontoVendaDialog';
 import { UsuarioFormDialog } from './UsuarioFormDialog';
 
@@ -577,6 +578,9 @@ export function UsuarioDetailPage() {
 
       {/* docs/58 — quais versões dos Termos/Política ele aceitou (SUPERADMIN não aceita: equipe interna). */}
       {usuario.user_type !== 'SUPERADMIN' && <AceitesPanel usuario={usuario} />}
+
+      {/* docs/92 §9 — quantas vezes o promotor esqueceu o checkout. */}
+      {ehPromotor && <ReincidenciaCheckoutPanel usuario={usuario} />}
 
       {ehPromotor && (
         <Paper sx={{ p: 3, mt: 3 }}>

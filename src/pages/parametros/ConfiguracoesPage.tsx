@@ -34,6 +34,7 @@ import {
 } from '../../lib/api/parametros';
 import { useAuth } from '../../lib/auth/AuthContext';
 import {
+  avisoCombinacaoCheckout,
   casaComBusca,
   edicaoDoServidor,
   edicaoPadrao,
@@ -218,7 +219,10 @@ function Configuracoes() {
                     ? `Igual ou abaixo do raio do check-in (${raioEdicao.valor} m): quem entra na borda do raio já aparece como "saiu da loja".`
                     : item.grupo === 'composicao_xp' && pesosXpErrados
                       ? `Os pesos somam ${somaPesosXp}%; precisam dar 100%.`
-                      : null;
+                      : avisoCombinacaoCheckout(item.chave, (c) => {
+                          const outro = itemPorChave.get(c);
+                          return outro ? edicaoDe(outro).valor : null;
+                        });
 
                 return (
                   <LinhaConfiguracao
