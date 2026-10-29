@@ -756,7 +756,7 @@ function ConfigChecklist({
       </Typography>
       <Box sx={{ display: 'flex', gap: 1 }}>
         {opcaoOrigem('FIXO', 'Uma lista que eu escolho', 'Sempre os mesmos, em toda loja.')}
-        {opcaoOrigem('DINAMICO', 'O mix real de cada loja', 'Filtrado por seção, departamento ou marca.')}
+        {opcaoOrigem('DINAMICO', 'O mix real de cada loja', 'Inteiro ou filtrado por seção, departamento ou marca.')}
       </Box>
 
       {origem === 'FIXO' && (
@@ -808,17 +808,19 @@ function ConfigChecklist({
               <TextField
                 select
                 size="small"
-                value={segueEscolha ? 'ESCOLHA' : (field.value ?? '')}
+                value={segueEscolha ? 'ESCOLHA' : (field.value ?? 'TODO')}
                 onChange={(e) => {
                   const v = e.target.value;
                   setValue(`campos.${indice}.sortimento_segue_escolha`, v === 'ESCOLHA', { shouldDirty: true });
-                  field.onChange(v === 'ESCOLHA' || !v ? null : v);
+                  field.onChange(v === 'ESCOLHA' || v === 'TODO' || !v ? null : v);
                   setValue(`campos.${indice}.sortimento_secao_uuid`, null);
                   setValue(`campos.${indice}.sortimento_departamento_uuid`, null);
                   setValue(`campos.${indice}.sortimento_marca_uuid`, null);
                 }}
                 sx={{ bgcolor: 'background.paper', minWidth: 150 }}
               >
+                {/* Sem filtro: o Mix inteiro da loja (verificação de mix). */}
+                <MenuItem value="TODO">qualquer seção (o Mix inteiro)</MenuItem>
                 <MenuItem value="SECAO">seção</MenuItem>
                 <MenuItem value="DEPARTAMENTO">departamento</MenuItem>
                 <MenuItem value="MARCA">marca</MenuItem>

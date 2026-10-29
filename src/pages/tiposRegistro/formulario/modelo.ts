@@ -172,7 +172,8 @@ export const schema = z
         if (c.sortimento_tipo_vinculo === 'SECAO') return !!c.sortimento_secao_uuid;
         if (c.sortimento_tipo_vinculo === 'DEPARTAMENTO') return !!c.sortimento_departamento_uuid;
         if (c.sortimento_tipo_vinculo === 'MARCA') return !!c.sortimento_marca_uuid;
-        return false;
+        // Sem recorte = o Mix inteiro de cada loja.
+        return true;
       }),
     { message: 'Checklist pelo mix da loja: escolha a seção, o departamento ou a marca.', path: ['campos'] },
   )
