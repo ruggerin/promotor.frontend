@@ -661,6 +661,93 @@ function ContagemLojas({ redes, lojas }: { redes: string[]; lojas: { id: string;
 
 
 
+// "Cada seção / linha" como lista guiada (docs/100): o admin define o nível e de onde vem a lista; o
+// promotor percorre linha por linha. Sem nível, continua livre (ele vincula a que quiser).
+const NIVEIS_LINHA: { valor: 'SECAO' | 'DEPARTAMENTO' | 'MARCA'; rotulo: string; plural: string }[] = [
+  { valor: 'SECAO', rotulo: 'Seção', plural: 'seções' },
+  { valor: 'DEPARTAMENTO', rotulo: 'Departamento', plural: 'departamentos' },
+  { valor: 'MARCA', rotulo: 'Marca', plural: 'marcas' },
+];
+
+function ConfigLinhas({ control, setValue }: { control: Control<FormData>; setValue: UseFormSetValue<FormData> }) {
+  const [nivel, origem] = useWatch({ control, name: ['linha_nivel', 'linha_origem'] });
+  const secoesQuery = useQuery({ queryKey: ['secoes', { ativo: true }], queryFn: () => listarSecoes({ ativo: true }), enabled: nivel === 'SECAO' && origem === 'FIXA' });
+  const departamentosQuery = useQuery({
+    queryKey: ['departamentos', { ativo: true }],
+    queryFn: () => listarDepartamentos({ ativo: true }),
+    enabled: nivel === 'DEPARTAMENTO' && origem === 'FIXA',
+  });
+  const marcasQuery = useQuery({ queryKey: ['marcas', { ativo: true }], queryFn: () => listarMarcas({ ativo: true }), enabled: nivel === 'MARCA' && origem === 'FIXA' });
+  const catalogo: { id: string; descricao: string }[] =
+    nivel === 'SECAO' ? (secoesQuery.data?.secoes ?? []) : nivel === 'DEPARTAMENTO' ? (departamentosQuery.data?.departamentos ?? []) : (marcasQuery.data?.marcas ?? []);
+  const plural = NIVEIS_LINHA.find((n) => n.valor === nivel)?.plural ?? 'seções';
+
+  return (
+    <Box sx={{ mt: 1, p: 1.75, borderRadius: 2, bgcolor: horus.subcard, border: 1, borderColor: 'divider', display: 'grid', gap: 1.5 }}>
+      <TextField
+        select
+        size="small"
+        label="O promotor percorre"
+        value={nivel ?? 'LIVRE'}
+        onChange={(e) => {
+          const v = e.target.value;
+          setValue('linha_nivel', v === 'LIVRE' ? null : (v as 'SECAO' | 'DEPARTAMENTO' | 'MARCA'), { shouldDirty: true });
+          setValue('linhas_fixas', [], { shouldDirty: true });
+        }}
+        helperText={nivel ? 'Cada linha abre as perguntas já amarradas a ela; ele vê o que já fez e o que falta.' : 'Sem lista: ele escolhe a que vincular cada resposta.'}
+        sx={{ maxWidth: 420, bgcolor: 'background.paper' }}
+      >
+        <MenuItem value="LIVRE">Livre — ele vincula a que quiser</MenuItem>
+        {NIVEIS_LINHA.map((n) => (
+          <MenuItem key={n.valor} value={n.valor}>
+            Uma lista de {n.plural}
+          </MenuItem>
+        ))}
+      </TextField>
+
+      {nivel && (
+        <Controller
+          name="linha_origem"
+          control={control}
+          render={({ field }) => (
+            <RadioGroup row value={field.value} onChange={(e) => field.onChange(e.target.value)}>
+              <FormControlLabel value="MIX_LOJA" control={<Radio size="small" />} label={<Typography variant="body2">As {plural} que cada loja tem no Mix</Typography>} />
+              <FormControlLabel value="FIXA" control={<Radio size="small" />} label={<Typography variant="body2">Uma lista que eu escolho</Typography>} />
+            </RadioGroup>
+          )}
+        />
+      )}
+
+      {nivel && origem === 'FIXA' && (
+        <Controller
+          name="linhas_fixas"
+          control={control}
+          render={({ field, fieldState }) => (
+            <Autocomplete
+              multiple
+              size="small"
+              options={catalogo.map((c) => ({ uuid: c.id, descricao: c.descricao }))}
+              getOptionLabel={(o) => o.descricao}
+              isOptionEqualToValue={(a, b) => a.uuid === b.uuid}
+              value={field.value}
+              onChange={(_, v) => field.onChange(v)}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label={`${plural[0].toUpperCase()}${plural.slice(1)} da lista, na ordem`}
+                  error={!!fieldState.error}
+                  helperText={fieldState.error?.message ?? 'Em toda loja, nesta ordem.'}
+                />
+              )}
+              sx={{ bgcolor: 'background.paper' }}
+            />
+          )}
+        />
+      )}
+    </Box>
+  );
+}
+
 export function SecaoSobreOQue({
   control,
   setValue,
@@ -703,6 +790,7 @@ export function SecaoSobreOQue({
           <OpcaoRadio key={s} titulo={OPCOES_SOBRE[s].titulo} sub={OPCOES_SOBRE[s].sub} ativo={atual === s} onClick={() => escolher(s)} />
         ))}
       </Box>
+      {atual === 'LINHA' && <ConfigLinhas control={control} setValue={setValue} />}
       <Box sx={{ mt: 1 }}>
         <OpcaoRadio
           titulo={OPCOES_SOBRE.PROMOTOR_ESCOLHE_RECORTE.titulo}

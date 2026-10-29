@@ -854,6 +854,29 @@ function ConfigChecklist({
         </Box>
       )}
 
+      {/* docs/100: com muitos produtos, conferir item a item mantém o fio do que já foi visto. */}
+      <Controller
+        name={`campos.${indice}.sortimento_modo`}
+        control={control}
+        render={({ field }) => (
+          <TextField
+            select
+            size="small"
+            label="Como o promotor confere"
+            value={field.value}
+            onChange={(e) => field.onChange(e.target.value)}
+            helperText={
+              field.value === 'CONFERIR'
+                ? 'Nada vem marcado: em cada produto ele toca Tem ou Não tem, sem abrir janela. Vê o que falta conferir e o que está em falta.'
+                : 'Tudo vem marcado como presente; ele desmarca o que falta. Mais rápido com poucos produtos.'
+            }
+            sx={{ mt: 1.5, maxWidth: 520, bgcolor: 'background.paper', display: 'flex' }}
+          >
+            <MenuItem value="PRESENTE">Já marcados como presentes</MenuItem>
+            <MenuItem value="CONFERIR">Conferir item a item (Tem / Não tem)</MenuItem>
+          </TextField>
+        )}
+      />
       <Controller
         name={`campos.${indice}.confirmar_ruptura_ausentes`}
         control={control}

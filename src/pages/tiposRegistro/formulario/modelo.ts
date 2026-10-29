@@ -41,6 +41,8 @@ export const campoSchema = z.object({
   fotoMaxTexto: z.string().refine((v) => v === '' || /^[1-9]\d*$/.test(v), 'Use 1 ou mais.'),
   foto_reaproveitar: z.enum(['NAO', 'VISITA', 'HISTORICO']),
   foto_dica: z.string().max(255, 'No máximo 255 caracteres.'),
+  // Checklist: PRESENTE (tudo marcado, desmarca o que falta) | CONFERIR (Tem / Não tem) — docs/100.
+  sortimento_modo: z.enum(['PRESENTE', 'CONFERIR']),
 }).refine((c) => c.tipo_campo !== 'FOTO' || c.fotoMinTexto === '' || c.fotoMaxTexto === '' || Number(c.fotoMinTexto) <= Number(c.fotoMaxTexto), {
   message: 'O máximo não pode ser menor que o mínimo.',
   path: ['fotoMaxTexto'],
@@ -96,6 +98,10 @@ export const schema = z
     produtos_predefinidos: z.array(z.object({ uuid: z.string(), descricao: z.string() })),
     // "Cada produto": lista fixa (a de cima) ou o Mix da loja, só nossos produtos (docs/85 §7).
     lista_produtos_origem: z.enum(['FIXA', 'MIX_LOJA']),
+    // "Cada seção / linha" como lista guiada (docs/100): null = livre (o promotor vincula).
+    linha_nivel: z.enum(['SECAO', 'DEPARTAMENTO', 'MARCA']).nullable(),
+    linha_origem: z.enum(['MIX_LOJA', 'FIXA']),
+    linhas_fixas: z.array(z.object({ uuid: z.string(), descricao: z.string() })),
     // "Cada marca concorrente" (docs/85 §3.1).
     marcas_predefinidas: z.array(z.object({ uuid: z.string(), descricao: z.string(), a_aprovar: z.boolean() })),
     permite_marca_nova: z.boolean(),
@@ -126,6 +132,11 @@ export const schema = z
   .refine((d) => d.granularidade_padrao !== 'MARCA' || d.marcas_predefinidas.length > 0 || d.permite_marca_nova, {
     message: 'Escolha as marcas da lista ou deixe o promotor cadastrar marca nova.',
     path: ['marcas_predefinidas'],
+  })
+  // docs/100: lista guiada fixa precisa de pelo menos uma seção/linha.
+  .refine((d) => sobreOQue(d) !== 'LINHA' || !d.linha_nivel || d.linha_origem !== 'FIXA' || d.linhas_fixas.length > 0, {
+    message: 'Escolha as seções/linhas da lista ou use o que cada loja tem no Mix.',
+    path: ['linhas_fixas'],
   })
   .refine((d) => !d.acao_obrigatoria || d.escopo_acao !== null, {
     message: 'Escolha quando essa pendência aparece.',
@@ -225,6 +236,9 @@ export const DEFAULT_VALUES: FormData = {
   acompanha_prazo_dias: null,
   produtos_predefinidos: [],
   lista_produtos_origem: 'FIXA',
+  linha_nivel: null,
+  linha_origem: 'MIX_LOJA',
+  linhas_fixas: [],
   marcas_predefinidas: [],
   permite_marca_nova: true,
   varias_embalagens: true,
@@ -281,6 +295,7 @@ export function campoVazio(tipo: TipoCampoRegistro = 'BOOLEANO'): CampoForm {
     fotoMaxTexto: '',
     foto_reaproveitar: 'NAO',
     foto_dica: '',
+    sortimento_modo: 'PRESENTE',
   };
 }
 
@@ -308,6 +323,7 @@ export function campoDaApi(c: CampoTipoRegistro, manterCondicao: boolean): Campo
     fotoMaxTexto: c.foto_max ? String(c.foto_max) : '',
     foto_reaproveitar: c.foto_reaproveitar ?? 'NAO',
     foto_dica: c.foto_dica ?? '',
+    sortimento_modo: c.sortimento_modo ?? 'PRESENTE',
   };
 }
 
@@ -348,6 +364,9 @@ export function formDoTipo(tipo: TipoRegistro): FormData {
     acompanha_prazo_dias: tipo.acompanha_prazo_dias ?? null,
     produtos_predefinidos: (tipo.produtos_predefinidos ?? []).map((p) => ({ uuid: p.id, descricao: p.descricao })),
     lista_produtos_origem: tipo.lista_produtos_origem ?? 'FIXA',
+    linha_nivel: tipo.linha_nivel ?? null,
+    linha_origem: tipo.linha_origem ?? 'MIX_LOJA',
+    linhas_fixas: (tipo.linhas_fixas ?? []).map((l) => ({ uuid: l.id, descricao: l.descricao })),
     marcas_predefinidas: (tipo.marcas_predefinidas ?? []).map((m) => ({ uuid: m.id, descricao: m.descricao, a_aprovar: m.a_aprovar })),
     permite_marca_nova: tipo.permite_marca_nova ?? true,
     varias_embalagens: tipo.varias_embalagens ?? true,
@@ -406,6 +425,10 @@ export function payloadDoForm(d: FormData): TipoRegistroPayload {
     acompanha_prazo_dias: d.acompanha ? d.acompanha_prazo_dias : null,
     produtos_uuids: d.granularidade_padrao === 'PRODUTO' && d.lista_produtos_origem === 'FIXA' ? d.produtos_predefinidos.map((p) => p.uuid) : [],
     lista_produtos_origem: d.granularidade_padrao === 'PRODUTO' ? d.lista_produtos_origem : 'FIXA',
+    // Lista guiada só em "Cada seção / linha" (o servidor aplica a mesma regra).
+    linha_nivel: sobreOQue(d) === 'LINHA' ? d.linha_nivel : null,
+    linha_origem: sobreOQue(d) === 'LINHA' && d.linha_nivel ? d.linha_origem : 'MIX_LOJA',
+    linhas_fixas: sobreOQue(d) === 'LINHA' && d.linha_nivel && d.linha_origem === 'FIXA' ? d.linhas_fixas.map((l) => l.uuid) : null,
     marcas_uuids: d.granularidade_padrao === 'MARCA' ? d.marcas_predefinidas.map((m) => m.uuid) : [],
     permite_marca_nova: d.permite_marca_nova,
     varias_embalagens: d.varias_embalagens,
@@ -437,6 +460,7 @@ export function payloadDoForm(d: FormData): TipoRegistroPayload {
       sortimento_produtos_uuids:
         c.tipo_campo === 'SORTIMENTO' && c.sortimento_origem === 'FIXO' ? c.sortimento_produtos.map((p) => p.uuid) : undefined,
       confirmar_ruptura_ausentes: c.tipo_campo === 'SORTIMENTO' ? c.confirmar_ruptura_ausentes : false,
+      sortimento_modo: c.tipo_campo === 'SORTIMENTO' ? c.sortimento_modo : 'PRESENTE',
       ...(c.tipo_campo === 'FOTO'
         ? {
             foto_min: c.fotoMinTexto === '' ? null : Number(c.fotoMinTexto),

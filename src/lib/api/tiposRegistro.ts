@@ -4,6 +4,8 @@ import type {
   FotoReaproveitar,
   GranularidadeResposta,
   ListaProdutosOrigem,
+  ModoChecklist,
+  NivelLinha,
   ListaRecorte,
   PaginatedMeta,
   SortimentoOrigemCampo,
@@ -71,6 +73,7 @@ export interface CampoTipoRegistroPayload {
   foto_max?: number | null;
   foto_reaproveitar?: FotoReaproveitar;
   foto_dica?: string | null;
+  sortimento_modo?: ModoChecklist;
 }
 
 export interface TipoRegistroPayload {
@@ -85,6 +88,9 @@ export interface TipoRegistroPayload {
   // Lista predefinida de produtos (só com granularidade PRODUTO; o backend limpa nas outras).
   produtos_uuids?: string[];
   lista_produtos_origem?: ListaProdutosOrigem;
+  linha_nivel?: NivelLinha | null;
+  linha_origem?: 'MIX_LOJA' | 'FIXA';
+  linhas_fixas?: string[] | null;
   // Concorrentes por marca e embalagem (docs/85) — só com granularidade MARCA.
   marcas_uuids?: string[];
   permite_marca_nova?: boolean;

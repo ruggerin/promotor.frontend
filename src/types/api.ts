@@ -642,6 +642,7 @@ export interface CampoTipoRegistro {
   foto_max?: number | null;
   foto_reaproveitar?: FotoReaproveitar;
   foto_dica?: string | null;
+  sortimento_modo?: ModoChecklist;
 }
 
 // Substitui o antigo enum fixo TipoRegistroVisita (FOTO/RUPTURA/OBSERVACAO) — lista
@@ -654,6 +655,10 @@ export type EscopoAcaoTipoRegistro = 'SEMPRE' | 'CAMPANHA' | 'CONTRATO' | 'LOJA_
 export type GranularidadeResposta = 'LINHA' | 'PRODUTO' | 'MARCA';
 // Lista guiada de "Cada produto": a fixa do admin ou o Mix da loja (docs/85 §7).
 export type ListaProdutosOrigem = 'FIXA' | 'MIX_LOJA';
+// Lista guiada de seções/linhas (docs/100): nível e origem (o que a loja tem no Mix ou lista fixa).
+export type NivelLinha = 'SECAO' | 'DEPARTAMENTO' | 'MARCA';
+// Checklist: tudo presente de saída ou conferência item a item (docs/100).
+export type ModoChecklist = 'PRESENTE' | 'CONFERIR';
 
 export interface TipoRegistro {
   id: string;
@@ -677,6 +682,9 @@ export interface TipoRegistro {
   // Lista predefinida de produtos (granularidade PRODUTO) — com ela, o promotor só vincula a estes.
   produtos_predefinidos?: { id: string; descricao: string; codigo_barras: string | null; codigo_externo: string | null }[];
   lista_produtos_origem?: ListaProdutosOrigem;
+  linha_nivel?: NivelLinha | null;
+  linha_origem?: 'MIX_LOJA' | 'FIXA';
+  linhas_fixas?: { id: string; descricao: string }[] | null;
   // Concorrentes por marca e embalagem (docs/85).
   marcas_predefinidas?: { id: string; descricao: string; a_aprovar: boolean }[];
   permite_marca_nova?: boolean;

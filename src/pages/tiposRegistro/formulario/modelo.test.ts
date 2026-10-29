@@ -125,3 +125,45 @@ describe('pergunta FOTO', () => {
     expect(schema.safeParse(conquista()).success).toBe(true);
   });
 });
+
+// docs/100 — "Cada seção / linha" como lista guiada e checklist item a item.
+describe('lista guiada de seções/linhas', () => {
+  const linha = (extra: Partial<FormData>): FormData => ({ ...DEFAULT_VALUES, descricao: 'Planograma', ...camposDoSobreOQue('LINHA'), ...extra });
+
+  it('lista fixa vai com os uuids na ordem', () => {
+    const p = payloadDoForm(linha({ linha_nivel: 'SECAO', linha_origem: 'FIXA', linhas_fixas: [{ uuid: 'b', descricao: 'Bebidas' }, { uuid: 'a', descricao: 'Limpeza' }] }));
+    expect(p).toMatchObject({ linha_nivel: 'SECAO', linha_origem: 'FIXA', linhas_fixas: ['b', 'a'] });
+  });
+
+  it('Mix da loja não manda lista; livre manda sem nível', () => {
+    expect(payloadDoForm(linha({ linha_nivel: 'MARCA', linha_origem: 'MIX_LOJA', linhas_fixas: [{ uuid: 'x', descricao: 'X' }] }))).toMatchObject({
+      linha_nivel: 'MARCA',
+      linhas_fixas: null,
+    });
+    expect(payloadDoForm(linha({ linha_nivel: null }))).toMatchObject({ linha_nivel: null, linhas_fixas: null });
+  });
+
+  it('fora de "Cada seção / linha" não vale', () => {
+    const d: FormData = { ...DEFAULT_VALUES, descricao: 'X', ...camposDoSobreOQue('PRODUTO'), linha_nivel: 'SECAO' };
+    expect(payloadDoForm(d)).toMatchObject({ linha_nivel: null });
+  });
+
+  it('lista fixa vazia é inválida', () => {
+    expect(schema.safeParse(linha({ linha_nivel: 'SECAO', linha_origem: 'FIXA', linhas_fixas: [] })).success).toBe(false);
+    expect(schema.safeParse(linha({ linha_nivel: 'SECAO', linha_origem: 'MIX_LOJA' })).success).toBe(true);
+  });
+
+  it('checklist leva o formato; outras perguntas, o padrão', () => {
+    const d: FormData = {
+      ...DEFAULT_VALUES,
+      descricao: 'Mix',
+      campos: [
+        { ...campoVazio('SORTIMENTO'), chave: 'mix', rotulo: 'Mix', sortimento_origem: 'DINAMICO', sortimento_modo: 'CONFERIR' },
+        { ...campoVazio('TEXTO'), chave: 'obs', rotulo: 'Obs', sortimento_modo: 'CONFERIR' },
+      ],
+    };
+    const p = payloadDoForm(d);
+    expect(p.campos?.[0]).toMatchObject({ sortimento_modo: 'CONFERIR' });
+    expect(p.campos?.[1]).toMatchObject({ sortimento_modo: 'PRESENTE' });
+  });
+});
